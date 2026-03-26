@@ -1,5 +1,7 @@
 # Phase 1 Linear Sprint Plan — Chapter 1 Mortality Risk Structure
 
+> Retained reference document only. This is sprint-planning context, not the active preprocessing contract for the standalone Chapter 1 repo.
+
 This file is optimized for transfer into Linear.
 
 Rules used in this version:

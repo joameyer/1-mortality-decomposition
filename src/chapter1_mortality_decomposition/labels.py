@@ -6,6 +6,10 @@ import pandas as pd
 
 from chapter1_mortality_decomposition.utils import require_columns
 
+# This module intentionally keeps the migrated horizon-label behavior marked as
+# provisional. Using icu_end_time_proxy_hours as a within-horizon event-time
+# surrogate is a scientific assumption, not a migration-only refactor.
+
 
 @dataclass(frozen=True)
 class Chapter1LabelResult:
@@ -15,7 +19,7 @@ class Chapter1LabelResult:
     notes: pd.DataFrame
 
 
-def build_chapter1_horizon_labels(
+def build_chapter1_provisional_proxy_horizon_labels(
     valid_instances: pd.DataFrame,
     retained_cohort: pd.DataFrame,
 ) -> Chapter1LabelResult:
@@ -46,7 +50,9 @@ def build_chapter1_horizon_labels(
         on=["stay_id_global", "hospital_id"],
         how="left",
     )
-    labels["label_name"] = "icu_mortality_within_horizon_proxy"
+    labels["label_name"] = "provisional_proxy_icu_mortality_within_horizon"
+    labels["label_definition_id"] = "provisional_proxy_icu_end_time"
+    labels["label_definition_status"] = "provisional"
     labels["event_time_proxy_h"] = pd.to_numeric(labels["icu_end_time_proxy_hours"], errors="coerce")
     labels["label_available"] = (
         labels["icu_mortality"].notna() & labels["event_time_proxy_h"].notna()
@@ -65,14 +71,17 @@ def build_chapter1_horizon_labels(
         .to_numpy()
     )
     labels["label_semantics"] = (
-        "Proxy-based within-horizon ICU mortality label using icu_end_time_proxy_hours "
-        "as the only standardized event-time surrogate. Exact death timestamps are not "
-        "available in the standardized artifacts."
+        "Provisional proxy-based within-horizon ICU mortality label using "
+        "icu_end_time_proxy_hours as the only standardized event-time surrogate. "
+        "Exact death timestamps are not available in the standardized artifacts, "
+        "so this is not the finalized Chapter 1 label definition."
     )
     labels = labels.drop(columns=["icu_mortality"])
 
     label_columns = list(valid_instances.columns) + [
         "label_name",
+        "label_definition_id",
+        "label_definition_status",
         "event_time_proxy_h",
         "label_value",
         "label_available",
@@ -116,12 +125,13 @@ def build_chapter1_horizon_labels(
     notes = pd.DataFrame(
         [
             {
-                "note_id": "proxy_horizon_label",
+                "note_id": "provisional_proxy_horizon_label",
                 "category": "label_semantics",
                 "note": (
-                    "Chapter 1 emits proxy-based horizon labels derived from ICU mortality "
-                    "and icu_end_time_proxy_hours. Exact death timestamps are not available, "
-                    "so the ICU end-time proxy is used as the event-time surrogate."
+                    "The current implementation emits provisional proxy-based horizon labels "
+                    "derived from ICU mortality and icu_end_time_proxy_hours. This proxy "
+                    "should not be treated as the finalized Chapter 1 label definition without "
+                    "explicit scientific approval."
                 ),
             }
         ]

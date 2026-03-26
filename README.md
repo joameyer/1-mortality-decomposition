@@ -21,7 +21,7 @@ This repo owns Chapter 1-specific analytic preprocessing:
 - readmission-based first-stay proxy handling
 - valid-instance generation
 - Chapter 1 feature-set configuration
-- horizon label generation
+- provisional/proxy horizon label generation only
 - model-ready dataset construction
 - Chapter 1 QC and readiness summaries
 
@@ -33,13 +33,42 @@ These remain upstream:
 - generic stay/block construction
 - generic shared QC
 
-## Current Label Semantics
+## Input Contract Status
 
-The standalone pipeline now generates horizon-specific ICU mortality labels using `icu_end_time_proxy_hours` as the standardized event-time surrogate.
+Scientifically intended Chapter 1 cohort assumptions from the frozen analysis spec:
 
-- Positive label: the stay ends in ICU death and the ICU end-time proxy falls within the configured horizon.
-- Negative label: no ICU death occurs within that horizon window under the same proxy.
-- Caveat: exact death timestamps are not available in the standardized artifacts, so these are proxy-based within-horizon labels rather than exact event-time labels.
+- adults only
+- mechanically ventilated ICU stays only
+- ventilation duration `>= 24h`
+
+What is explicitly assumed upstream by the current code:
+
+- harmonized static and dynamic ASIC artifacts already exist
+- generic 8-hour blocked ASIC artifacts already exist
+
+What is enforced in this repo today:
+
+- site-level Chapter 1 exclusion rules
+- stay-level dynamic-data / readmission / missing-label exclusions
+- valid-instance construction from generic blocks
+
+What remains unresolved:
+
+- the current standardized input contract used by this repo does not yet require adult-age fields or ventilation-duration fields
+- therefore adult-only and ventilation-duration `>= 24h` restrictions are not currently enforced in code here
+- until the interface is finalized, those restrictions should be treated as scientific cohort intent, not as guaranteed upstream preprocessing
+
+See [`docs/preprocessing_interface.md`](/Users/joanameyer/repository/1-mortality-decomposition/docs/preprocessing_interface.md) for the explicit contract split.
+
+## Label Status
+
+The repo currently contains only a provisional proxy label implementation.
+
+- Implemented path: provisional proxy-based within-horizon ICU mortality labels using `icu_end_time_proxy_hours` as an event-time surrogate.
+- Status: not the finalized Chapter 1 label definition.
+- Reason: using ICU end-time proxy hours to decide whether death occurred within horizon introduces a scientific assumption that was not present in the migrated seed.
+
+See [`docs/label_logic_audit.md`](/Users/joanameyer/repository/1-mortality-decomposition/docs/label_logic_audit.md) for the audit note.
 
 ## Package Layout
 
@@ -47,7 +76,7 @@ The canonical implementation lives in [`src/chapter1_mortality_decomposition`](/
 
 - [`cohort.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/cohort.py): site and stay exclusions
 - [`instances.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/instances.py): valid prediction instances
-- [`labels.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/labels.py): horizon label generation
+- [`labels.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/labels.py): provisional proxy label logic only
 - [`model_ready.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/model_ready.py): model-ready assembly and readiness summaries
 - [`pipeline.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/pipeline.py): end-to-end orchestration
 - [`cli.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/cli.py): runnable entrypoint
@@ -80,7 +109,7 @@ The pipeline writes four output groups under the chosen output directory:
 
 - `cohort/`: site eligibility, stay exclusions, retained stays, and cohort notes
 - `instances/`: candidate instances, valid instances, and exclusion summaries
-- `labels/`: horizon labels, label summaries, and label notes
+- `labels/`: provisional proxy label tables, summaries, and notes
 - `model_ready/`: selected feature set, model-ready table, and readiness summaries
 
 ## Tests
@@ -95,5 +124,5 @@ python -m unittest discover -s tests -v
 
 ## Known Follow-Up
 
-- Adult-age and mechanical-ventilation-duration cohort restrictions are still documented as follow-up because the standardized artifact column contract for them is not yet fixed in this standalone repo.
-- The broader `docs/` folder still contains planning material copied from the upstream project context; the canonical preprocessing contract is the code and this README.
+- Final Chapter 1 horizon-label semantics remain unresolved and need explicit scientific approval before they should be treated as default preprocessing.
+- Adult-age and mechanical-ventilation-duration cohort restrictions still need a finalized standardized column contract if they are to be enforced here rather than guaranteed upstream.

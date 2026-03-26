@@ -21,7 +21,7 @@
 ### Still needing follow-up cleanup
 
 - adult-age and mechanical-ventilation-duration stay filters still need a finalized standardized column contract
-- the copied `docs/` folder still mixes migration-relevant material with broader thesis planning notes
+- final Chapter 1 label semantics are not approved yet; only a provisional proxy implementation remains in code
 - external validation and modeling stages remain out of scope for this preprocessing repo
 
 ## What This Repo Now Owns
@@ -31,7 +31,7 @@
 - readmission-based first-stay proxy handling
 - valid-instance generation from generic 8-hour blocks
 - Chapter 1 feature-set configuration
-- proxy-based horizon label generation
+- provisional proxy-based horizon label implementation pending scientific approval
 - model-ready dataset construction
 - Chapter 1 QC and readiness summaries
 
@@ -45,4 +45,4 @@
 
 ## Important Caveat
 
-This standalone repo now emits horizon-specific labels using `icu_end_time_proxy_hours` as the event-time surrogate. That is a clearer Chapter 1 contract than the copied seed, but it is still proxy-based because exact death timestamps are not part of the standardized input artifacts.
+This standalone repo still contains a provisional horizon-label implementation using `icu_end_time_proxy_hours` as the event-time surrogate. That logic is explicit and auditable, but it should not be treated as the finalized Chapter 1 label definition because exact death timestamps are not part of the standardized input artifacts.

@@ -449,8 +449,16 @@ class Chapter1PreprocessingTest(unittest.TestCase):
             stay_g_block0["exclusion_reason"].eq("no_chapter1_feature_data_in_block").all()
         )
 
-        self.assertEqual(dataset.labels.notes.loc[0, "note_id"], "proxy_horizon_label")
+        self.assertEqual(dataset.labels.notes.loc[0, "note_id"], "provisional_proxy_horizon_label")
         self.assertIn("icu_end_time_proxy_hours", dataset.labels.notes.loc[0, "note"])
+        self.assertEqual(
+            dataset.labels.usable_labels.loc[0, "label_definition_status"],
+            "provisional",
+        )
+        self.assertEqual(
+            dataset.labels.usable_labels.loc[0, "label_definition_id"],
+            "provisional_proxy_icu_end_time",
+        )
 
     def test_cli_writes_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
@@ -485,13 +493,19 @@ class Chapter1PreprocessingTest(unittest.TestCase):
 
             self.assertIn("Wrote 22 Chapter 1 tables", result.stdout)
             self.assertTrue((output_dir / "cohort" / "chapter1_retained_stay_table.csv").exists())
-            self.assertTrue((output_dir / "labels" / "chapter1_horizon_labels.csv").exists())
+            self.assertTrue(
+                (
+                    output_dir
+                    / "labels"
+                    / "chapter1_provisional_proxy_horizon_labels.csv"
+                ).exists()
+            )
             self.assertTrue(
                 (output_dir / "model_ready" / "chapter1_model_ready_dataset.csv").exists()
             )
 
             label_summary = pd.read_csv(
-                output_dir / "labels" / "chapter1_label_summary_by_horizon.csv"
+                output_dir / "labels" / "chapter1_provisional_proxy_label_summary_by_horizon.csv"
             )
             self.assertEqual(set(label_summary["horizon_h"].tolist()), {8, 16, 24, 48})
 

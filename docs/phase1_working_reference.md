@@ -1,5 +1,7 @@
 # Phase 1 Working Reference — Chapter 1 Mortality Risk Structure
 
+> Retained reference document only. This is broader methodology/reference context, not the active preprocessing contract for the standalone Chapter 1 repo.
+
 ## 1. Chapter Purpose
 
 Chapter 1 tests whether ICU mortality, under the available observational feature set and temporal aggregation, shows heterogeneous predictability structure.

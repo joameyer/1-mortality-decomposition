@@ -1,5 +1,7 @@
 # Decomposing Patient-Therapy Dynamics in Ventilated ICU Patients
 
+> Retained reference document only. This is dissertation-level project context, not the active preprocessing contract for the standalone Chapter 1 repo.
+
 ## Central Question
 
 ICU observational data is the output of a closed-loop system — disease progression and therapeutic control are entangled. Can we structurally separate what the disease does from what therapy does, using multi-center variation as the analytical lever?

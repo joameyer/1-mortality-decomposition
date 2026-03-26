@@ -7,11 +7,15 @@ venv/
 .DS_Store
 .idea/
 .vscode/
+*.egg-info/
+build/
+dist/
 
 */data
 data/raw/
 data/interim/
 data/processed/
+artifacts/
 outputs/
 *.parquet
 *.feather

@@ -1,5 +1,7 @@
 # PhD Context & Current Status
 
+> Retained reference document only. This is broader project context, not the active preprocessing contract for the standalone Chapter 1 repo.
+
 ## Situation
 
 I am a PhD student at RWTH Aachen (Institute for Computational Biomedicine), supervised by Prof. Schuppert, within the HDS-LEE doctoral program.

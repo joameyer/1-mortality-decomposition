@@ -67,27 +67,39 @@ def build_chapter1_model_ready_dataset(
         how="left",
     )
 
-    readiness_summary = pd.DataFrame(
-        [
+    readiness_rows: list[dict[str, object]] = [
+        {
+            "metric": "model_ready_rows_total",
+            "value": int(model_ready.shape[0]),
+            "note": "Rows after valid-instance selection and label availability filtering.",
+        },
+        {
+            "metric": "selected_feature_columns_total",
+            "value": int(len(selected_feature_columns)),
+            "note": "Blocked dynamic feature columns selected by the Chapter 1 feature config.",
+        },
+        {
+            "metric": "distinct_horizons_total",
+            "value": int(model_ready["horizon_h"].nunique(dropna=True)) if not model_ready.empty else 0,
+            "note": "Configured prediction horizons represented in the model-ready table.",
+        },
+    ]
+    if "label_definition_id" in model_ready.columns:
+        label_definitions = sorted(
+            model_ready["label_definition_id"].dropna().astype("string").unique().tolist()
+        )
+        readiness_rows.append(
             {
-                "metric": "model_ready_rows_total",
-                "value": int(model_ready.shape[0]),
-                "note": "Rows after valid-instance selection and label availability filtering.",
-            },
-            {
-                "metric": "selected_feature_columns_total",
-                "value": int(len(selected_feature_columns)),
-                "note": "Blocked dynamic feature columns selected by the Chapter 1 feature config.",
-            },
-            {
-                "metric": "distinct_horizons_total",
-                "value": int(model_ready["horizon_h"].nunique(dropna=True))
-                if not model_ready.empty
-                else 0,
-                "note": "Configured prediction horizons represented in the model-ready table.",
-            },
-        ]
-    )
+                "metric": "label_definition_in_model_ready_dataset",
+                "value": ", ".join(label_definitions),
+                "note": (
+                    "Current model-ready rows use provisional label logic. "
+                    "This should not be interpreted as the finalized Chapter 1 label definition."
+                ),
+            }
+        )
+
+    readiness_summary = pd.DataFrame(readiness_rows)
 
     feature_availability_rows = []
     for horizon_h, horizon_df in model_ready.groupby("horizon_h", dropna=False):

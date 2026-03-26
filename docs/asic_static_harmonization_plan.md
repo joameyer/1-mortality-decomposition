@@ -1,5 +1,7 @@
 # ASIC Static Harmonization Plan v1
 
+> Retained reference document only. This is upstream harmonization planning context, not the active preprocessing contract for the standalone Chapter 1 repo.
+
 ## Goal
 
 Create a first-pass, hospital-agnostic static schema for the ASIC files that is:
