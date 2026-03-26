@@ -71,6 +71,13 @@ def build_synthetic_inputs() -> Chapter1InputTables:
                 "icu_mortality": 1,
                 "icd10_codes": "D00",
             },
+            {
+                "stay_id_global": "stay_h",
+                "hospital_id": "H1",
+                "icu_readmit": 0,
+                "icu_mortality": 0,
+                "icd10_codes": "H00",
+            },
         ]
     )
 
@@ -124,6 +131,14 @@ def build_synthetic_inputs() -> Chapter1InputTables:
                 "resp_rate": pd.NA,
                 "spo2": pd.NA,
             },
+            {
+                "stay_id_global": "stay_h",
+                "hospital_id": "H1",
+                "heart_rate": 80,
+                "map": 71,
+                "resp_rate": 19,
+                "spo2": 98,
+            },
         ]
     )
 
@@ -170,6 +185,12 @@ def build_synthetic_inputs() -> Chapter1InputTables:
                 "icu_admission_time": "2026-01-01 00:00:00",
                 "icu_end_time_proxy": "2026-01-02 16:00:00",
                 "icu_end_time_proxy_hours": 40,
+            },
+            {
+                "stay_id_global": "stay_h",
+                "icu_admission_time": "2026-01-01 00:00:00",
+                "icu_end_time_proxy": "2026-01-03 22:00:00",
+                "icu_end_time_proxy_hours": 70,
             },
         ]
     )
@@ -239,6 +260,14 @@ def build_synthetic_inputs() -> Chapter1InputTables:
                 "block_start_h": 8,
                 "block_end_h": 16,
                 "prediction_time_h": 16,
+            },
+            {
+                "stay_id_global": "stay_h",
+                "hospital_id": "H1",
+                "block_index": 0,
+                "block_start_h": 0,
+                "block_end_h": 8,
+                "prediction_time_h": 8,
             },
         ]
     )
@@ -373,6 +402,22 @@ def build_synthetic_inputs() -> Chapter1InputTables:
                 "spo2_obs_count": 1,
                 "spo2_mean": 99,
             },
+            {
+                "stay_id_global": "stay_h",
+                "hospital_id": "H1",
+                "block_index": 0,
+                "block_start_h": 0,
+                "block_end_h": 8,
+                "prediction_time_h": 8,
+                "heart_rate_obs_count": 1,
+                "heart_rate_mean": 80,
+                "map_obs_count": 1,
+                "map_mean": 71,
+                "resp_rate_obs_count": 1,
+                "resp_rate_mean": 19,
+                "spo2_obs_count": 1,
+                "spo2_mean": 98,
+            },
         ]
     )
 
@@ -408,7 +453,7 @@ class Chapter1PreprocessingTest(unittest.TestCase):
         dataset = build_chapter1_dataset(build_synthetic_inputs())
 
         retained_stays = set(dataset.cohort.table["stay_id_global"].tolist())
-        self.assertEqual(retained_stays, {"stay_a", "stay_g"})
+        self.assertEqual(retained_stays, {"stay_a", "stay_g", "stay_h"})
 
         site_flags = dataset.cohort.site_eligibility.set_index("hospital_id")["site_included_ch1"]
         self.assertIs(bool(site_flags["H1"]), True)
@@ -422,23 +467,26 @@ class Chapter1PreprocessingTest(unittest.TestCase):
 
         self.assertEqual(
             set(dataset.valid_instances.counts_by_horizon["horizon_h"].tolist()),
-            {8, 16, 24, 48},
+            {8, 16, 24, 48, 72},
         )
-        self.assertEqual(dataset.valid_instances.valid_instances.shape[0], 12)
-        self.assertEqual(dataset.model_ready.table.shape[0], 12)
+        self.assertEqual(dataset.valid_instances.valid_instances.shape[0], 20)
+        self.assertEqual(dataset.model_ready.table.shape[0], 16)
 
-        stay_a_labels = dataset.labels.usable_labels[
-            dataset.labels.usable_labels["stay_id_global"] == "stay_a"
+        stay_a_labels = dataset.labels.labels[
+            dataset.labels.labels["stay_id_global"] == "stay_a"
         ]
         label_lookup = {
-            (row.block_index, row.horizon_h): int(row.label_value)
+            (row.block_index, row.horizon_h): (
+                pd.NA if pd.isna(row.label_value) else int(row.label_value)
+            )
             for row in stay_a_labels.itertuples(index=False)
         }
-        self.assertEqual(label_lookup[(0, 8)], 0)
+        self.assertTrue(pd.isna(label_lookup[(0, 8)]))
         self.assertEqual(label_lookup[(0, 16)], 1)
         self.assertEqual(label_lookup[(0, 24)], 1)
         self.assertEqual(label_lookup[(1, 8)], 1)
         self.assertEqual(label_lookup[(1, 48)], 1)
+        self.assertEqual(label_lookup[(1, 72)], 1)
 
         stay_g_block0 = dataset.valid_instances.candidate_instances[
             (dataset.valid_instances.candidate_instances["stay_id_global"] == "stay_g")
@@ -449,15 +497,68 @@ class Chapter1PreprocessingTest(unittest.TestCase):
             stay_g_block0["exclusion_reason"].eq("no_chapter1_feature_data_in_block").all()
         )
 
-        self.assertEqual(dataset.labels.notes.loc[0, "note_id"], "provisional_proxy_horizon_label")
+        summary_by_horizon = dataset.labels.summary_by_horizon.set_index("horizon_h")
+        self.assertEqual(summary_by_horizon.at[8, "total_valid_prediction_instances"], 4)
+        self.assertEqual(summary_by_horizon.at[8, "labelable_instances"], 3)
+        self.assertEqual(summary_by_horizon.at[8, "positive_labels"], 1)
+        self.assertEqual(summary_by_horizon.at[8, "negative_labels"], 2)
+        self.assertEqual(summary_by_horizon.at[8, "unlabeled_instances"], 1)
+        self.assertEqual(summary_by_horizon.at[72, "labelable_instances"], 2)
+        self.assertGreater(
+            summary_by_horizon.at[24, "labelable_instances"],
+            summary_by_horizon.at[48, "labelable_instances"],
+        )
+        self.assertGreater(
+            summary_by_horizon.at[48, "labelable_instances"],
+            summary_by_horizon.at[72, "labelable_instances"],
+        )
+
+        reason_summary = dataset.labels.unlabeled_reason_summary
+        self.assertEqual(
+            int(
+                reason_summary.loc[
+                    (reason_summary["horizon_h"] == 48)
+                    & (
+                        reason_summary["unlabeled_reason"]
+                        == "survivor_without_full_horizon_observation"
+                    ),
+                    "instance_count",
+                ].iloc[0]
+            ),
+            1,
+        )
+        self.assertEqual(
+            int(
+                reason_summary.loc[
+                    (reason_summary["horizon_h"] == 8)
+                    & (
+                        reason_summary["unlabeled_reason"]
+                        == "non_survivor_proxy_end_not_within_horizon"
+                    ),
+                    "instance_count",
+                ].iloc[0]
+            ),
+            1,
+        )
+        self.assertEqual(
+            int(
+                reason_summary.loc[
+                    reason_summary["unlabeled_reason"] == "missing_required_fields",
+                    "instance_count",
+                ].sum()
+            ),
+            0,
+        )
+
+        self.assertEqual(dataset.labels.notes.loc[0, "note_id"], "proxy_horizon_label_definition")
         self.assertIn("icu_end_time_proxy_hours", dataset.labels.notes.loc[0, "note"])
         self.assertEqual(
             dataset.labels.usable_labels.loc[0, "label_definition_status"],
-            "provisional",
+            "approved_proxy",
         )
         self.assertEqual(
             dataset.labels.usable_labels.loc[0, "label_definition_id"],
-            "provisional_proxy_icu_end_time",
+            "proxy_within_horizon_icu_mortality_v1",
         )
 
     def test_cli_writes_outputs(self) -> None:
@@ -491,13 +592,20 @@ class Chapter1PreprocessingTest(unittest.TestCase):
                 env=env,
             )
 
-            self.assertIn("Wrote 22 Chapter 1 tables", result.stdout)
+            self.assertIn("Wrote 23 Chapter 1 tables", result.stdout)
             self.assertTrue((output_dir / "cohort" / "chapter1_retained_stay_table.csv").exists())
             self.assertTrue(
                 (
                     output_dir
                     / "labels"
-                    / "chapter1_provisional_proxy_horizon_labels.csv"
+                    / "chapter1_proxy_horizon_labels.csv"
+                ).exists()
+            )
+            self.assertTrue(
+                (
+                    output_dir
+                    / "labels"
+                    / "chapter1_proxy_unlabeled_reason_summary.csv"
                 ).exists()
             )
             self.assertTrue(
@@ -505,9 +613,9 @@ class Chapter1PreprocessingTest(unittest.TestCase):
             )
 
             label_summary = pd.read_csv(
-                output_dir / "labels" / "chapter1_provisional_proxy_label_summary_by_horizon.csv"
+                output_dir / "labels" / "chapter1_proxy_label_summary_by_horizon.csv"
             )
-            self.assertEqual(set(label_summary["horizon_h"].tolist()), {8, 16, 24, 48})
+            self.assertEqual(set(label_summary["horizon_h"].tolist()), {8, 16, 24, 48, 72})
 
 
 if __name__ == "__main__":

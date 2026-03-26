@@ -34,7 +34,7 @@ The current standalone Chapter 1 code enforces:
 - stay-level exclusion for missing readmission and readmission-flagged stays
 - exclusion of stays with missing ICU mortality labels
 - valid-instance generation from generic 8-hour blocks
-- provisional proxy-based label generation
+- proxy within-horizon label generation using `icu_mortality` and `icu_end_time_proxy_hours`
 
 ## Scientifically Intended But Not Yet Guaranteed By The Current Interface
 

@@ -94,6 +94,9 @@ At each completed 8-hour block, baseline models estimate the probability of **in
 The chapter is not primarily a generic mortality prediction study.  
 The horizon-based prediction setup is used to identify deaths whose preceding observed state appears falsely reassuring.
 
+For ASIC preprocessing, true ICU discharge timestamps and true death timestamps are unavailable.  
+The implemented Chapter 1 ASIC labels are therefore explicit **proxy within-horizon labels** based on `icu_mortality` and `icu_end_time_proxy_hours`, not true event-timed labels.
+
 A non-horizon target such as eventual ICU death would mix:
 - imminent poorly captured deterioration
 - longer-run prognosis
@@ -109,12 +112,13 @@ That is not the primary Chapter 1 target.
 ### Horizon hierarchy
 - **Primary horizon:** 24 hours
 - **Secondary horizon:** 48 hours
-- **Sensitivity horizons:** 8 hours and 16 hours
+- **Sensitivity horizons:** 8 hours, 16 hours, and 72 hours
 
 ### Interpretation rule
 - **24h** defines the main Chapter 1 narrative
 - **48h** is the prespecified main contrast for horizon dependence
 - **8h** and **16h** are sensitivity analyses to test whether the apparent under-signaled mortality structure changes under shorter windows
+- **72h** is a longer-horizon sensitivity analysis for robustness to horizon expansion
 
 These shorter horizons must be interpreted cautiously because they are more vulnerable to documentation timing, temporal aggregation, and observation-process artifacts.
 

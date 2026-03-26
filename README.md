@@ -21,7 +21,7 @@ This repo owns Chapter 1-specific analytic preprocessing:
 - readmission-based first-stay proxy handling
 - valid-instance generation
 - Chapter 1 feature-set configuration
-- provisional/proxy horizon label generation only
+- proxy within-horizon in-ICU mortality label generation
 - model-ready dataset construction
 - Chapter 1 QC and readiness summaries
 
@@ -62,11 +62,13 @@ See [`docs/preprocessing_interface.md`](/Users/joanameyer/repository/1-mortality
 
 ## Label Status
 
-The repo currently contains only a provisional proxy label implementation.
+ASIC Chapter 1 uses explicit proxy within-horizon in-ICU mortality labels because true ICU discharge timestamps and true death timestamps are unavailable in the standardized artifacts.
 
-- Implemented path: provisional proxy-based within-horizon ICU mortality labels using `icu_end_time_proxy_hours` as an event-time surrogate.
-- Status: not the finalized Chapter 1 label definition.
-- Reason: using ICU end-time proxy hours to decide whether death occurred within horizon introduces a scientific assumption that was not present in the migrated seed.
+- Supported horizons: `8h`, `16h`, `24h`, `48h`, `72h`
+- Positive label: `icu_mortality == 1` and `icu_end_time_proxy_hours` is in `(t, t + H]`
+- Negative label: `icu_mortality == 0` and `icu_end_time_proxy_hours >= t + H`
+- All other cases remain unlabeled and are not coerced to negative
+- These are proxy horizon labels, not true event-timed mortality labels
 
 See [`docs/label_logic_audit.md`](/Users/joanameyer/repository/1-mortality-decomposition/docs/label_logic_audit.md) for the audit note.
 
@@ -76,7 +78,7 @@ The canonical implementation lives in [`src/chapter1_mortality_decomposition`](/
 
 - [`cohort.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/cohort.py): site and stay exclusions
 - [`instances.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/instances.py): valid prediction instances
-- [`labels.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/labels.py): provisional proxy label logic only
+- [`labels.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/labels.py): proxy within-horizon label logic
 - [`model_ready.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/model_ready.py): model-ready assembly and readiness summaries
 - [`pipeline.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/pipeline.py): end-to-end orchestration
 - [`cli.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/cli.py): runnable entrypoint
@@ -109,7 +111,7 @@ The pipeline writes four output groups under the chosen output directory:
 
 - `cohort/`: site eligibility, stay exclusions, retained stays, and cohort notes
 - `instances/`: candidate instances, valid instances, and exclusion summaries
-- `labels/`: provisional proxy label tables, summaries, and notes
+- `labels/`: proxy horizon label tables, horizon summaries, unlabeled-reason summaries, and notes
 - `model_ready/`: selected feature set, model-ready table, and readiness summaries
 
 ## Tests
@@ -124,5 +126,4 @@ python -m unittest discover -s tests -v
 
 ## Known Follow-Up
 
-- Final Chapter 1 horizon-label semantics remain unresolved and need explicit scientific approval before they should be treated as default preprocessing.
 - Adult-age and mechanical-ventilation-duration cohort restrictions still need a finalized standardized column contract if they are to be enforced here rather than guaranteed upstream.

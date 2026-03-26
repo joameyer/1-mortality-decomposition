@@ -2,16 +2,20 @@
 
 ## Current Implemented Logic
 
-The current code in [`labels.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/labels.py) implements a **provisional proxy-based within-horizon ICU mortality label**:
+The current code in [`labels.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/labels.py) implements an explicit **proxy within-horizon in-ICU mortality label**:
 
 - it starts from valid instances that already include `future_window_end_h`
 - it joins stay-level `icu_mortality`
 - it uses `icu_end_time_proxy_hours` as `event_time_proxy_h`
-- label availability requires both non-missing `icu_mortality` and non-missing `icu_end_time_proxy_hours`
 - a positive label is assigned only when:
-  - `icu_mortality == 1`, and
-  - `event_time_proxy_h <= future_window_end_h`
-- otherwise the usable label is `0`
+  - `icu_mortality == 1`
+  - `event_time_proxy_h > t`
+  - `event_time_proxy_h <= t + H`
+- a negative label is assigned only when:
+  - `icu_mortality == 0`
+  - `event_time_proxy_h >= t + H`
+- all other cases remain unlabeled
+- unlabeled reasons are summarized explicitly, including survivor-without-full-horizon-observation and non-survivor-proxy-end-not-within-horizon
 
 ## Departure From The Migrated Seed
 
@@ -33,4 +37,4 @@ Using `icu_end_time_proxy_hours` as a surrogate event time is not a pure migrati
 - it changes which instances count as horizon-positive versus horizon-negative
 - it can affect performance, calibration, and any downstream interpretation of “poorly captured near-term mortality”
 
-Because of that, this logic should remain explicitly marked as **provisional proxy logic** until the Chapter 1 label definition is scientifically approved.
+This repository now treats that definition explicitly as the approved ASIC Chapter 1 proxy label, while documenting that it is still a proxy rather than a true event-timed label.

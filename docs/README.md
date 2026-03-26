@@ -4,7 +4,7 @@ Core standalone-repo documents:
 
 - [`chapter1_analysis_spec_frozen_v1.md`](/Users/joanameyer/repository/1-mortality-decomposition/docs/chapter1_analysis_spec_frozen_v1.md): frozen Chapter 1 scientific specification
 - [`preprocessing_interface.md`](/Users/joanameyer/repository/1-mortality-decomposition/docs/preprocessing_interface.md): current upstream input contract vs repo-local enforcement
-- [`label_logic_audit.md`](/Users/joanameyer/repository/1-mortality-decomposition/docs/label_logic_audit.md): audit of the current provisional label implementation
+- [`label_logic_audit.md`](/Users/joanameyer/repository/1-mortality-decomposition/docs/label_logic_audit.md): audit of the current proxy label implementation
 
 Retained reference/context documents:
 

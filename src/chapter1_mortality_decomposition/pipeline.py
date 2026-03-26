@@ -25,7 +25,7 @@ from chapter1_mortality_decomposition.instances import (
 )
 from chapter1_mortality_decomposition.labels import (
     Chapter1LabelResult,
-    build_chapter1_provisional_proxy_horizon_labels,
+    build_chapter1_proxy_horizon_labels,
 )
 from chapter1_mortality_decomposition.model_ready import (
     Chapter1ModelReadyResult,
@@ -60,7 +60,7 @@ def build_chapter1_dataset(
         blocked_dynamic_features=inputs.blocked_dynamic_features,
         config=config,
     )
-    labels = build_chapter1_provisional_proxy_horizon_labels(
+    labels = build_chapter1_proxy_horizon_labels(
         valid_instances=valid_instances.valid_instances,
         retained_cohort=cohort.table,
     )
@@ -117,10 +117,11 @@ def write_chapter1_dataset(
         "chapter1_instance_exclusion_summary": dataset.valid_instances.exclusion_summary,
     }
     label_outputs = {
-        "chapter1_provisional_proxy_horizon_labels": dataset.labels.labels,
-        "chapter1_usable_provisional_proxy_horizon_labels": dataset.labels.usable_labels,
-        "chapter1_provisional_proxy_label_summary_by_horizon": dataset.labels.summary_by_horizon,
-        "chapter1_provisional_proxy_label_notes": dataset.labels.notes,
+        "chapter1_proxy_horizon_labels": dataset.labels.labels,
+        "chapter1_usable_proxy_horizon_labels": dataset.labels.usable_labels,
+        "chapter1_proxy_label_summary_by_horizon": dataset.labels.summary_by_horizon,
+        "chapter1_proxy_unlabeled_reason_summary": dataset.labels.unlabeled_reason_summary,
+        "chapter1_proxy_label_notes": dataset.labels.notes,
     }
     model_ready_outputs = {
         "chapter1_feature_set": dataset.feature_set_definition,

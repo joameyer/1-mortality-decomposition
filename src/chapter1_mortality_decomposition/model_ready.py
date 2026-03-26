@@ -93,8 +93,8 @@ def build_chapter1_model_ready_dataset(
                 "metric": "label_definition_in_model_ready_dataset",
                 "value": ", ".join(label_definitions),
                 "note": (
-                    "Current model-ready rows use provisional label logic. "
-                    "This should not be interpreted as the finalized Chapter 1 label definition."
+                    "Current model-ready rows use the explicit ASIC proxy within-horizon "
+                    "label definition."
                 ),
             }
         )

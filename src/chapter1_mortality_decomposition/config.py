@@ -17,7 +17,7 @@ class Chapter1Config:
 
 def normalize_horizons_hours(horizons_hours: Iterable[int] | None) -> tuple[int, ...]:
     if horizons_hours is None:
-        return (8, 16, 24, 48)
+        return (8, 16, 24, 48, 72)
 
     normalized: list[int] = []
     seen: set[int] = set()
