@@ -18,6 +18,7 @@ def build_chapter1_model_ready_dataset(
     usable_labels: pd.DataFrame,
     blocked_dynamic_features: pd.DataFrame,
     feature_set_definition: pd.DataFrame,
+    feature_set_name: str,
 ) -> Chapter1ModelReadyResult:
     require_columns(
         blocked_dynamic_features,
@@ -30,6 +31,18 @@ def build_chapter1_model_ready_dataset(
             "prediction_time_h",
         },
         "blocked_dynamic_features",
+    )
+    require_columns(
+        feature_set_definition,
+        {
+            "feature_name",
+            "base_variable",
+            "selected_for_model",
+            "available_in_blocked_schema",
+            "base_feature_available_in_blocked_schema",
+            "base_feature_present_in_retained_data",
+        },
+        "feature_set_definition",
     )
 
     selected_feature_columns = (
@@ -66,22 +79,63 @@ def build_chapter1_model_ready_dataset(
         ],
         how="left",
     )
+    model_ready["feature_set_name"] = feature_set_name
 
+    configured_base_feature_count = int(feature_set_definition["base_variable"].nunique(dropna=True))
+    missing_base_features = (
+        feature_set_definition.loc[
+            ~feature_set_definition["base_feature_available_in_blocked_schema"],
+            "base_variable",
+        ]
+        .astype("string")
+        .drop_duplicates()
+        .tolist()
+    )
+    absent_from_retained_data = (
+        feature_set_definition.loc[
+            ~feature_set_definition["base_feature_present_in_retained_data"],
+            "base_variable",
+        ]
+        .astype("string")
+        .drop_duplicates()
+        .tolist()
+    )
     readiness_rows: list[dict[str, object]] = [
         {
+            "feature_set_name": feature_set_name,
             "metric": "model_ready_rows_total",
             "value": int(model_ready.shape[0]),
             "note": "Rows after valid-instance selection and label availability filtering.",
         },
         {
+            "feature_set_name": feature_set_name,
+            "metric": "configured_base_features_total",
+            "value": configured_base_feature_count,
+            "note": "Configured base features for this Chapter 1 feature set.",
+        },
+        {
+            "feature_set_name": feature_set_name,
             "metric": "selected_feature_columns_total",
             "value": int(len(selected_feature_columns)),
             "note": "Blocked dynamic feature columns selected by the Chapter 1 feature config.",
         },
         {
+            "feature_set_name": feature_set_name,
             "metric": "distinct_horizons_total",
             "value": int(model_ready["horizon_h"].nunique(dropna=True)) if not model_ready.empty else 0,
             "note": "Configured prediction horizons represented in the model-ready table.",
+        },
+        {
+            "feature_set_name": feature_set_name,
+            "metric": "configured_base_features_missing_from_blocked_schema",
+            "value": ", ".join(missing_base_features),
+            "note": "Configured base features absent from the current blocked schema.",
+        },
+        {
+            "feature_set_name": feature_set_name,
+            "metric": "configured_base_features_absent_from_retained_data",
+            "value": ", ".join(absent_from_retained_data),
+            "note": "Configured base features absent from current retained-hospital ASIC data.",
         },
     ]
     if "label_definition_id" in model_ready.columns:
@@ -90,6 +144,7 @@ def build_chapter1_model_ready_dataset(
         )
         readiness_rows.append(
             {
+                "feature_set_name": feature_set_name,
                 "metric": "label_definition_in_model_ready_dataset",
                 "value": ", ".join(label_definitions),
                 "note": (
@@ -108,6 +163,7 @@ def build_chapter1_model_ready_dataset(
             non_missing_count = int(horizon_df[feature_name].notna().sum())
             feature_availability_rows.append(
                 {
+                    "feature_set_name": feature_set_name,
                     "horizon_h": int(horizon_h),
                     "feature_name": feature_name,
                     "non_missing_count": non_missing_count,
@@ -126,6 +182,7 @@ def build_chapter1_model_ready_dataset(
         feature_availability_by_horizon = pd.DataFrame(
             columns=[
                 "horizon_h",
+                "feature_set_name",
                 "feature_name",
                 "non_missing_count",
                 "rows_in_horizon",

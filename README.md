@@ -20,7 +20,7 @@ This repo owns Chapter 1-specific analytic preprocessing:
 - stay-level exclusion logic
 - readmission-based first-stay proxy handling
 - valid-instance generation
-- Chapter 1 feature-set configuration
+- Chapter 1 feature-set configuration via `config/ch1_feature_sets.json`
 - proxy within-horizon in-ICU mortality label generation
 - model-ready dataset construction
 - Chapter 1 QC and readiness summaries
@@ -76,12 +76,34 @@ See [`docs/label_logic_audit.md`](/Users/joanameyer/repository/1-mortality-decom
 
 The canonical implementation lives in [`src/chapter1_mortality_decomposition`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition):
 
+- [`config/ch1_feature_sets.json`](/Users/joanameyer/repository/1-mortality-decomposition/config/ch1_feature_sets.json): version-controlled Chapter 1 feature-set source of truth
 - [`cohort.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/cohort.py): site and stay exclusions
 - [`instances.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/instances.py): valid prediction instances
 - [`labels.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/labels.py): proxy within-horizon label logic
 - [`model_ready.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/model_ready.py): model-ready assembly and readiness summaries
 - [`pipeline.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/pipeline.py): end-to-end orchestration
 - [`cli.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/cli.py): runnable entrypoint
+
+## Feature Sets
+
+The Chapter 1 feature sets are defined once in [`config/ch1_feature_sets.json`](/Users/joanameyer/repository/1-mortality-decomposition/config/ch1_feature_sets.json):
+
+- `primary_features`
+- `extended_additional_features`
+
+The code derives:
+
+- `primary`
+- `extended = primary + extended_additional`
+
+The same config artifact is used for:
+
+- feature-schema validation
+- feature-set-specific valid-instance construction
+- model-ready matrix creation
+- feature availability and missingness summaries
+
+The runtime input and output paths for local execution are defined in [`config/ch1_run_config.json`](/Users/joanameyer/repository/1-mortality-decomposition/config/ch1_run_config.json). Both the notebook runbook and the CLI can read this shared run config.
 
 ## Quick Start
 
@@ -91,10 +113,24 @@ Install the package in editable mode:
 python -m pip install -e ".[dev]"
 ```
 
+Open the notebook runbook if you want a step-by-step orchestration and QC view:
+
+```bash
+jupyter notebook notebooks/ch1_preprocessing_runbook.ipynb
+```
+
+The notebook reads [`config/ch1_run_config.json`](/Users/joanameyer/repository/1-mortality-decomposition/config/ch1_run_config.json), which currently points to the standardized ASIC artifact root at `/Users/joanameyer/repository/icu-data-platform/artifacts/asic_harmonized`.
+
 Run the preprocessing CLI:
 
 ```bash
 chapter1-preprocess --input-dir path/to/standardized_asic --output-dir artifacts/chapter1
+```
+
+Or reuse the shared run config directly:
+
+```bash
+chapter1-preprocess --run-config config/ch1_run_config.json
 ```
 
 Or run it as a module from the repo root:
@@ -110,9 +146,10 @@ PYTHONPATH=src python -m chapter1_mortality_decomposition \
 The pipeline writes four output groups under the chosen output directory:
 
 - `cohort/`: site eligibility, stay exclusions, retained stays, and cohort notes
-- `instances/`: candidate instances, valid instances, and exclusion summaries
-- `labels/`: proxy horizon label tables, horizon summaries, unlabeled-reason summaries, and notes
-- `model_ready/`: selected feature set, model-ready table, and readiness summaries
+- `feature_sets/`: combined feature-set definition table and validation summary
+- `instances/`: feature-set-specific candidate instances, valid instances, and exclusion summaries
+- `labels/`: feature-set-specific proxy horizon label tables, horizon summaries, unlabeled-reason summaries, and notes
+- `model_ready/`: feature-set-specific model-ready datasets, readiness summaries, and missingness summaries
 
 ## Tests
 

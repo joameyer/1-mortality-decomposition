@@ -33,8 +33,9 @@ The current standalone Chapter 1 code enforces:
 - stay-level exclusion for missing dynamic data
 - stay-level exclusion for missing readmission and readmission-flagged stays
 - exclusion of stays with missing ICU mortality labels
-- valid-instance generation from generic 8-hour blocks
+- feature-set-specific valid-instance generation from generic 8-hour blocks
 - proxy within-horizon label generation using `icu_mortality` and `icu_end_time_proxy_hours`
+- feature-set-specific model-ready exports driven by `config/ch1_feature_sets.json`
 
 ## Scientifically Intended But Not Yet Guaranteed By The Current Interface
 

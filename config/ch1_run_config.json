@@ -1,0 +1,9 @@
+{
+  "input_dir": "/Users/joanameyer/repository/icu-data-platform/artifacts/asic_harmonized",
+  "input_format": "csv",
+  "output_dir": "artifacts/chapter1",
+  "output_format": "csv",
+  "feature_set_config_path": "config/ch1_feature_sets.json",
+  "horizons_hours": [8, 16, 24, 48, 72],
+  "min_required_core_groups": 3
+}

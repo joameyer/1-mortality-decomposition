@@ -18,6 +18,7 @@ from chapter1_mortality_decomposition.config import (
     Chapter1Config,
     build_chapter1_feature_set_definition,
     default_chapter1_config,
+    load_chapter1_feature_set_config,
 )
 from chapter1_mortality_decomposition.instances import (
     Chapter1ValidInstanceResult,
@@ -37,10 +38,23 @@ from chapter1_mortality_decomposition.utils import ensure_directory, write_dataf
 @dataclass(frozen=True)
 class Chapter1Dataset:
     cohort: Chapter1CohortResult
+    feature_set_definition: pd.DataFrame
+    feature_set_validation_summary: pd.DataFrame
+    feature_sets: dict[str, "Chapter1FeatureSetDataset"]
+
+
+@dataclass(frozen=True)
+class Chapter1FeatureSetDataset:
+    feature_set_name: str
     valid_instances: Chapter1ValidInstanceResult
     labels: Chapter1LabelResult
     model_ready: Chapter1ModelReadyResult
-    feature_set_definition: pd.DataFrame
+
+
+def _with_feature_set_name(df: pd.DataFrame, feature_set_name: str) -> pd.DataFrame:
+    annotated = df.copy()
+    annotated.insert(0, "feature_set_name", feature_set_name)
+    return annotated
 
 
 def build_chapter1_dataset(
@@ -48,37 +62,52 @@ def build_chapter1_dataset(
     config: Chapter1Config | None = None,
 ) -> Chapter1Dataset:
     config = config or default_chapter1_config()
+    feature_set_config = load_chapter1_feature_set_config(config.feature_set_config_path)
     cohort = build_chapter1_cohort(
         static_harmonized=inputs.static_harmonized,
         dynamic_harmonized=inputs.dynamic_harmonized,
         stay_block_counts=inputs.stay_block_counts,
         config=config,
     )
-    valid_instances = build_chapter1_valid_instances(
-        retained_cohort=cohort.table,
-        block_index=inputs.block_index,
-        blocked_dynamic_features=inputs.blocked_dynamic_features,
-        config=config,
-    )
-    labels = build_chapter1_proxy_horizon_labels(
-        valid_instances=valid_instances.valid_instances,
-        retained_cohort=cohort.table,
-    )
-    feature_set_definition = build_chapter1_feature_set_definition(
+    feature_set_definition, feature_set_validation_summary = build_chapter1_feature_set_definition(
         inputs.blocked_dynamic_features,
+        retained_stays=cohort.retained_stays,
         config=config,
+        feature_set_config=feature_set_config,
     )
-    model_ready = build_chapter1_model_ready_dataset(
-        usable_labels=labels.usable_labels,
-        blocked_dynamic_features=inputs.blocked_dynamic_features,
-        feature_set_definition=feature_set_definition,
-    )
+    feature_sets: dict[str, Chapter1FeatureSetDataset] = {}
+    for feature_set_name in feature_set_config.feature_sets:
+        feature_set_subset = feature_set_definition[
+            feature_set_definition["feature_set_name"].eq(feature_set_name)
+        ].reset_index(drop=True)
+        valid_instances = build_chapter1_valid_instances(
+            retained_cohort=cohort.table,
+            block_index=inputs.block_index,
+            blocked_dynamic_features=inputs.blocked_dynamic_features,
+            feature_set_definition=feature_set_subset,
+            config=config,
+        )
+        labels = build_chapter1_proxy_horizon_labels(
+            valid_instances=valid_instances.valid_instances,
+            retained_cohort=cohort.table,
+        )
+        model_ready = build_chapter1_model_ready_dataset(
+            usable_labels=labels.usable_labels,
+            blocked_dynamic_features=inputs.blocked_dynamic_features,
+            feature_set_definition=feature_set_subset,
+            feature_set_name=feature_set_name,
+        )
+        feature_sets[feature_set_name] = Chapter1FeatureSetDataset(
+            feature_set_name=feature_set_name,
+            valid_instances=valid_instances,
+            labels=labels,
+            model_ready=model_ready,
+        )
     return Chapter1Dataset(
         cohort=cohort,
-        valid_instances=valid_instances,
-        labels=labels,
-        model_ready=model_ready,
         feature_set_definition=feature_set_definition,
+        feature_set_validation_summary=feature_set_validation_summary,
+        feature_sets=feature_sets,
     )
 
 
@@ -92,6 +121,7 @@ def write_chapter1_dataset(
     output_paths: dict[str, Path] = {}
 
     cohort_dir = ensure_directory(output_dir / "cohort")
+    feature_sets_dir = ensure_directory(output_dir / "feature_sets")
     instances_dir = ensure_directory(output_dir / "instances")
     labels_dir = ensure_directory(output_dir / "labels")
     model_ready_dir = ensure_directory(output_dir / "model_ready")
@@ -110,44 +140,88 @@ def write_chapter1_dataset(
         "chapter1_retained_stays": dataset.cohort.retained_stays,
         "chapter1_retained_stay_table": dataset.cohort.table,
     }
-    instance_outputs = {
-        "chapter1_candidate_instances": dataset.valid_instances.candidate_instances,
-        "chapter1_valid_instances": dataset.valid_instances.valid_instances,
-        "chapter1_instance_counts_by_horizon": dataset.valid_instances.counts_by_horizon,
-        "chapter1_instance_exclusion_summary": dataset.valid_instances.exclusion_summary,
-    }
-    label_outputs = {
-        "chapter1_proxy_horizon_labels": dataset.labels.labels,
-        "chapter1_usable_proxy_horizon_labels": dataset.labels.usable_labels,
-        "chapter1_proxy_label_summary_by_horizon": dataset.labels.summary_by_horizon,
-        "chapter1_proxy_unlabeled_reason_summary": dataset.labels.unlabeled_reason_summary,
-        "chapter1_proxy_label_notes": dataset.labels.notes,
-    }
-    model_ready_outputs = {
-        "chapter1_feature_set": dataset.feature_set_definition,
-        "chapter1_model_ready_dataset": dataset.model_ready.table,
-        "chapter1_readiness_summary": dataset.model_ready.readiness_summary,
-        "chapter1_feature_availability_by_horizon": (
-            dataset.model_ready.feature_availability_by_horizon
-        ),
+    feature_set_outputs = {
+        "chapter1_feature_set_definition": dataset.feature_set_definition,
+        "chapter1_feature_set_validation_summary": dataset.feature_set_validation_summary,
     }
 
     for name, df in cohort_outputs.items():
         path = cohort_dir / f"{name}.{extension}"
         output_paths[f"cohort_{name}"] = write_dataframe(df, path, output_format=output_format)
-    for name, df in instance_outputs.items():
-        path = instances_dir / f"{name}.{extension}"
-        output_paths[f"instances_{name}"] = write_dataframe(df, path, output_format=output_format)
-    for name, df in label_outputs.items():
-        path = labels_dir / f"{name}.{extension}"
-        output_paths[f"labels_{name}"] = write_dataframe(df, path, output_format=output_format)
-    for name, df in model_ready_outputs.items():
-        path = model_ready_dir / f"{name}.{extension}"
-        output_paths[f"model_ready_{name}"] = write_dataframe(
-            df,
-            path,
-            output_format=output_format,
-        )
+    for name, df in feature_set_outputs.items():
+        path = feature_sets_dir / f"{name}.{extension}"
+        output_paths[f"feature_sets_{name}"] = write_dataframe(df, path, output_format=output_format)
+
+    for feature_set_name, feature_set_dataset in dataset.feature_sets.items():
+        instance_outputs = {
+            f"chapter1_{feature_set_name}_candidate_instances": _with_feature_set_name(
+                feature_set_dataset.valid_instances.candidate_instances,
+                feature_set_name,
+            ),
+            f"chapter1_{feature_set_name}_valid_instances": _with_feature_set_name(
+                feature_set_dataset.valid_instances.valid_instances,
+                feature_set_name,
+            ),
+            f"chapter1_{feature_set_name}_instance_counts_by_horizon": _with_feature_set_name(
+                feature_set_dataset.valid_instances.counts_by_horizon,
+                feature_set_name,
+            ),
+            f"chapter1_{feature_set_name}_instance_exclusion_summary": _with_feature_set_name(
+                feature_set_dataset.valid_instances.exclusion_summary,
+                feature_set_name,
+            ),
+        }
+        label_outputs = {
+            f"chapter1_{feature_set_name}_proxy_horizon_labels": _with_feature_set_name(
+                feature_set_dataset.labels.labels,
+                feature_set_name,
+            ),
+            f"chapter1_{feature_set_name}_usable_proxy_horizon_labels": _with_feature_set_name(
+                feature_set_dataset.labels.usable_labels,
+                feature_set_name,
+            ),
+            f"chapter1_{feature_set_name}_proxy_label_summary_by_horizon": _with_feature_set_name(
+                feature_set_dataset.labels.summary_by_horizon,
+                feature_set_name,
+            ),
+            f"chapter1_{feature_set_name}_proxy_unlabeled_reason_summary": _with_feature_set_name(
+                feature_set_dataset.labels.unlabeled_reason_summary,
+                feature_set_name,
+            ),
+            f"chapter1_{feature_set_name}_proxy_label_notes": _with_feature_set_name(
+                feature_set_dataset.labels.notes,
+                feature_set_name,
+            ),
+        }
+        model_ready_outputs = {
+            f"chapter1_{feature_set_name}_model_ready_dataset": feature_set_dataset.model_ready.table,
+            f"chapter1_{feature_set_name}_readiness_summary": feature_set_dataset.model_ready.readiness_summary,
+            f"chapter1_{feature_set_name}_feature_availability_by_horizon": (
+                feature_set_dataset.model_ready.feature_availability_by_horizon
+            ),
+        }
+
+        for name, df in instance_outputs.items():
+            path = instances_dir / f"{name}.{extension}"
+            output_paths[f"instances_{name}"] = write_dataframe(
+                df,
+                path,
+                output_format=output_format,
+            )
+        for name, df in label_outputs.items():
+            path = labels_dir / f"{name}.{extension}"
+            output_paths[f"labels_{name}"] = write_dataframe(
+                df,
+                path,
+                output_format=output_format,
+            )
+        for name, df in model_ready_outputs.items():
+            path = model_ready_dir / f"{name}.{extension}"
+            output_paths[f"model_ready_{name}"] = write_dataframe(
+                df,
+                path,
+                output_format=output_format,
+            )
 
     return output_paths
 

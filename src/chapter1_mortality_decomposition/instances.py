@@ -6,7 +6,6 @@ import pandas as pd
 
 from chapter1_mortality_decomposition.config import (
     Chapter1Config,
-    build_chapter1_feature_set_definition,
     default_chapter1_config,
 )
 from chapter1_mortality_decomposition.utils import require_columns
@@ -36,6 +35,7 @@ def build_chapter1_valid_instances(
     retained_cohort: pd.DataFrame,
     block_index: pd.DataFrame,
     blocked_dynamic_features: pd.DataFrame,
+    feature_set_definition: pd.DataFrame,
     config: Chapter1Config | None = None,
 ) -> Chapter1ValidInstanceResult:
     config = config or default_chapter1_config()
@@ -69,11 +69,12 @@ def build_chapter1_valid_instances(
         },
         "blocked_dynamic_features",
     )
-
-    feature_set_definition = build_chapter1_feature_set_definition(
-        blocked_dynamic_features,
-        config=config,
+    require_columns(
+        feature_set_definition,
+        {"feature_name", "statistic", "selected_for_model"},
+        "feature_set_definition",
     )
+
     obs_count_columns = [
         column
         for column in _feature_obs_count_columns(feature_set_definition)

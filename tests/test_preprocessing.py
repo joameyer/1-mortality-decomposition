@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 import sys
 import tempfile
@@ -289,6 +290,8 @@ def build_synthetic_inputs() -> Chapter1InputTables:
                 "resp_rate_mean": 18,
                 "spo2_obs_count": 1,
                 "spo2_mean": 97,
+                "pct_obs_count": 1,
+                "pct_mean": 0.5,
             },
             {
                 "stay_id_global": "stay_a",
@@ -305,6 +308,8 @@ def build_synthetic_inputs() -> Chapter1InputTables:
                 "resp_rate_mean": 24,
                 "spo2_obs_count": 1,
                 "spo2_mean": 94,
+                "pct_obs_count": 1,
+                "pct_mean": 0.7,
             },
             {
                 "stay_id_global": "stay_b",
@@ -417,6 +422,8 @@ def build_synthetic_inputs() -> Chapter1InputTables:
                 "resp_rate_mean": 19,
                 "spo2_obs_count": 1,
                 "spo2_mean": 98,
+                "pct_obs_count": 1,
+                "pct_mean": 0.3,
             },
         ]
     )
@@ -448,12 +455,31 @@ def write_standardized_inputs(base_dir: Path, inputs: Chapter1InputTables) -> No
     )
 
 
+def write_run_config(path: Path, *, input_dir: Path, output_dir: Path) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "input_dir": str(input_dir),
+                "input_format": "csv",
+                "output_dir": str(output_dir),
+                "output_format": "csv",
+                "feature_set_config_path": "config/ch1_feature_sets.json",
+                "horizons_hours": [8, 16, 24, 48, 72],
+                "min_required_core_groups": 3,
+            },
+            indent=2,
+        )
+    )
+
+
 class Chapter1PreprocessingTest(unittest.TestCase):
     def test_build_chapter1_dataset_end_to_end(self) -> None:
         dataset = build_chapter1_dataset(build_synthetic_inputs())
 
         retained_stays = set(dataset.cohort.table["stay_id_global"].tolist())
         self.assertEqual(retained_stays, {"stay_a", "stay_g", "stay_h"})
+        primary_dataset = dataset.feature_sets["primary"]
+        extended_dataset = dataset.feature_sets["extended"]
 
         site_flags = dataset.cohort.site_eligibility.set_index("hospital_id")["site_included_ch1"]
         self.assertIs(bool(site_flags["H1"]), True)
@@ -466,14 +492,35 @@ class Chapter1PreprocessingTest(unittest.TestCase):
         self.assertIn("no dynamic data", stay_status.at["stay_e", "exclusion_reason"])
 
         self.assertEqual(
-            set(dataset.valid_instances.counts_by_horizon["horizon_h"].tolist()),
+            set(primary_dataset.valid_instances.counts_by_horizon["horizon_h"].tolist()),
             {8, 16, 24, 48, 72},
         )
-        self.assertEqual(dataset.valid_instances.valid_instances.shape[0], 20)
-        self.assertEqual(dataset.model_ready.table.shape[0], 16)
+        self.assertEqual(primary_dataset.valid_instances.valid_instances.shape[0], 20)
+        self.assertEqual(extended_dataset.valid_instances.valid_instances.shape[0], 20)
+        self.assertEqual(primary_dataset.model_ready.table.shape[0], 16)
+        self.assertEqual(extended_dataset.model_ready.table.shape[0], 16)
+        self.assertNotIn("pct_obs_count", primary_dataset.model_ready.table.columns)
+        self.assertIn("pct_obs_count", extended_dataset.model_ready.table.columns)
 
-        stay_a_labels = dataset.labels.labels[
-            dataset.labels.labels["stay_id_global"] == "stay_a"
+        validation_summary = dataset.feature_set_validation_summary.set_index("feature_set_name")
+        self.assertEqual(validation_summary.at["primary", "primary_feature_count"], 31)
+        self.assertEqual(validation_summary.at["primary", "extended_only_feature_count"], 15)
+        self.assertEqual(validation_summary.at["primary", "total_extended_feature_count"], 46)
+        self.assertIn(
+            "fio2",
+            validation_summary.at["primary", "missing_from_blocked_schema_features"],
+        )
+        self.assertNotIn(
+            "pct",
+            validation_summary.at["extended", "missing_from_blocked_schema_features"],
+        )
+        self.assertIn(
+            "il6",
+            validation_summary.at["extended", "missing_from_blocked_schema_features"],
+        )
+
+        stay_a_labels = primary_dataset.labels.labels[
+            primary_dataset.labels.labels["stay_id_global"] == "stay_a"
         ]
         label_lookup = {
             (row.block_index, row.horizon_h): (
@@ -488,16 +535,16 @@ class Chapter1PreprocessingTest(unittest.TestCase):
         self.assertEqual(label_lookup[(1, 48)], 1)
         self.assertEqual(label_lookup[(1, 72)], 1)
 
-        stay_g_block0 = dataset.valid_instances.candidate_instances[
-            (dataset.valid_instances.candidate_instances["stay_id_global"] == "stay_g")
-            & (dataset.valid_instances.candidate_instances["block_index"] == 0)
+        stay_g_block0 = primary_dataset.valid_instances.candidate_instances[
+            (primary_dataset.valid_instances.candidate_instances["stay_id_global"] == "stay_g")
+            & (primary_dataset.valid_instances.candidate_instances["block_index"] == 0)
         ]
         self.assertTrue(stay_g_block0["valid_instance"].eq(False).all())
         self.assertTrue(
             stay_g_block0["exclusion_reason"].eq("no_chapter1_feature_data_in_block").all()
         )
 
-        summary_by_horizon = dataset.labels.summary_by_horizon.set_index("horizon_h")
+        summary_by_horizon = primary_dataset.labels.summary_by_horizon.set_index("horizon_h")
         self.assertEqual(summary_by_horizon.at[8, "total_valid_prediction_instances"], 4)
         self.assertEqual(summary_by_horizon.at[8, "labelable_instances"], 3)
         self.assertEqual(summary_by_horizon.at[8, "positive_labels"], 1)
@@ -513,7 +560,7 @@ class Chapter1PreprocessingTest(unittest.TestCase):
             summary_by_horizon.at[72, "labelable_instances"],
         )
 
-        reason_summary = dataset.labels.unlabeled_reason_summary
+        reason_summary = primary_dataset.labels.unlabeled_reason_summary
         self.assertEqual(
             int(
                 reason_summary.loc[
@@ -550,14 +597,14 @@ class Chapter1PreprocessingTest(unittest.TestCase):
             0,
         )
 
-        self.assertEqual(dataset.labels.notes.loc[0, "note_id"], "proxy_horizon_label_definition")
-        self.assertIn("icu_end_time_proxy_hours", dataset.labels.notes.loc[0, "note"])
+        self.assertEqual(primary_dataset.labels.notes.loc[0, "note_id"], "proxy_horizon_label_definition")
+        self.assertIn("icu_end_time_proxy_hours", primary_dataset.labels.notes.loc[0, "note"])
         self.assertEqual(
-            dataset.labels.usable_labels.loc[0, "label_definition_status"],
+            primary_dataset.labels.usable_labels.loc[0, "label_definition_status"],
             "approved_proxy",
         )
         self.assertEqual(
-            dataset.labels.usable_labels.loc[0, "label_definition_id"],
+            primary_dataset.labels.usable_labels.loc[0, "label_definition_id"],
             "proxy_within_horizon_icu_mortality_v1",
         )
 
@@ -592,30 +639,79 @@ class Chapter1PreprocessingTest(unittest.TestCase):
                 env=env,
             )
 
-            self.assertIn("Wrote 23 Chapter 1 tables", result.stdout)
+            self.assertIn("Wrote ", result.stdout)
             self.assertTrue((output_dir / "cohort" / "chapter1_retained_stay_table.csv").exists())
             self.assertTrue(
                 (
-                    output_dir
-                    / "labels"
-                    / "chapter1_proxy_horizon_labels.csv"
+                    output_dir / "feature_sets" / "chapter1_feature_set_validation_summary.csv"
                 ).exists()
             )
             self.assertTrue(
                 (
                     output_dir
                     / "labels"
-                    / "chapter1_proxy_unlabeled_reason_summary.csv"
+                    / "chapter1_primary_proxy_horizon_labels.csv"
                 ).exists()
             )
             self.assertTrue(
-                (output_dir / "model_ready" / "chapter1_model_ready_dataset.csv").exists()
+                (
+                    output_dir
+                    / "labels"
+                    / "chapter1_extended_proxy_unlabeled_reason_summary.csv"
+                ).exists()
+            )
+            self.assertTrue(
+                (output_dir / "model_ready" / "chapter1_primary_model_ready_dataset.csv").exists()
+            )
+            self.assertTrue(
+                (output_dir / "model_ready" / "chapter1_extended_model_ready_dataset.csv").exists()
             )
 
             label_summary = pd.read_csv(
-                output_dir / "labels" / "chapter1_proxy_label_summary_by_horizon.csv"
+                output_dir / "labels" / "chapter1_primary_proxy_label_summary_by_horizon.csv"
             )
             self.assertEqual(set(label_summary["horizon_h"].tolist()), {8, 16, 24, 48, 72})
+            self.assertIn("primary valid instances:", result.stdout)
+            self.assertIn("extended valid instances:", result.stdout)
+
+    def test_cli_reads_run_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tempdir:
+            temp_path = Path(tempdir)
+            input_dir = temp_path / "input"
+            output_dir = temp_path / "output"
+            run_config_path = temp_path / "ch1_run_config.json"
+            write_standardized_inputs(input_dir, build_synthetic_inputs())
+            write_run_config(run_config_path, input_dir=input_dir, output_dir=output_dir)
+
+            env = os.environ.copy()
+            existing_pythonpath = env.get("PYTHONPATH")
+            env["PYTHONPATH"] = (
+                str(SRC)
+                if not existing_pythonpath
+                else f"{SRC}{os.pathsep}{existing_pythonpath}"
+            )
+
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "chapter1_mortality_decomposition",
+                    "--run-config",
+                    str(run_config_path),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+
+            self.assertIn("Wrote ", result.stdout)
+            self.assertTrue((output_dir / "cohort" / "chapter1_retained_stay_table.csv").exists())
+            self.assertTrue(
+                (
+                    output_dir / "labels" / "chapter1_primary_proxy_horizon_labels.csv"
+                ).exists()
+            )
 
 
 if __name__ == "__main__":
