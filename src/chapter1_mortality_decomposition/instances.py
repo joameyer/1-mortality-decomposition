@@ -4,11 +4,12 @@ from dataclasses import dataclass
 
 import pandas as pd
 
-from icu_data_platform.analysis_seed.chapter1.config import (
-    Chapter1SeedConfig,
+from chapter1_mortality_decomposition.config import (
+    Chapter1Config,
     build_chapter1_feature_set_definition,
-    default_chapter1_seed_config,
+    default_chapter1_config,
 )
+from chapter1_mortality_decomposition.utils import require_columns
 
 
 @dataclass(frozen=True)
@@ -35,9 +36,40 @@ def build_chapter1_valid_instances(
     retained_cohort: pd.DataFrame,
     block_index: pd.DataFrame,
     blocked_dynamic_features: pd.DataFrame,
-    config: Chapter1SeedConfig | None = None,
+    config: Chapter1Config | None = None,
 ) -> Chapter1ValidInstanceResult:
-    config = config or default_chapter1_seed_config()
+    config = config or default_chapter1_config()
+
+    require_columns(
+        retained_cohort,
+        {"stay_id_global", "hospital_id", "icu_end_time_proxy_hours", "icu_mortality"},
+        "retained_cohort",
+    )
+    require_columns(
+        block_index,
+        {
+            "stay_id_global",
+            "hospital_id",
+            "block_index",
+            "block_start_h",
+            "block_end_h",
+            "prediction_time_h",
+        },
+        "block_index",
+    )
+    require_columns(
+        blocked_dynamic_features,
+        {
+            "stay_id_global",
+            "hospital_id",
+            "block_index",
+            "block_start_h",
+            "block_end_h",
+            "prediction_time_h",
+        },
+        "blocked_dynamic_features",
+    )
+
     feature_set_definition = build_chapter1_feature_set_definition(
         blocked_dynamic_features,
         config=config,
@@ -49,26 +81,35 @@ def build_chapter1_valid_instances(
     ]
 
     retained_stays = retained_cohort[
-        ["stay_id_global", "hospital_id", "icu_end_time_proxy_hours"]
+        ["stay_id_global", "hospital_id", "icu_end_time_proxy_hours", "icu_mortality"]
     ].copy()
     retained_stays["stay_id_global"] = retained_stays["stay_id_global"].astype("string")
     retained_stays["hospital_id"] = retained_stays["hospital_id"].astype("string")
+    retained_stays["icu_end_time_proxy_hours"] = pd.to_numeric(
+        retained_stays["icu_end_time_proxy_hours"],
+        errors="coerce",
+    )
+    retained_stays["icu_mortality"] = pd.to_numeric(retained_stays["icu_mortality"], errors="coerce")
 
-    retained_blocks = block_index.merge(
-        retained_stays,
-        on=["stay_id_global", "hospital_id"],
-        how="inner",
-    ).merge(
-        blocked_dynamic_features,
-        on=[
-            "stay_id_global",
-            "hospital_id",
-            "block_index",
-            "block_start_h",
-            "block_end_h",
-            "prediction_time_h",
-        ],
-        how="left",
+    retained_blocks = (
+        block_index.merge(
+            retained_stays,
+            on=["stay_id_global", "hospital_id"],
+            how="inner",
+        )
+        .merge(
+            blocked_dynamic_features,
+            on=[
+                "stay_id_global",
+                "hospital_id",
+                "block_index",
+                "block_start_h",
+                "block_end_h",
+                "prediction_time_h",
+            ],
+            how="left",
+        )
+        .copy()
     )
 
     if obs_count_columns:
@@ -89,23 +130,32 @@ def build_chapter1_valid_instances(
     retained_blocks["has_chapter1_feature_data_in_block"] = retained_blocks[
         "chapter1_feature_obs_count_in_block"
     ].gt(0)
+    retained_blocks["has_icu_end_time_proxy"] = retained_blocks["icu_end_time_proxy_hours"].notna()
+    retained_blocks["prediction_before_icu_end"] = (
+        retained_blocks["has_icu_end_time_proxy"]
+        & (retained_blocks["prediction_time_h"] < retained_blocks["icu_end_time_proxy_hours"])
+    )
+    retained_blocks["has_usable_icu_mortality"] = retained_blocks["icu_mortality"].notna()
+    retained_blocks["valid_for_label_generation"] = (
+        retained_blocks["has_usable_icu_mortality"] & retained_blocks["prediction_before_icu_end"]
+    )
 
     rows = []
     for block in retained_blocks.itertuples(index=False):
         for horizon_h in config.horizons_hours:
             future_window_end_h = int(block.prediction_time_h) + int(horizon_h)
-            has_full_future_horizon = (
-                pd.notna(block.icu_end_time_proxy_hours)
-                and float(block.icu_end_time_proxy_hours) >= float(future_window_end_h)
-            )
             valid_instance = bool(
-                block.has_chapter1_feature_data_in_block and has_full_future_horizon
+                block.has_chapter1_feature_data_in_block and block.valid_for_label_generation
             )
             exclusion_reason = pd.NA
             if not block.has_chapter1_feature_data_in_block:
                 exclusion_reason = "no_chapter1_feature_data_in_block"
-            elif not has_full_future_horizon:
-                exclusion_reason = "insufficient_future_followup"
+            elif not block.has_icu_end_time_proxy:
+                exclusion_reason = "missing_icu_end_time_proxy_hours"
+            elif not block.prediction_before_icu_end:
+                exclusion_reason = "prediction_time_not_before_icu_end"
+            elif not block.has_usable_icu_mortality:
+                exclusion_reason = "missing_icu_mortality"
 
             rows.append(
                 {
@@ -127,7 +177,9 @@ def build_chapter1_valid_instances(
                     "has_chapter1_feature_data_in_block": bool(
                         block.has_chapter1_feature_data_in_block
                     ),
-                    "has_full_future_horizon": bool(has_full_future_horizon),
+                    "has_icu_end_time_proxy": bool(block.has_icu_end_time_proxy),
+                    "prediction_before_icu_end": bool(block.prediction_before_icu_end),
+                    "valid_for_label_generation": bool(block.valid_for_label_generation),
                     "valid_instance": valid_instance,
                     "exclusion_reason": exclusion_reason,
                 }
@@ -146,16 +198,20 @@ def build_chapter1_valid_instances(
         "icu_end_time_proxy_hours",
         "chapter1_feature_obs_count_in_block",
         "has_chapter1_feature_data_in_block",
-        "has_full_future_horizon",
+        "has_icu_end_time_proxy",
+        "prediction_before_icu_end",
+        "valid_for_label_generation",
         "valid_instance",
         "exclusion_reason",
     ]
+
     if rows:
         candidate_instances = pd.DataFrame(rows)[candidate_columns].sort_values(
             ["hospital_id", "stay_id_global", "block_index", "horizon_h"]
         ).reset_index(drop=True)
     else:
         candidate_instances = pd.DataFrame(columns=candidate_columns)
+
     valid_instances = candidate_instances[candidate_instances["valid_instance"]].reset_index(
         drop=True
     )

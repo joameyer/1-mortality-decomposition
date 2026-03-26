@@ -5,38 +5,37 @@ from pathlib import Path
 
 import pandas as pd
 
-from icu_data_platform.analysis_seed.chapter1.cohort import (
+from chapter1_mortality_decomposition.artifacts import (
+    DEFAULT_CHAPTER1_OUTPUT_DIR,
+    Chapter1InputTables,
+    load_chapter1_inputs,
+)
+from chapter1_mortality_decomposition.cohort import (
     Chapter1CohortResult,
     build_chapter1_cohort,
 )
-from icu_data_platform.analysis_seed.chapter1.config import (
-    Chapter1SeedConfig,
+from chapter1_mortality_decomposition.config import (
+    Chapter1Config,
     build_chapter1_feature_set_definition,
-    default_chapter1_seed_config,
+    default_chapter1_config,
 )
-from icu_data_platform.analysis_seed.chapter1.dataset import (
-    Chapter1ModelReadyResult,
-    build_chapter1_model_ready_dataset,
-)
-from icu_data_platform.analysis_seed.chapter1.instances import (
+from chapter1_mortality_decomposition.instances import (
     Chapter1ValidInstanceResult,
     build_chapter1_valid_instances,
 )
-from icu_data_platform.analysis_seed.chapter1.io import (
-    DEFAULT_CHAPTER1_SEED_OUTPUT_DIR,
-    Chapter1SeedInputTables,
-    load_chapter1_seed_inputs,
-)
-from icu_data_platform.analysis_seed.chapter1.labels import (
+from chapter1_mortality_decomposition.labels import (
     Chapter1LabelResult,
-    build_chapter1_terminal_labels,
+    build_chapter1_horizon_labels,
 )
-from icu_data_platform.common.io import ensure_directory, write_dataframe
-from icu_data_platform.sources.asic.pipeline import DEFAULT_ASIC_HARMONIZED_OUTPUT_DIR
+from chapter1_mortality_decomposition.model_ready import (
+    Chapter1ModelReadyResult,
+    build_chapter1_model_ready_dataset,
+)
+from chapter1_mortality_decomposition.utils import ensure_directory, write_dataframe
 
 
 @dataclass(frozen=True)
-class Chapter1SeedDataset:
+class Chapter1Dataset:
     cohort: Chapter1CohortResult
     valid_instances: Chapter1ValidInstanceResult
     labels: Chapter1LabelResult
@@ -44,11 +43,11 @@ class Chapter1SeedDataset:
     feature_set_definition: pd.DataFrame
 
 
-def build_chapter1_seed_dataset(
-    inputs: Chapter1SeedInputTables,
-    config: Chapter1SeedConfig | None = None,
-) -> Chapter1SeedDataset:
-    config = config or default_chapter1_seed_config()
+def build_chapter1_dataset(
+    inputs: Chapter1InputTables,
+    config: Chapter1Config | None = None,
+) -> Chapter1Dataset:
+    config = config or default_chapter1_config()
     cohort = build_chapter1_cohort(
         static_harmonized=inputs.static_harmonized,
         dynamic_harmonized=inputs.dynamic_harmonized,
@@ -61,7 +60,7 @@ def build_chapter1_seed_dataset(
         blocked_dynamic_features=inputs.blocked_dynamic_features,
         config=config,
     )
-    labels = build_chapter1_terminal_labels(
+    labels = build_chapter1_horizon_labels(
         valid_instances=valid_instances.valid_instances,
         retained_cohort=cohort.table,
     )
@@ -74,7 +73,7 @@ def build_chapter1_seed_dataset(
         blocked_dynamic_features=inputs.blocked_dynamic_features,
         feature_set_definition=feature_set_definition,
     )
-    return Chapter1SeedDataset(
+    return Chapter1Dataset(
         cohort=cohort,
         valid_instances=valid_instances,
         labels=labels,
@@ -83,9 +82,10 @@ def build_chapter1_seed_dataset(
     )
 
 
-def write_chapter1_seed_dataset(
-    dataset: Chapter1SeedDataset,
-    output_dir: Path = DEFAULT_CHAPTER1_SEED_OUTPUT_DIR,
+def write_chapter1_dataset(
+    dataset: Chapter1Dataset,
+    *,
+    output_dir: Path = DEFAULT_CHAPTER1_OUTPUT_DIR,
     output_format: str = "csv",
 ) -> dict[str, Path]:
     extension = "csv" if output_format == "csv" else "parquet"
@@ -117,11 +117,9 @@ def write_chapter1_seed_dataset(
         "chapter1_instance_exclusion_summary": dataset.valid_instances.exclusion_summary,
     }
     label_outputs = {
-        "chapter1_terminal_icu_mortality_labels": dataset.labels.labels,
-        "chapter1_terminal_icu_mortality_usable_labels": dataset.labels.usable_labels,
-        "chapter1_terminal_icu_mortality_label_summary_by_horizon": (
-            dataset.labels.summary_by_horizon
-        ),
+        "chapter1_horizon_labels": dataset.labels.labels,
+        "chapter1_usable_horizon_labels": dataset.labels.usable_labels,
+        "chapter1_label_summary_by_horizon": dataset.labels.summary_by_horizon,
         "chapter1_label_notes": dataset.labels.notes,
     }
     model_ready_outputs = {
@@ -153,16 +151,17 @@ def write_chapter1_seed_dataset(
     return output_paths
 
 
-def build_and_write_chapter1_seed_dataset(
-    input_dir: Path = DEFAULT_ASIC_HARMONIZED_OUTPUT_DIR,
-    output_dir: Path = DEFAULT_CHAPTER1_SEED_OUTPUT_DIR,
+def build_and_write_chapter1_dataset(
+    *,
+    input_dir: Path,
+    output_dir: Path = DEFAULT_CHAPTER1_OUTPUT_DIR,
     input_format: str = "csv",
     output_format: str = "csv",
-    config: Chapter1SeedConfig | None = None,
-) -> tuple[Chapter1SeedDataset, dict[str, Path]]:
-    inputs = load_chapter1_seed_inputs(input_dir=input_dir, input_format=input_format)
-    dataset = build_chapter1_seed_dataset(inputs, config=config)
-    output_paths = write_chapter1_seed_dataset(
+    config: Chapter1Config | None = None,
+) -> tuple[Chapter1Dataset, dict[str, Path]]:
+    inputs = load_chapter1_inputs(input_dir=input_dir, input_format=input_format)
+    dataset = build_chapter1_dataset(inputs, config=config)
+    output_paths = write_chapter1_dataset(
         dataset,
         output_dir=output_dir,
         output_format=output_format,

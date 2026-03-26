@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 import pandas as pd
 
+from chapter1_mortality_decomposition.utils import require_columns
+
 
 @dataclass(frozen=True)
 class Chapter1ModelReadyResult:
@@ -17,6 +19,19 @@ def build_chapter1_model_ready_dataset(
     blocked_dynamic_features: pd.DataFrame,
     feature_set_definition: pd.DataFrame,
 ) -> Chapter1ModelReadyResult:
+    require_columns(
+        blocked_dynamic_features,
+        {
+            "stay_id_global",
+            "hospital_id",
+            "block_index",
+            "block_start_h",
+            "block_end_h",
+            "prediction_time_h",
+        },
+        "blocked_dynamic_features",
+    )
+
     selected_feature_columns = (
         feature_set_definition.loc[feature_set_definition["selected_for_model"], "feature_name"]
         .astype("string")
@@ -31,7 +46,11 @@ def build_chapter1_model_ready_dataset(
             "block_start_h",
             "block_end_h",
             "prediction_time_h",
-            *[column for column in selected_feature_columns if column in blocked_dynamic_features.columns],
+            *[
+                column
+                for column in selected_feature_columns
+                if column in blocked_dynamic_features.columns
+            ],
         ]
     ].copy()
 
@@ -62,7 +81,9 @@ def build_chapter1_model_ready_dataset(
             },
             {
                 "metric": "distinct_horizons_total",
-                "value": int(model_ready["horizon_h"].nunique(dropna=True)),
+                "value": int(model_ready["horizon_h"].nunique(dropna=True))
+                if not model_ready.empty
+                else 0,
                 "note": "Configured prediction horizons represented in the model-ready table.",
             },
         ]
