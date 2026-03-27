@@ -95,15 +95,9 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     print(f"Wrote {len(output_paths)} Chapter 1 tables to {output_dir}")
     print(f"Retained stays: {dataset.cohort.table.shape[0]}")
+    print(f"Valid prediction instances: {dataset.valid_instances.valid_instances.shape[0]}")
+    print(f"Usable proxy labels: {dataset.labels.usable_labels.shape[0]}")
     for feature_set_name, feature_set_dataset in dataset.feature_sets.items():
-        print(
-            f"{feature_set_name} valid instances: "
-            f"{feature_set_dataset.valid_instances.valid_instances.shape[0]}"
-        )
-        print(
-            f"{feature_set_name} usable labels: "
-            f"{feature_set_dataset.labels.usable_labels.shape[0]}"
-        )
         print(
             f"{feature_set_name} model-ready rows: "
             f"{feature_set_dataset.model_ready.table.shape[0]}"

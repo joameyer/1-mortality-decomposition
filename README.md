@@ -9,6 +9,7 @@ It starts from standardized upstream ASIC artifacts only:
 - `blocked/asic_8h_block_index.{csv|parquet}`
 - `blocked/asic_8h_blocked_dynamic_features.{csv|parquet}`
 - `blocked/asic_8h_stay_block_counts.{csv|parquet}`
+- `qc/mech_vent_ge_24h_stay_level.{csv|parquet}`
 
 It does not depend on raw ASIC source tables or on `icu-data-platform` internals.
 
@@ -43,20 +44,23 @@ Scientifically intended Chapter 1 cohort assumptions from the frozen analysis sp
 
 What is explicitly assumed upstream by the current code:
 
+- adult age `>= 18` has already been applied upstream as part of the standardized ASIC cohort contract
 - harmonized static and dynamic ASIC artifacts already exist
 - generic 8-hour blocked ASIC artifacts already exist
+- upstream QC provides `qc/mech_vent_ge_24h_stay_level.{csv|parquet}` with `mech_vent_ge_24h_qc`
 
 What is enforced in this repo today:
 
 - site-level Chapter 1 exclusion rules
-- stay-level dynamic-data / readmission / missing-label exclusions
-- valid-instance construction from generic blocks
+- stay-level exclusion of any stay with missing or failed `mech_vent_ge_24h_qc`
+- stay-level dynamic-data / readmission / missing-or-unusable-label exclusions
+- valid-instance construction from generic blocks using block structure, ICU-end proxy, and 3-of-4 core-group coverage within each block
+- proxy within-horizon labelability and model-ready export construction
 
 What remains unresolved:
 
-- the current standardized input contract used by this repo does not yet require adult-age fields or ventilation-duration fields
-- therefore adult-only and ventilation-duration `>= 24h` restrictions are not currently enforced in code here
-- until the interface is finalized, those restrictions should be treated as scientific cohort intent, not as guaranteed upstream preprocessing
+- adult age `>=18` is trusted upstream, not rederived here
+- ASIC still lacks patient identifiers, so downstream splitting remains effectively stay-level rather than patient-level
 
 See [`docs/preprocessing_interface.md`](/Users/joanameyer/repository/1-mortality-decomposition/docs/preprocessing_interface.md) for the explicit contract split.
 
@@ -145,10 +149,10 @@ PYTHONPATH=src python -m chapter1_mortality_decomposition \
 
 The pipeline writes four output groups under the chosen output directory:
 
-- `cohort/`: site eligibility, stay exclusions, retained stays, and cohort notes
+- `cohort/`: site eligibility, stay exclusions, retained stays, cohort notes, canonical cohort summary, and verification summary
 - `feature_sets/`: combined feature-set definition table and validation summary
-- `instances/`: feature-set-specific candidate instances, valid instances, and exclusion summaries
-- `labels/`: feature-set-specific proxy horizon label tables, horizon summaries, unlabeled-reason summaries, and notes
+- `instances/`: canonical candidate instances, valid instances, and exclusion summaries
+- `labels/`: canonical proxy horizon label tables, horizon summaries, unlabeled-reason summaries, and notes
 - `model_ready/`: feature-set-specific model-ready datasets, readiness summaries, and missingness summaries
 
 ## Tests
@@ -163,4 +167,5 @@ python -m unittest discover -s tests -v
 
 ## Known Follow-Up
 
-- Adult-age and mechanical-ventilation-duration cohort restrictions still need a finalized standardized column contract if they are to be enforced here rather than guaranteed upstream.
+- Downstream train/validation/test split artifacts are still separate from this preprocessing layer.
+- Because ASIC has no patient identifiers, any downstream splitting remains effectively stay-level.

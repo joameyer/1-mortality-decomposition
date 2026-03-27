@@ -6,6 +6,7 @@ import pandas as pd
 
 from chapter1_mortality_decomposition.config import (
     Chapter1Config,
+    chapter1_group_definitions,
     default_chapter1_config,
 )
 from chapter1_mortality_decomposition.utils import require_columns
@@ -19,30 +20,53 @@ class Chapter1ValidInstanceResult:
     exclusion_summary: pd.DataFrame
 
 
-def _feature_obs_count_columns(feature_set_definition: pd.DataFrame) -> list[str]:
-    return (
-        feature_set_definition.loc[
-            feature_set_definition["statistic"].eq("obs_count")
-            & feature_set_definition["selected_for_model"],
-            "feature_name",
-        ]
-        .astype("string")
-        .tolist()
-    )
+def _group_observed_in_block(
+    blocked_dynamic_features: pd.DataFrame,
+    candidate_variables: tuple[str, ...],
+) -> pd.Series:
+    obs_count_columns = [
+        f"{variable}_obs_count"
+        for variable in candidate_variables
+        if f"{variable}_obs_count" in blocked_dynamic_features.columns
+    ]
+    if obs_count_columns:
+        return (
+            blocked_dynamic_features[obs_count_columns]
+            .apply(pd.to_numeric, errors="coerce")
+            .fillna(0)
+            .gt(0)
+            .any(axis=1)
+        )
+
+    fallback_columns = [
+        column
+        for variable in candidate_variables
+        for column in blocked_dynamic_features.columns
+        if column.startswith(f"{variable}_") and not column.endswith("_obs_count")
+    ]
+    if fallback_columns:
+        return blocked_dynamic_features[fallback_columns].notna().any(axis=1)
+
+    return pd.Series(False, index=blocked_dynamic_features.index, dtype="boolean")
 
 
 def build_chapter1_valid_instances(
     retained_cohort: pd.DataFrame,
     block_index: pd.DataFrame,
     blocked_dynamic_features: pd.DataFrame,
-    feature_set_definition: pd.DataFrame,
     config: Chapter1Config | None = None,
 ) -> Chapter1ValidInstanceResult:
     config = config or default_chapter1_config()
 
     require_columns(
         retained_cohort,
-        {"stay_id_global", "hospital_id", "icu_end_time_proxy_hours", "icu_mortality"},
+        {
+            "stay_id_global",
+            "hospital_id",
+            "icu_end_time_proxy_hours",
+            "icu_mortality",
+            "mech_vent_ge_24h_qc",
+        },
         "retained_cohort",
     )
     require_columns(
@@ -69,20 +93,15 @@ def build_chapter1_valid_instances(
         },
         "blocked_dynamic_features",
     )
-    require_columns(
-        feature_set_definition,
-        {"feature_name", "statistic", "selected_for_model"},
-        "feature_set_definition",
-    )
-
-    obs_count_columns = [
-        column
-        for column in _feature_obs_count_columns(feature_set_definition)
-        if column in blocked_dynamic_features.columns
-    ]
 
     retained_stays = retained_cohort[
-        ["stay_id_global", "hospital_id", "icu_end_time_proxy_hours", "icu_mortality"]
+        [
+            "stay_id_global",
+            "hospital_id",
+            "icu_end_time_proxy_hours",
+            "icu_mortality",
+            "mech_vent_ge_24h_qc",
+        ]
     ].copy()
     retained_stays["stay_id_global"] = retained_stays["stay_id_global"].astype("string")
     retained_stays["hospital_id"] = retained_stays["hospital_id"].astype("string")
@@ -113,50 +132,58 @@ def build_chapter1_valid_instances(
         .copy()
     )
 
-    if obs_count_columns:
-        retained_blocks["chapter1_feature_obs_count_in_block"] = (
-            retained_blocks[obs_count_columns]
-            .apply(pd.to_numeric, errors="coerce")
-            .fillna(0)
-            .sum(axis=1)
-            .astype("Int64")
-        )
-    else:
-        retained_blocks["chapter1_feature_obs_count_in_block"] = pd.Series(
-            0,
-            index=retained_blocks.index,
-            dtype="Int64",
-        )
-
-    retained_blocks["has_chapter1_feature_data_in_block"] = retained_blocks[
-        "chapter1_feature_obs_count_in_block"
-    ].gt(0)
-    retained_blocks["has_icu_end_time_proxy"] = retained_blocks["icu_end_time_proxy_hours"].notna()
-    retained_blocks["prediction_before_icu_end"] = (
-        retained_blocks["has_icu_end_time_proxy"]
-        & (retained_blocks["prediction_time_h"] < retained_blocks["icu_end_time_proxy_hours"])
+    retained_blocks["block_index"] = pd.to_numeric(retained_blocks["block_index"], errors="coerce")
+    retained_blocks["block_start_h"] = pd.to_numeric(
+        retained_blocks["block_start_h"], errors="coerce"
     )
-    retained_blocks["has_usable_icu_mortality"] = retained_blocks["icu_mortality"].notna()
-    retained_blocks["valid_for_label_generation"] = (
-        retained_blocks["has_usable_icu_mortality"] & retained_blocks["prediction_before_icu_end"]
+    retained_blocks["block_end_h"] = pd.to_numeric(retained_blocks["block_end_h"], errors="coerce")
+    retained_blocks["prediction_time_h"] = pd.to_numeric(
+        retained_blocks["prediction_time_h"], errors="coerce"
+    )
+    retained_blocks["block_exists_structurally"] = True
+    retained_blocks["has_icu_end_time_proxy"] = retained_blocks["icu_end_time_proxy_hours"].notna()
+    retained_blocks["block_end_not_after_icu_end_proxy"] = (
+        retained_blocks["has_icu_end_time_proxy"]
+        & retained_blocks["block_end_h"].le(retained_blocks["icu_end_time_proxy_hours"])
+    )
+
+    group_definitions = chapter1_group_definitions()
+    group_column_lookup = {
+        "cardiac_rate": "cardiac_rate_group_observed_in_block",
+        "blood_pressure": "blood_pressure_group_observed_in_block",
+        "respiratory": "respiratory_group_observed_in_block",
+        "oxygenation": "oxygenation_group_observed_in_block",
+    }
+    for group_name, candidate_variables in group_definitions.items():
+        retained_blocks[group_column_lookup[group_name]] = _group_observed_in_block(
+            retained_blocks,
+            candidate_variables,
+        ).astype("boolean")
+
+    group_columns = list(group_column_lookup.values())
+    retained_blocks["covered_core_vital_group_count"] = (
+        retained_blocks[group_columns].fillna(False).astype("int64").sum(axis=1).astype("Int64")
+    )
+    retained_blocks["core_vital_coverage_sufficient"] = retained_blocks[
+        "covered_core_vital_group_count"
+    ].ge(config.min_required_core_groups)
+    retained_blocks["valid_instance"] = (
+        retained_blocks["block_exists_structurally"]
+        & retained_blocks["block_end_not_after_icu_end_proxy"]
+        & retained_blocks["core_vital_coverage_sufficient"]
     )
 
     rows = []
     for block in retained_blocks.itertuples(index=False):
         for horizon_h in config.horizons_hours:
             future_window_end_h = int(block.prediction_time_h) + int(horizon_h)
-            valid_instance = bool(
-                block.has_chapter1_feature_data_in_block and block.valid_for_label_generation
-            )
-            exclusion_reason = pd.NA
-            if not block.has_chapter1_feature_data_in_block:
-                exclusion_reason = "no_chapter1_feature_data_in_block"
-            elif not block.has_icu_end_time_proxy:
-                exclusion_reason = "missing_icu_end_time_proxy_hours"
-            elif not block.prediction_before_icu_end:
-                exclusion_reason = "prediction_time_not_before_icu_end"
-            elif not block.has_usable_icu_mortality:
-                exclusion_reason = "missing_icu_mortality"
+            invalid_reasons: list[str] = []
+            if not block.has_icu_end_time_proxy:
+                invalid_reasons.append("missing_icu_end_time_proxy_hours")
+            elif not block.block_end_not_after_icu_end_proxy:
+                invalid_reasons.append("block_end_after_icu_end_proxy")
+            if not block.core_vital_coverage_sufficient:
+                invalid_reasons.append("insufficient_core_vital_group_coverage_in_block")
 
             rows.append(
                 {
@@ -172,17 +199,29 @@ def build_chapter1_valid_instances(
                     "horizon_h": int(horizon_h),
                     "future_window_end_h": int(future_window_end_h),
                     "icu_end_time_proxy_hours": block.icu_end_time_proxy_hours,
-                    "chapter1_feature_obs_count_in_block": int(
-                        block.chapter1_feature_obs_count_in_block
-                    ),
-                    "has_chapter1_feature_data_in_block": bool(
-                        block.has_chapter1_feature_data_in_block
-                    ),
+                    "mech_vent_ge_24h_qc": block.mech_vent_ge_24h_qc,
+                    "block_exists_structurally": bool(block.block_exists_structurally),
                     "has_icu_end_time_proxy": bool(block.has_icu_end_time_proxy),
-                    "prediction_before_icu_end": bool(block.prediction_before_icu_end),
-                    "valid_for_label_generation": bool(block.valid_for_label_generation),
-                    "valid_instance": valid_instance,
-                    "exclusion_reason": exclusion_reason,
+                    "block_end_not_after_icu_end_proxy": bool(
+                        block.block_end_not_after_icu_end_proxy
+                    ),
+                    "cardiac_rate_group_observed_in_block": bool(
+                        block.cardiac_rate_group_observed_in_block
+                    ),
+                    "blood_pressure_group_observed_in_block": bool(
+                        block.blood_pressure_group_observed_in_block
+                    ),
+                    "respiratory_group_observed_in_block": bool(
+                        block.respiratory_group_observed_in_block
+                    ),
+                    "oxygenation_group_observed_in_block": bool(
+                        block.oxygenation_group_observed_in_block
+                    ),
+                    "covered_core_vital_group_count": int(block.covered_core_vital_group_count),
+                    "core_vital_coverage_sufficient": bool(block.core_vital_coverage_sufficient),
+                    "valid_instance": bool(block.valid_instance),
+                    "exclusion_reasons": invalid_reasons,
+                    "exclusion_reason": "; ".join(invalid_reasons) if invalid_reasons else pd.NA,
                 }
             )
 
@@ -197,12 +236,18 @@ def build_chapter1_valid_instances(
         "horizon_h",
         "future_window_end_h",
         "icu_end_time_proxy_hours",
-        "chapter1_feature_obs_count_in_block",
-        "has_chapter1_feature_data_in_block",
+        "mech_vent_ge_24h_qc",
+        "block_exists_structurally",
         "has_icu_end_time_proxy",
-        "prediction_before_icu_end",
-        "valid_for_label_generation",
+        "block_end_not_after_icu_end_proxy",
+        "cardiac_rate_group_observed_in_block",
+        "blood_pressure_group_observed_in_block",
+        "respiratory_group_observed_in_block",
+        "oxygenation_group_observed_in_block",
+        "covered_core_vital_group_count",
+        "core_vital_coverage_sufficient",
         "valid_instance",
+        "exclusion_reasons",
         "exclusion_reason",
     ]
 

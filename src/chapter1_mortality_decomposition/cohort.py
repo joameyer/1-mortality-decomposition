@@ -9,7 +9,11 @@ from chapter1_mortality_decomposition.config import (
     chapter1_group_definitions,
     default_chapter1_config,
 )
-from chapter1_mortality_decomposition.utils import normalize_binary_codes, require_columns
+from chapter1_mortality_decomposition.utils import (
+    normalize_binary_codes,
+    normalize_boolean_codes,
+    require_columns,
+)
 
 
 @dataclass(frozen=True)
@@ -44,6 +48,23 @@ def _chapter1_notes() -> pd.DataFrame:
                 ),
             },
             {
+                "note_id": "chapter1_adult_age_contract",
+                "category": "input_contract",
+                "note": (
+                    "Adult age >=18 is treated as a trusted upstream ASIC cohort contract and "
+                    "is not rederived in this standalone repo."
+                ),
+            },
+            {
+                "note_id": "chapter1_mech_vent_contract",
+                "category": "input_contract",
+                "note": (
+                    "Mechanical ventilation >=24h is verified upstream via the "
+                    "mech_vent_ge_24h_stay_level artifact and is enforced here as a required "
+                    "stay-level cohort gate."
+                ),
+            },
+            {
                 "note_id": "chapter1_site_restricted_cohort",
                 "category": "cohort_definition",
                 "note": (
@@ -68,20 +89,11 @@ def _chapter1_notes() -> pd.DataFrame:
                 ),
             },
             {
-                "note_id": "chapter1_missing_label_rule",
-                "category": "stay_eligibility_rule",
+                "note_id": "chapter1_split_unit_rule",
+                "category": "split_assumption",
                 "note": (
-                    "Stays with missing or unusable ICU mortality labels are excluded before "
-                    "instance generation."
-                ),
-            },
-            {
-                "note_id": "chapter1_pending_stay_filters",
-                "category": "caveat",
-                "note": (
-                    "Adult-age and mechanical-ventilation-duration stay restrictions are not "
-                    "yet enforced here because their standardized artifact columns are not yet "
-                    "fixed in this standalone repo."
+                    "ASIC lacks patient identifiers, so any downstream splitting remains "
+                    "effectively stay-level rather than patient-level."
                 ),
             },
         ]
@@ -91,6 +103,7 @@ def _chapter1_notes() -> pd.DataFrame:
 def _build_authoritative_cohort_from_standardized_inputs(
     static_harmonized: pd.DataFrame,
     stay_block_counts: pd.DataFrame,
+    mech_vent_stay_level_qc: pd.DataFrame,
 ) -> pd.DataFrame:
     require_columns(
         static_harmonized,
@@ -107,6 +120,11 @@ def _build_authoritative_cohort_from_standardized_inputs(
         },
         "stay_block_counts",
     )
+    require_columns(
+        mech_vent_stay_level_qc,
+        {"stay_id_global", "hospital_id", "mech_vent_ge_24h_qc"},
+        "mech_vent_stay_level_qc",
+    )
 
     cohort_df = static_harmonized[
         ["stay_id_global", "hospital_id", "icu_readmit", "icu_mortality", "icd10_codes"]
@@ -117,6 +135,7 @@ def _build_authoritative_cohort_from_standardized_inputs(
     cohort_df["icd10_codes"] = cohort_df["icd10_codes"].astype("string")
     cohort_df["readmission"] = pd.to_numeric(cohort_df["readmission"], errors="coerce")
     cohort_df["icu_mortality"] = pd.to_numeric(cohort_df["icu_mortality"], errors="coerce")
+    cohort_df["adult_age_ge_18_assumed_upstream"] = True
 
     if cohort_df["stay_id_global"].duplicated().any():
         duplicate_ids = (
@@ -142,7 +161,37 @@ def _build_authoritative_cohort_from_standardized_inputs(
         errors="coerce",
     )
 
-    return cohort_df.merge(block_summary, on="stay_id_global", how="left")
+    mech_vent_qc = mech_vent_stay_level_qc.copy()
+    mech_vent_qc["stay_id_global"] = mech_vent_qc["stay_id_global"].astype("string")
+    mech_vent_qc["hospital_id"] = mech_vent_qc["hospital_id"].astype("string")
+    if mech_vent_qc["stay_id_global"].duplicated().any():
+        duplicate_ids = (
+            mech_vent_qc.loc[
+                mech_vent_qc["stay_id_global"].duplicated(keep=False),
+                "stay_id_global",
+            ]
+            .dropna()
+            .drop_duplicates()
+            .tolist()[:10]
+        )
+        raise ValueError(
+            "mech_vent_ge_24h_stay_level must contain one row per stay_id_global. "
+            f"Duplicate IDs found: {duplicate_ids}"
+        )
+
+    mech_vent_qc["mech_vent_ge_24h_qc"] = normalize_boolean_codes(
+        mech_vent_qc["mech_vent_ge_24h_qc"]
+    )
+
+    return (
+        cohort_df.merge(block_summary, on="stay_id_global", how="left")
+        .merge(
+            mech_vent_qc,
+            on=["stay_id_global", "hospital_id"],
+            how="left",
+        )
+        .reset_index(drop=True)
+    )
 
 
 def _dynamic_stay_presence(dynamic_df: pd.DataFrame) -> pd.DataFrame:
@@ -190,7 +239,6 @@ def _build_chapter1_core_vital_group_coverage(
                 {
                     "hospital_id": hospital,
                     "physiologic_group": group_name,
-                    "required_for_inclusion": group_name != "core_temp_optional",
                     "candidate_variables": list(candidate_variables),
                     "satisfying_variables": satisfying_variables,
                     "group_usable": bool(satisfying_variables),
@@ -203,7 +251,6 @@ def _build_chapter1_core_vital_group_coverage(
         [
             "hospital_id",
             "physiologic_group",
-            "required_for_inclusion",
             "candidate_variables",
             "satisfying_variables",
             "group_usable",
@@ -212,10 +259,7 @@ def _build_chapter1_core_vital_group_coverage(
     )
     if coverage.empty:
         return coverage
-    return coverage.sort_values(
-        ["hospital_id", "required_for_inclusion", "physiologic_group"],
-        ascending=[True, False, True],
-    ).reset_index(drop=True)
+    return coverage.sort_values(["hospital_id", "physiologic_group"]).reset_index(drop=True)
 
 
 def _build_chapter1_site_eligibility(
@@ -232,12 +276,13 @@ def _build_chapter1_site_eligibility(
         hospital_stays["hospital_id"] = hospital
 
         outcome_numeric, outcome_codes = normalize_binary_codes(hospital_df["icu_mortality"])
-        outcome_non_null_count = int(outcome_numeric.notna().sum())
-        icu_mortality_available = outcome_non_null_count > 0
+        usable_icu_mortality_mask = outcome_numeric.isin([0, 1])
+        usable_icu_mortality_count = int(usable_icu_mortality_mask.sum())
+        icu_mortality_available = usable_icu_mortality_count > 0
         icu_mortality_verification_status = (
-            "harmonized_static_has_non_missing_icu_mortality"
+            "harmonized_static_has_usable_icu_mortality"
             if icu_mortality_available
-            else "harmonized_static_icu_mortality_all_missing"
+            else "harmonized_static_icu_mortality_missing_or_unusable"
         )
 
         hospital_dynamic_stays = hospital_stays.merge(
@@ -258,13 +303,12 @@ def _build_chapter1_site_eligibility(
             core_vital_group_coverage["hospital_id"] == hospital
         ]
         hospital_group_lookup = hospital_group_rows.set_index("physiologic_group")
-        required_group_rows = hospital_group_rows[hospital_group_rows["required_for_inclusion"]]
-        usable_core_vital_group_count = int(required_group_rows["group_usable"].sum())
+        usable_core_vital_group_count = int(hospital_group_rows["group_usable"].sum())
         core_vital_coverage_sufficient = (
             usable_core_vital_group_count >= config.min_required_core_groups
         )
         missing_core_vital_groups = (
-            required_group_rows.loc[~required_group_rows["group_usable"], "physiologic_group"]
+            hospital_group_rows.loc[~hospital_group_rows["group_usable"], "physiologic_group"]
             .astype("string")
             .tolist()
         )
@@ -285,7 +329,7 @@ def _build_chapter1_site_eligibility(
                         "stay_id_global",
                     ].nunique(dropna=True)
                 ),
-                "icu_mortality_non_null_count": outcome_non_null_count,
+                "icu_mortality_usable_count": usable_icu_mortality_count,
                 "icu_mortality_codes": outcome_codes,
                 "icu_mortality_verification_status": icu_mortality_verification_status,
                 "icu_mortality_available": icu_mortality_available,
@@ -305,10 +349,6 @@ def _build_chapter1_site_eligibility(
                     "oxygenation",
                     "satisfying_variables",
                 ],
-                "core_temp_optional_satisfied_by": hospital_group_lookup.at[
-                    "core_temp_optional",
-                    "satisfying_variables",
-                ],
                 "usable_core_vital_group_count": usable_core_vital_group_count,
                 "missing_core_vital_groups": missing_core_vital_groups,
                 "core_vitals_eligible": core_vital_coverage_sufficient,
@@ -324,7 +364,7 @@ def _build_chapter1_site_eligibility(
             "hospital_id",
             "site_stay_count",
             "stays_with_any_dynamic_data",
-            "icu_mortality_non_null_count",
+            "icu_mortality_usable_count",
             "icu_mortality_codes",
             "icu_mortality_verification_status",
             "icu_mortality_available",
@@ -332,7 +372,6 @@ def _build_chapter1_site_eligibility(
             "blood_pressure_satisfied_by",
             "respiratory_satisfied_by",
             "oxygenation_satisfied_by",
-            "core_temp_optional_satisfied_by",
             "usable_core_vital_group_count",
             "missing_core_vital_groups",
             "core_vitals_eligible",
@@ -351,14 +390,20 @@ def _build_chapter1_site_eligibility(
 
 
 def _summarize_chapter1_site_counts(site_eligibility: pd.DataFrame) -> pd.DataFrame:
-    included_count = int(site_eligibility["site_included_ch1"].sum()) if not site_eligibility.empty else 0
-    total_count = int(site_eligibility["hospital_id"].nunique(dropna=True)) if "hospital_id" in site_eligibility.columns else 0
+    included_count = (
+        int(site_eligibility["site_included_ch1"].sum()) if not site_eligibility.empty else 0
+    )
+    total_count = (
+        int(site_eligibility["hospital_id"].nunique(dropna=True))
+        if "hospital_id" in site_eligibility.columns
+        else 0
+    )
     excluded_count = total_count - included_count
     return pd.DataFrame(
         [
-            {"metric": "hospitals_before_site_level_exclusion", "value": total_count},
-            {"metric": "hospitals_after_site_level_exclusion", "value": included_count},
-            {"metric": "hospitals_excluded_at_site_level", "value": excluded_count},
+            {"metric": "input_hospitals", "value": total_count},
+            {"metric": "retained_hospitals", "value": included_count},
+            {"metric": "excluded_hospitals", "value": excluded_count},
         ]
     )
 
@@ -398,8 +443,20 @@ def _build_chapter1_stay_exclusions(
     stay_exclusions["site_exclusion_reasons"] = stay_exclusions["site_exclusion_reasons"].map(
         lambda value: value if isinstance(value, list) else []
     )
+    stay_exclusions["mech_vent_ge_24h_qc"] = normalize_boolean_codes(
+        stay_exclusions["mech_vent_ge_24h_qc"]
+    )
+
+    usable_icu_mortality = stay_exclusions["icu_mortality"].isin([0, 1])
 
     stay_exclusions["exclude_site_ineligible"] = ~stay_exclusions["site_included_ch1"]
+    stay_exclusions["exclude_missing_mech_vent_ge_24h_qc"] = (
+        stay_exclusions["site_included_ch1"] & stay_exclusions["mech_vent_ge_24h_qc"].isna()
+    )
+    stay_exclusions["exclude_mech_vent_ge_24h_qc_failed"] = (
+        stay_exclusions["site_included_ch1"]
+        & stay_exclusions["mech_vent_ge_24h_qc"].eq(False).fillna(False)
+    )
     stay_exclusions["exclude_no_dynamic_data"] = (
         stay_exclusions["site_included_ch1"] & ~stay_exclusions["has_dynamic_data"]
     )
@@ -410,16 +467,22 @@ def _build_chapter1_stay_exclusions(
         stay_exclusions["site_included_ch1"] & stay_exclusions["readmission"].eq(1).fillna(False)
     )
     stay_exclusions["exclude_missing_icu_mortality"] = (
-        stay_exclusions["site_included_ch1"] & stay_exclusions["icu_mortality"].isna()
+        stay_exclusions["site_included_ch1"] & ~usable_icu_mortality
     )
     stay_exclusions["first_stay_proxy_eligible"] = (
         stay_exclusions["site_included_ch1"] & stay_exclusions["readmission"].eq(0).fillna(False)
     )
+
     stay_exclusions["retain_after_site_level_exclusion"] = ~stay_exclusions[
         "exclude_site_ineligible"
     ]
-    stay_exclusions["retain_after_no_dynamic_data_exclusion"] = (
+    stay_exclusions["retain_after_mech_vent_ge_24h_qc_exclusion"] = (
         stay_exclusions["retain_after_site_level_exclusion"]
+        & ~stay_exclusions["exclude_missing_mech_vent_ge_24h_qc"]
+        & ~stay_exclusions["exclude_mech_vent_ge_24h_qc_failed"]
+    )
+    stay_exclusions["retain_after_no_dynamic_data_exclusion"] = (
+        stay_exclusions["retain_after_mech_vent_ge_24h_qc_exclusion"]
         & ~stay_exclusions["exclude_no_dynamic_data"]
     )
     stay_exclusions["retain_after_missing_readmission_exclusion"] = (
@@ -441,9 +504,17 @@ def _build_chapter1_stay_exclusions(
     for row in stay_exclusions.itertuples(index=False):
         reasons: list[str] = []
         if row.exclude_site_ineligible:
+            reasons.extend(
+                [f"site excluded: {reason}" for reason in row.site_exclusion_reasons]
+                or ["site excluded"]
+            )
             final_status.append("excluded_site")
             exclusion_reasons.append(reasons)
             continue
+        if row.exclude_missing_mech_vent_ge_24h_qc:
+            reasons.append("missing mech_vent_ge_24h_qc")
+        if row.exclude_mech_vent_ge_24h_qc_failed:
+            reasons.append("mechanical ventilation <24h by upstream QC")
         if row.exclude_no_dynamic_data:
             reasons.append("no dynamic data")
         if row.exclude_missing_readmission:
@@ -460,7 +531,7 @@ def _build_chapter1_stay_exclusions(
         lambda reasons: "; ".join(reasons) if reasons else pd.NA
     )
     stay_exclusions["final_ch1_status"] = pd.Series(final_status, index=stay_exclusions.index)
-    return stay_exclusions
+    return stay_exclusions.reset_index(drop=True)
 
 
 def _summarize_chapter1_counts_by_hospital(stay_exclusions: pd.DataFrame) -> pd.DataFrame:
@@ -472,6 +543,15 @@ def _summarize_chapter1_counts_by_hospital(stay_exclusions: pd.DataFrame) -> pd.
                 "authoritative_stays_before_site_exclusion": int(hospital_df.shape[0]),
                 "after_site_level_exclusion": int(
                     hospital_df["retain_after_site_level_exclusion"].sum()
+                ),
+                "after_mech_vent_ge_24h_qc_exclusion": int(
+                    hospital_df["retain_after_mech_vent_ge_24h_qc_exclusion"].sum()
+                ),
+                "excluded_missing_mech_vent_ge_24h_qc_stays": int(
+                    hospital_df["exclude_missing_mech_vent_ge_24h_qc"].sum()
+                ),
+                "excluded_mech_vent_ge_24h_qc_failed_stays": int(
+                    hospital_df["exclude_mech_vent_ge_24h_qc_failed"].sum()
                 ),
                 "after_no_dynamic_data_exclusion": int(
                     hospital_df["retain_after_no_dynamic_data_exclusion"].sum()
@@ -505,6 +585,9 @@ def _summarize_chapter1_counts_by_hospital(stay_exclusions: pd.DataFrame) -> pd.
             "hospital_id",
             "authoritative_stays_before_site_exclusion",
             "after_site_level_exclusion",
+            "after_mech_vent_ge_24h_qc_exclusion",
+            "excluded_missing_mech_vent_ge_24h_qc_stays",
+            "excluded_mech_vent_ge_24h_qc_failed_stays",
             "after_no_dynamic_data_exclusion",
             "excluded_no_dynamic_data_stays",
             "after_missing_readmission_exclusion",
@@ -531,6 +614,9 @@ def _summarize_chapter1_stay_exclusions_by_hospital(stay_exclusions: pd.DataFram
                 "after_site_level_exclusion": int(
                     hospital_df["retain_after_site_level_exclusion"].sum()
                 ),
+                "after_mech_vent_ge_24h_qc_exclusion": int(
+                    hospital_df["retain_after_mech_vent_ge_24h_qc_exclusion"].sum()
+                ),
                 "after_no_dynamic_data_exclusion": int(
                     hospital_df["retain_after_no_dynamic_data_exclusion"].sum()
                 ),
@@ -540,8 +626,16 @@ def _summarize_chapter1_stay_exclusions_by_hospital(stay_exclusions: pd.DataFram
                 "after_readmission_flagged_exclusion": int(
                     hospital_df["retain_after_readmission_flagged_exclusion"].sum()
                 ),
-                "after_missing_icu_mortality_exclusion": int(hospital_df["final_retained_ch1"].sum()),
+                "after_missing_icu_mortality_exclusion": int(
+                    hospital_df["final_retained_ch1"].sum()
+                ),
                 "final_retained_stays": int(hospital_df["final_retained_ch1"].sum()),
+                "excluded_missing_mech_vent_ge_24h_qc_stays": int(
+                    hospital_df["exclude_missing_mech_vent_ge_24h_qc"].sum()
+                ),
+                "excluded_mech_vent_ge_24h_qc_failed_stays": int(
+                    hospital_df["exclude_mech_vent_ge_24h_qc_failed"].sum()
+                ),
                 "excluded_no_dynamic_data_stays": int(hospital_df["exclude_no_dynamic_data"].sum()),
                 "excluded_missing_readmission_stays": int(
                     hospital_df["exclude_missing_readmission"].sum()
@@ -561,11 +655,14 @@ def _summarize_chapter1_stay_exclusions_by_hospital(stay_exclusions: pd.DataFram
             "hospital_id",
             "before_site_level_exclusion",
             "after_site_level_exclusion",
+            "after_mech_vent_ge_24h_qc_exclusion",
             "after_no_dynamic_data_exclusion",
             "after_missing_readmission_exclusion",
             "after_readmission_flagged_exclusion",
             "after_missing_icu_mortality_exclusion",
             "final_retained_stays",
+            "excluded_missing_mech_vent_ge_24h_qc_stays",
+            "excluded_mech_vent_ge_24h_qc_failed_stays",
             "excluded_no_dynamic_data_stays",
             "excluded_missing_readmission_stays",
             "excluded_readmission_flagged_stays",
@@ -581,6 +678,7 @@ def build_chapter1_cohort(
     static_harmonized: pd.DataFrame,
     dynamic_harmonized: pd.DataFrame,
     stay_block_counts: pd.DataFrame,
+    mech_vent_stay_level_qc: pd.DataFrame,
     config: Chapter1Config | None = None,
 ) -> Chapter1CohortResult:
     config = config or default_chapter1_config()
@@ -588,6 +686,7 @@ def build_chapter1_cohort(
     cohort_df = _build_authoritative_cohort_from_standardized_inputs(
         static_harmonized,
         stay_block_counts,
+        mech_vent_stay_level_qc,
     )
     core_vital_group_coverage, site_eligibility = _build_chapter1_site_eligibility(
         cohort_df,
@@ -608,7 +707,7 @@ def build_chapter1_cohort(
         site_eligibility["site_included_ch1"],
         ["hospital_id"],
     ].reset_index(drop=True)
-    retained_stays = stay_exclusions.loc[
+    retained_table = stay_exclusions.loc[
         stay_exclusions["retain_in_chapter1"],
         [
             "stay_id_global",
@@ -620,19 +719,21 @@ def build_chapter1_cohort(
             "icu_end_time_proxy",
             "icu_end_time_proxy_hours",
             "has_dynamic_data",
+            "mech_vent_ge_24h_qc",
+            "adult_age_ge_18_assumed_upstream",
             "first_stay_proxy_eligible",
         ],
     ].reset_index(drop=True)
 
     return Chapter1CohortResult(
-        table=retained_stays,
+        table=retained_table,
         notes=_chapter1_notes(),
         core_vital_group_coverage=core_vital_group_coverage,
         site_eligibility=site_eligibility,
         site_counts_summary=site_counts_summary,
-        stay_exclusions=stay_exclusions.reset_index(drop=True),
+        stay_exclusions=stay_exclusions,
         stay_exclusion_summary_by_hospital=stay_exclusion_summary_by_hospital,
         counts_by_hospital=counts_by_hospital,
         retained_hospitals=retained_hospitals,
-        retained_stays=retained_stays[["stay_id_global", "hospital_id"]].reset_index(drop=True),
+        retained_stays=retained_table[["stay_id_global", "hospital_id"]].reset_index(drop=True),
     )

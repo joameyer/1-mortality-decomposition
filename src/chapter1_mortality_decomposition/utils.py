@@ -40,6 +40,24 @@ def require_columns(df: pd.DataFrame, required_columns: set[str], table_name: st
         raise KeyError(f"{table_name} is missing required Chapter 1 columns: {missing}")
 
 
+def normalize_boolean_codes(series: pd.Series) -> pd.Series:
+    string_values = series.astype("string").str.strip().str.lower()
+    mapped = string_values.map(
+        {
+            "true": True,
+            "false": False,
+            "1": True,
+            "0": False,
+            "yes": True,
+            "no": False,
+        }
+    )
+
+    numeric_values = pd.to_numeric(series, errors="coerce")
+    mapped = mapped.where(mapped.notna(), numeric_values.map({1.0: True, 0.0: False}))
+    return pd.Series(pd.array(mapped, dtype="boolean"), index=series.index)
+
+
 def normalize_binary_codes(series: pd.Series) -> tuple[pd.Series, list[str]]:
     numeric = pd.to_numeric(series, errors="coerce")
     unique_codes = (

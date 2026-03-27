@@ -101,7 +101,6 @@ def chapter1_group_definitions() -> dict[str, tuple[str, ...]]:
         "blood_pressure": ("map", "sbp", "dbp"),
         "respiratory": ("resp_rate",),
         "oxygenation": ("spo2", "sao2"),
-        "core_temp_optional": ("core_temp",),
     }
 
 
