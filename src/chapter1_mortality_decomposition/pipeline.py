@@ -32,6 +32,10 @@ from chapter1_mortality_decomposition.model_ready import (
     Chapter1ModelReadyResult,
     build_chapter1_model_ready_dataset,
 )
+from chapter1_mortality_decomposition.splits import (
+    Chapter1StaySplitResult,
+    build_chapter1_stay_splits,
+)
 from chapter1_mortality_decomposition.utils import write_dataframe
 
 
@@ -40,6 +44,7 @@ class Chapter1Dataset:
     cohort: Chapter1CohortResult
     valid_instances: Chapter1ValidInstanceResult
     labels: Chapter1LabelResult
+    stay_splits: Chapter1StaySplitResult
     cohort_summary: pd.DataFrame
     verification_summary: pd.DataFrame
     feature_set_definition: pd.DataFrame
@@ -219,6 +224,10 @@ def build_chapter1_dataset(
         valid_instances=valid_instances.valid_instances,
         retained_cohort=cohort.table,
     )
+    stay_splits = build_chapter1_stay_splits(
+        retained_cohort=cohort.table,
+        config=config,
+    )
     cohort_summary = _build_chapter1_cohort_summary(cohort, valid_instances, labels)
     verification_summary = _build_chapter1_verification_summary(cohort, valid_instances, labels)
 
@@ -239,6 +248,9 @@ def build_chapter1_dataset(
             blocked_dynamic_features=inputs.blocked_dynamic_features,
             feature_set_definition=feature_set_subset,
             feature_set_name=feature_set_name,
+            mech_vent_episode_level=inputs.mech_vent_episode_level,
+            stay_split_assignments=stay_splits.stay_assignments,
+            config=config,
         )
         feature_sets[feature_set_name] = Chapter1FeatureSetDataset(
             feature_set_name=feature_set_name,
@@ -248,6 +260,7 @@ def build_chapter1_dataset(
         cohort=cohort,
         valid_instances=valid_instances,
         labels=labels,
+        stay_splits=stay_splits,
         cohort_summary=cohort_summary,
         verification_summary=verification_summary,
         feature_set_definition=feature_set_definition,
@@ -298,12 +311,18 @@ def write_chapter1_dataset(
         "chapter1_proxy_unlabeled_reason_summary": dataset.labels.unlabeled_reason_summary,
         "chapter1_proxy_label_notes": dataset.labels.notes,
     }
+    split_outputs = {
+        "chapter1_stay_split_assignments": dataset.stay_splits.stay_assignments,
+        "chapter1_stay_split_summary": dataset.stay_splits.stay_summary,
+        "chapter1_stay_split_verification_summary": dataset.stay_splits.verification_summary,
+    }
 
     for group_name, outputs in {
         "cohort": cohort_outputs,
         "feature_sets": feature_set_outputs,
         "instances": instance_outputs,
         "labels": label_outputs,
+        "splits": split_outputs,
     }.items():
         for name, df in outputs.items():
             path = output_dir / group_name / f"{name}.{extension}"
@@ -321,9 +340,43 @@ def write_chapter1_dataset(
                 feature_set_dataset.model_ready.feature_availability_by_horizon
             ),
         }
+        carry_forward_outputs = {
+            f"chapter1_{feature_set_name}_locf_feature_summary": (
+                feature_set_dataset.model_ready.locf_feature_summary
+            ),
+            f"chapter1_{feature_set_name}_ventilator_locf_summary": (
+                feature_set_dataset.model_ready.ventilator_locf_summary
+            ),
+            f"chapter1_{feature_set_name}_missingness_by_hospital_and_family": (
+                feature_set_dataset.model_ready.missingness_by_hospital_and_family
+            ),
+            f"chapter1_{feature_set_name}_carry_forward_verification_summary": (
+                feature_set_dataset.model_ready.carry_forward_verification_summary
+            ),
+        }
+        split_model_ready_outputs = {
+            f"chapter1_{feature_set_name}_split_summary": feature_set_dataset.model_ready.split_summary,
+            f"chapter1_{feature_set_name}_split_verification_summary": (
+                feature_set_dataset.model_ready.split_verification_summary
+            ),
+        }
         for name, df in model_ready_outputs.items():
             path = output_dir / "model_ready" / f"{name}.{extension}"
             output_paths[f"model_ready_{name}"] = write_dataframe(
+                df,
+                path,
+                output_format=output_format,
+            )
+        for name, df in split_model_ready_outputs.items():
+            path = output_dir / "splits" / f"{name}.{extension}"
+            output_paths[f"splits_{name}"] = write_dataframe(
+                df,
+                path,
+                output_format=output_format,
+            )
+        for name, df in carry_forward_outputs.items():
+            path = output_dir / "carry_forward" / f"{name}.{extension}"
+            output_paths[f"carry_forward_{name}"] = write_dataframe(
                 df,
                 path,
                 output_format=output_format,

@@ -19,6 +19,7 @@ class Chapter1InputTables:
     blocked_dynamic_features: pd.DataFrame
     stay_block_counts: pd.DataFrame
     mech_vent_stay_level_qc: pd.DataFrame
+    mech_vent_episode_level: pd.DataFrame
 
 
 def load_chapter1_inputs(
@@ -38,6 +39,9 @@ def load_chapter1_inputs(
         "mech_vent_stay_level_qc": (
             input_dir / "qc" / f"mech_vent_ge_24h_stay_level.{extension}"
         ),
+        "mech_vent_episode_level": (
+            input_dir / "qc" / f"mech_vent_ge_24h_episode_level.{extension}"
+        ),
     }
 
     missing_paths = [str(path) for path in required_paths.values() if not path.exists()]
@@ -54,4 +58,5 @@ def load_chapter1_inputs(
         blocked_dynamic_features=read_dataframe(required_paths["blocked_dynamic_features"]),
         stay_block_counts=read_dataframe(required_paths["stay_block_counts"]),
         mech_vent_stay_level_qc=read_dataframe(required_paths["mech_vent_stay_level_qc"]),
+        mech_vent_episode_level=read_dataframe(required_paths["mech_vent_episode_level"]),
     )

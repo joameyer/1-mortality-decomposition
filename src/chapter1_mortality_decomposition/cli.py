@@ -52,6 +52,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         help="Minimum required core physiologic groups for site inclusion.",
     )
+    parser.add_argument(
+        "--split-random-seed",
+        type=int,
+        help="Override the stay-level train/validation/test split seed.",
+    )
     return parser
 
 
@@ -77,12 +82,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.min_required_core_groups is not None
         else (run_config.min_required_core_groups if run_config else 3)
     )
+    split_random_seed = (
+        args.split_random_seed
+        if args.split_random_seed is not None
+        else (run_config.split_random_seed if run_config else None)
+    )
     feature_set_config_path = run_config.feature_set_config_path if run_config else None
 
     config = updated_chapter1_config(
         default_chapter1_config(),
         horizons_hours=horizons,
         min_required_core_groups=min_required_core_groups,
+        split_random_seed=split_random_seed,
         feature_set_config_path=feature_set_config_path,
     )
     dataset, output_paths = build_and_write_chapter1_dataset(
@@ -97,6 +108,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"Retained stays: {dataset.cohort.table.shape[0]}")
     print(f"Valid prediction instances: {dataset.valid_instances.valid_instances.shape[0]}")
     print(f"Usable proxy labels: {dataset.labels.usable_labels.shape[0]}")
+    split_summary = dataset.stay_splits.stay_summary
+    overall_split_summary = split_summary[split_summary["summary_level"].eq("overall")]
+    for split_name in ("train", "validation", "test"):
+        split_rows = overall_split_summary[overall_split_summary["split"].eq(split_name)]
+        stay_count = int(split_rows["stay_count"].iloc[0]) if not split_rows.empty else 0
+        print(f"{split_name} stays: {stay_count}")
     for feature_set_name, feature_set_dataset in dataset.feature_sets.items():
         print(
             f"{feature_set_name} model-ready rows: "

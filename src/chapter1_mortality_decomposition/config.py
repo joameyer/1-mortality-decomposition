@@ -20,6 +20,7 @@ class Chapter1Config:
     feature_statistics: tuple[str, ...]
     horizons_hours: tuple[int, ...]
     min_required_core_groups: int = 3
+    split_random_seed: int = 20260327
     feature_set_config_path: Path = DEFAULT_CHAPTER1_FEATURE_SET_CONFIG_PATH
 
 
@@ -82,6 +83,7 @@ def updated_chapter1_config(
     *,
     horizons_hours: Iterable[int] | None = None,
     min_required_core_groups: int | None = None,
+    split_random_seed: int | None = None,
     feature_set_config_path: Path | None = None,
 ) -> Chapter1Config:
     config = config or default_chapter1_config()
@@ -90,6 +92,8 @@ def updated_chapter1_config(
         replacements["horizons_hours"] = normalize_horizons_hours(horizons_hours)
     if min_required_core_groups is not None:
         replacements["min_required_core_groups"] = int(min_required_core_groups)
+    if split_random_seed is not None:
+        replacements["split_random_seed"] = int(split_random_seed)
     if feature_set_config_path is not None:
         replacements["feature_set_config_path"] = Path(feature_set_config_path)
     return replace(config, **replacements)

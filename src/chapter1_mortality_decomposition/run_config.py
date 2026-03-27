@@ -27,6 +27,7 @@ class Chapter1RunConfig:
     output_format: str
     horizons_hours: tuple[int, ...]
     min_required_core_groups: int
+    split_random_seed: int
     feature_set_config_path: Path
     run_config_path: Path
 
@@ -35,6 +36,7 @@ class Chapter1RunConfig:
             default_chapter1_config(),
             horizons_hours=self.horizons_hours,
             min_required_core_groups=self.min_required_core_groups,
+            split_random_seed=self.split_random_seed,
             feature_set_config_path=self.feature_set_config_path,
         )
 
@@ -76,6 +78,7 @@ def load_chapter1_run_config(
     min_required_core_groups = int(payload.get("min_required_core_groups", 3))
     if min_required_core_groups <= 0:
         raise ValueError("min_required_core_groups must be a positive integer.")
+    split_random_seed = int(payload.get("split_random_seed", 20260327))
 
     return Chapter1RunConfig(
         input_dir=_resolve_repo_path(input_dir_value),
@@ -92,6 +95,7 @@ def load_chapter1_run_config(
         ),
         horizons_hours=normalize_horizons_hours(payload.get("horizons_hours")),
         min_required_core_groups=min_required_core_groups,
+        split_random_seed=split_random_seed,
         feature_set_config_path=_resolve_repo_path(
             payload.get("feature_set_config_path", DEFAULT_CHAPTER1_FEATURE_SET_CONFIG_PATH)
         ),

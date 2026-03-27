@@ -10,6 +10,7 @@ It starts from standardized upstream ASIC artifacts only:
 - `blocked/asic_8h_blocked_dynamic_features.{csv|parquet}`
 - `blocked/asic_8h_stay_block_counts.{csv|parquet}`
 - `qc/mech_vent_ge_24h_stay_level.{csv|parquet}`
+- `qc/mech_vent_ge_24h_episode_level.{csv|parquet}`
 
 It does not depend on raw ASIC source tables or on `icu-data-platform` internals.
 
@@ -23,6 +24,7 @@ This repo owns Chapter 1-specific analytic preprocessing:
 - valid-instance generation
 - Chapter 1 feature-set configuration via `config/ch1_feature_sets.json`
 - proxy within-horizon in-ICU mortality label generation
+- bounded preprocessing-time carry-forward and missingness handling
 - model-ready dataset construction
 - Chapter 1 QC and readiness summaries
 
@@ -48,6 +50,7 @@ What is explicitly assumed upstream by the current code:
 - harmonized static and dynamic ASIC artifacts already exist
 - generic 8-hour blocked ASIC artifacts already exist
 - upstream QC provides `qc/mech_vent_ge_24h_stay_level.{csv|parquet}` with `mech_vent_ge_24h_qc`
+- upstream QC provides `qc/mech_vent_ge_24h_episode_level.{csv|parquet}` for ventilation-supported episode windows
 
 What is enforced in this repo today:
 
@@ -56,6 +59,7 @@ What is enforced in this repo today:
 - stay-level dynamic-data / readmission / missing-or-unusable-label exclusions
 - valid-instance construction from generic blocks using block structure, ICU-end proxy, and 3-of-4 core-group coverage within each block
 - proxy within-horizon labelability and model-ready export construction
+- bounded preprocessing-time LOCF on configured feature families, with missingness indicators and ventilator-variable LOCF restricted to upstream ventilation-supported windows
 
 What remains unresolved:
 
@@ -84,6 +88,7 @@ The canonical implementation lives in [`src/chapter1_mortality_decomposition`](/
 - [`cohort.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/cohort.py): site and stay exclusions
 - [`instances.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/instances.py): valid prediction instances
 - [`labels.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/labels.py): proxy within-horizon label logic
+- [`splits.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/splits.py): canonical stay-level train/validation/test split assignment and balance summaries
 - [`model_ready.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/model_ready.py): model-ready assembly and readiness summaries
 - [`pipeline.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/pipeline.py): end-to-end orchestration
 - [`cli.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/cli.py): runnable entrypoint
@@ -108,6 +113,32 @@ The same config artifact is used for:
 - feature availability and missingness summaries
 
 The runtime input and output paths for local execution are defined in [`config/ch1_run_config.json`](/Users/joanameyer/repository/1-mortality-decomposition/config/ch1_run_config.json). Both the notebook runbook and the CLI can read this shared run config.
+
+## Carry-Forward Policy
+
+Chapter 1 preprocessing exports are bounded-LOCF and missingness-aware.
+
+- bounded LOCF is applied only to prespecified feature families
+- `obs_count` columns remain raw and are not carried forward
+- value-summary columns remain missing when no valid carry-forward source exists
+- ventilator variables are only carried forward inside upstream ventilation-supported episode windows
+- missingness indicator columns are added so downstream modeling can distinguish observed values, LOCF-filled values, and values still missing after preprocessing
+- final imputation is intentionally deferred to downstream modeling and must be fit on the training split only
+
+No global median imputation or other final imputation is applied in the exported Chapter 1 model-ready tables.
+
+## Split Strategy
+
+Chapter 1 now includes a canonical stay-level split path driven by the retained stay cohort artifact.
+
+- split source: the canonical retained Chapter 1 stay cohort
+- split unit: `stay_id_global`
+- primary design: `70%` train, `15%` validation, `15%` test
+- hospital balance: stays are split within each retained hospital, then pooled
+- outcome handling: stay-level `icu_mortality` is used for within-hospital stratification as far as feasible
+- reproducibility: the split seed is versioned in [`config/ch1_run_config.json`](/Users/joanameyer/repository/1-mortality-decomposition/config/ch1_run_config.json) as `split_random_seed`
+
+Because ASIC lacks patient identifiers, this remains operationally a stay-level split after readmission-based proxy first-stay filtering. Small hospital-specific strata may prevent exact `70/15/15` and exact within-hospital outcome balance, so the repo writes explicit split-balance summaries rather than assuming perfect stratification.
 
 ## Quick Start
 
@@ -147,13 +178,15 @@ PYTHONPATH=src python -m chapter1_mortality_decomposition \
 
 ## Outputs
 
-The pipeline writes four output groups under the chosen output directory:
+The pipeline writes seven output groups under the chosen output directory:
 
 - `cohort/`: site eligibility, stay exclusions, retained stays, cohort notes, canonical cohort summary, and verification summary
 - `feature_sets/`: combined feature-set definition table and validation summary
 - `instances/`: canonical candidate instances, valid instances, and exclusion summaries
 - `labels/`: canonical proxy horizon label tables, horizon summaries, unlabeled-reason summaries, and notes
+- `carry_forward/`: feature-level LOCF summaries, ventilator-window QC, missingness before/after LOCF summaries, and carry-forward verification tables
 - `model_ready/`: feature-set-specific model-ready datasets, readiness summaries, and missingness summaries
+- `splits/`: stay-level split assignments, split verification, and split-balance summaries for both the retained stay cohort and the feature-set-specific model-ready tables
 
 ## Tests
 
@@ -167,5 +200,5 @@ python -m unittest discover -s tests -v
 
 ## Known Follow-Up
 
-- Downstream train/validation/test split artifacts are still separate from this preprocessing layer.
-- Because ASIC has no patient identifiers, any downstream splitting remains effectively stay-level.
+- Because ASIC has no patient identifiers, the split strategy cannot be patient-level.
+- Split balance is only approximate within very small hospital/outcome strata, so downstream modeling should read the written split summaries rather than assuming exact `70/15/15` in every subgroup.

@@ -17,7 +17,12 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from chapter1_mortality_decomposition.artifacts import Chapter1InputTables
+from chapter1_mortality_decomposition.config import (
+    default_chapter1_config,
+    updated_chapter1_config,
+)
 from chapter1_mortality_decomposition.pipeline import build_chapter1_dataset
+from chapter1_mortality_decomposition.splits import build_chapter1_stay_splits
 
 
 def build_synthetic_inputs() -> Chapter1InputTables:
@@ -290,6 +295,18 @@ def build_synthetic_inputs() -> Chapter1InputTables:
                 "resp_rate_mean": 18,
                 "spo2_obs_count": 1,
                 "spo2_mean": 97,
+                "fio2_obs_count": 1,
+                "fio2_mean": 40,
+                "fio2_median": 40,
+                "fio2_min": 40,
+                "fio2_max": 40,
+                "fio2_last": 40,
+                "albumin_obs_count": 1,
+                "albumin_mean": 3.1,
+                "albumin_median": 3.1,
+                "albumin_min": 3.1,
+                "albumin_max": 3.1,
+                "albumin_last": 3.1,
                 "pct_obs_count": 1,
                 "pct_mean": 0.5,
             },
@@ -300,14 +317,30 @@ def build_synthetic_inputs() -> Chapter1InputTables:
                 "block_start_h": 8,
                 "block_end_h": 16,
                 "prediction_time_h": 16,
-                "heart_rate_obs_count": 1,
-                "heart_rate_mean": 92,
+                "heart_rate_obs_count": 0,
+                "heart_rate_mean": pd.NA,
+                "heart_rate_median": pd.NA,
+                "heart_rate_min": pd.NA,
+                "heart_rate_max": pd.NA,
+                "heart_rate_last": pd.NA,
                 "map_obs_count": 1,
                 "map_mean": 68,
                 "resp_rate_obs_count": 1,
                 "resp_rate_mean": 24,
                 "spo2_obs_count": 1,
                 "spo2_mean": 94,
+                "fio2_obs_count": 0,
+                "fio2_mean": pd.NA,
+                "fio2_median": pd.NA,
+                "fio2_min": pd.NA,
+                "fio2_max": pd.NA,
+                "fio2_last": pd.NA,
+                "albumin_obs_count": 0,
+                "albumin_mean": pd.NA,
+                "albumin_median": pd.NA,
+                "albumin_min": pd.NA,
+                "albumin_max": pd.NA,
+                "albumin_last": pd.NA,
                 "pct_obs_count": 1,
                 "pct_mean": 0.7,
             },
@@ -390,6 +423,12 @@ def build_synthetic_inputs() -> Chapter1InputTables:
                 "resp_rate_mean": pd.NA,
                 "spo2_obs_count": 0,
                 "spo2_mean": pd.NA,
+                "fio2_obs_count": 1,
+                "fio2_mean": 35,
+                "fio2_median": 35,
+                "fio2_min": 35,
+                "fio2_max": 35,
+                "fio2_last": 35,
             },
             {
                 "stay_id_global": "stay_g",
@@ -406,6 +445,12 @@ def build_synthetic_inputs() -> Chapter1InputTables:
                 "resp_rate_mean": 15,
                 "spo2_obs_count": 1,
                 "spo2_mean": 99,
+                "fio2_obs_count": 0,
+                "fio2_mean": pd.NA,
+                "fio2_median": pd.NA,
+                "fio2_min": pd.NA,
+                "fio2_max": pd.NA,
+                "fio2_last": pd.NA,
             },
             {
                 "stay_id_global": "stay_h",
@@ -441,6 +486,83 @@ def build_synthetic_inputs() -> Chapter1InputTables:
         ]
     )
 
+    mech_vent_episode_level = pd.DataFrame(
+        [
+            {
+                "stay_id_global": "stay_a",
+                "hospital_id": "H1",
+                "episode_index": 1,
+                "episode_start_time": "0 days 00:00:00",
+                "episode_end_time": "1 days 00:00:00",
+                "episode_duration_hours": 24.0,
+                "ventilation_supported_timestamp_count_in_episode": 6,
+            },
+            {
+                "stay_id_global": "stay_b",
+                "hospital_id": "H1",
+                "episode_index": 1,
+                "episode_start_time": "0 days 00:00:00",
+                "episode_end_time": "1 days 06:00:00",
+                "episode_duration_hours": 30.0,
+                "ventilation_supported_timestamp_count_in_episode": 6,
+            },
+            {
+                "stay_id_global": "stay_c",
+                "hospital_id": "H1",
+                "episode_index": 1,
+                "episode_start_time": "0 days 00:00:00",
+                "episode_end_time": "1 days 06:00:00",
+                "episode_duration_hours": 30.0,
+                "ventilation_supported_timestamp_count_in_episode": 6,
+            },
+            {
+                "stay_id_global": "stay_d",
+                "hospital_id": "H2",
+                "episode_index": 1,
+                "episode_start_time": "0 days 00:00:00",
+                "episode_end_time": "1 days 06:00:00",
+                "episode_duration_hours": 30.0,
+                "ventilation_supported_timestamp_count_in_episode": 6,
+            },
+            {
+                "stay_id_global": "stay_e",
+                "hospital_id": "H1",
+                "episode_index": 1,
+                "episode_start_time": "0 days 00:00:00",
+                "episode_end_time": "1 days 06:00:00",
+                "episode_duration_hours": 30.0,
+                "ventilation_supported_timestamp_count_in_episode": 6,
+            },
+            {
+                "stay_id_global": "stay_f",
+                "hospital_id": "H1",
+                "episode_index": 1,
+                "episode_start_time": "0 days 00:00:00",
+                "episode_end_time": "1 days 06:00:00",
+                "episode_duration_hours": 30.0,
+                "ventilation_supported_timestamp_count_in_episode": 6,
+            },
+            {
+                "stay_id_global": "stay_g",
+                "hospital_id": "H1",
+                "episode_index": 1,
+                "episode_start_time": "0 days 00:00:00",
+                "episode_end_time": "0 days 08:00:00",
+                "episode_duration_hours": 8.0,
+                "ventilation_supported_timestamp_count_in_episode": 3,
+            },
+            {
+                "stay_id_global": "stay_h",
+                "hospital_id": "H1",
+                "episode_index": 1,
+                "episode_start_time": "0 days 00:00:00",
+                "episode_end_time": "0 days 16:00:00",
+                "episode_duration_hours": 16.0,
+                "ventilation_supported_timestamp_count_in_episode": 4,
+            },
+        ]
+    )
+
     return Chapter1InputTables(
         static_harmonized=static_harmonized,
         dynamic_harmonized=dynamic_harmonized,
@@ -448,6 +570,7 @@ def build_synthetic_inputs() -> Chapter1InputTables:
         blocked_dynamic_features=blocked_dynamic_features,
         stay_block_counts=stay_block_counts,
         mech_vent_stay_level_qc=mech_vent_stay_level_qc,
+        mech_vent_episode_level=mech_vent_episode_level,
     )
 
 
@@ -472,6 +595,10 @@ def write_standardized_inputs(base_dir: Path, inputs: Chapter1InputTables) -> No
         base_dir / "qc" / "mech_vent_ge_24h_stay_level.csv",
         index=False,
     )
+    inputs.mech_vent_episode_level.to_csv(
+        base_dir / "qc" / "mech_vent_ge_24h_episode_level.csv",
+        index=False,
+    )
 
 
 def write_run_config(path: Path, *, input_dir: Path, output_dir: Path) -> None:
@@ -485,6 +612,7 @@ def write_run_config(path: Path, *, input_dir: Path, output_dir: Path) -> None:
                 "feature_set_config_path": "config/ch1_feature_sets.json",
                 "horizons_hours": [8, 16, 24, 48, 72],
                 "min_required_core_groups": 3,
+                "split_random_seed": 20260327,
             },
             indent=2,
         )
@@ -492,6 +620,66 @@ def write_run_config(path: Path, *, input_dir: Path, output_dir: Path) -> None:
 
 
 class Chapter1PreprocessingTest(unittest.TestCase):
+    def test_build_chapter1_stay_splits_stratifies_within_hospital_as_feasible(self) -> None:
+        retained_cohort = pd.DataFrame(
+            [
+                {
+                    "stay_id_global": f"H1_stay_{index:02d}",
+                    "hospital_id": "H1",
+                    "icu_mortality": 1 if index < 4 else 0,
+                }
+                for index in range(10)
+            ]
+            + [
+                {
+                    "stay_id_global": f"H2_stay_{index:02d}",
+                    "hospital_id": "H2",
+                    "icu_mortality": 1 if index < 3 else 0,
+                }
+                for index in range(9)
+            ]
+        )
+        config = updated_chapter1_config(
+            default_chapter1_config(),
+            split_random_seed=11,
+        )
+
+        split_result = build_chapter1_stay_splits(retained_cohort, config=config)
+
+        assignment_counts = split_result.stay_assignments["split"].value_counts().to_dict()
+        self.assertEqual(
+            int(split_result.stay_assignments["stay_id_global"].nunique()),
+            retained_cohort.shape[0],
+        )
+        self.assertEqual(assignment_counts["train"], 13)
+        self.assertEqual(assignment_counts["validation"], 4)
+        self.assertEqual(assignment_counts["test"], 2)
+        self.assertTrue(
+            split_result.verification_summary.set_index("check_id").loc[
+                "no_stay_in_more_than_one_split",
+                "passed",
+            ]
+        )
+        self.assertTrue(
+            split_result.verification_summary.set_index("check_id").loc[
+                "all_retained_stays_assigned_to_split",
+                "passed",
+            ]
+        )
+
+        overall_summary = split_result.stay_summary[
+            split_result.stay_summary["summary_level"].eq("overall")
+        ].set_index("split")
+        self.assertEqual(int(overall_summary.at["train", "stay_count"]), 13)
+        self.assertEqual(int(overall_summary.at["validation", "stay_count"]), 4)
+        self.assertEqual(int(overall_summary.at["test", "stay_count"]), 2)
+        self.assertAlmostEqual(float(overall_summary.at["train", "actual_proportion"]), 13 / 19)
+        self.assertAlmostEqual(
+            float(overall_summary.at["validation", "actual_proportion"]),
+            4 / 19,
+        )
+        self.assertAlmostEqual(float(overall_summary.at["test", "actual_proportion"]), 2 / 19)
+
     def test_build_chapter1_dataset_end_to_end(self) -> None:
         dataset = build_chapter1_dataset(build_synthetic_inputs())
 
@@ -521,12 +709,29 @@ class Chapter1PreprocessingTest(unittest.TestCase):
         self.assertEqual(dataset.feature_sets["extended"].model_ready.table.shape[0], 12)
         self.assertNotIn("pct_obs_count", dataset.feature_sets["primary"].model_ready.table.columns)
         self.assertIn("pct_obs_count", dataset.feature_sets["extended"].model_ready.table.columns)
+        self.assertEqual(
+            set(dataset.stay_splits.stay_assignments["stay_id_global"].tolist()),
+            retained_stays,
+        )
+        self.assertEqual(
+            set(dataset.stay_splits.stay_assignments["split"].tolist()),
+            {"train"},
+        )
+        split_verification = dataset.stay_splits.verification_summary.set_index("check_id")[
+            "passed"
+        ]
+        self.assertTrue(bool(split_verification["no_stay_in_more_than_one_split"]))
+        self.assertTrue(bool(split_verification["all_retained_stays_assigned_to_split"]))
 
         validation_summary = dataset.feature_set_validation_summary.set_index("feature_set_name")
         self.assertEqual(validation_summary.at["primary", "primary_feature_count"], 31)
         self.assertEqual(validation_summary.at["primary", "extended_only_feature_count"], 15)
         self.assertEqual(validation_summary.at["primary", "total_extended_feature_count"], 46)
         self.assertIn(
+            "peep",
+            validation_summary.at["primary", "missing_from_blocked_schema_features"],
+        )
+        self.assertNotIn(
             "fio2",
             validation_summary.at["primary", "missing_from_blocked_schema_features"],
         )
@@ -572,6 +777,91 @@ class Chapter1PreprocessingTest(unittest.TestCase):
         self.assertEqual(summary_by_horizon.at[8, "negative_labels"], 1)
         self.assertEqual(summary_by_horizon.at[8, "unlabeled_instances"], 1)
         self.assertEqual(summary_by_horizon.at[72, "labelable_instances"], 2)
+
+        for feature_set_name in ("primary", "extended"):
+            model_ready = dataset.feature_sets[feature_set_name].model_ready.table
+            self.assertIn("split", model_ready.columns)
+            self.assertTrue(model_ready["split"].notna().all())
+            self.assertTrue(model_ready.groupby("stay_id_global")["split"].nunique().le(1).all())
+            self.assertIn("albumin_filled_by_locf", model_ready.columns)
+            self.assertIn("fio2_filled_by_locf", model_ready.columns)
+            self.assertIn("heart_rate_missing_after_locf", model_ready.columns)
+            split_summary = dataset.feature_sets[feature_set_name].model_ready.split_summary
+            self.assertIn("summary_level", split_summary.columns)
+            self.assertIn("label_prevalence", split_summary.columns)
+            split_checks = dataset.feature_sets[
+                feature_set_name
+            ].model_ready.split_verification_summary.set_index("check_id")["passed"]
+            self.assertTrue(bool(split_checks["no_unassigned_instances_in_model_ready"]))
+            self.assertTrue(bool(split_checks["all_instances_from_stay_share_same_split"]))
+            carry_forward_checks = dataset.feature_sets[
+                feature_set_name
+            ].model_ready.carry_forward_verification_summary.set_index("check_id")["passed"]
+            self.assertTrue(bool(carry_forward_checks["no_global_median_imputation_applied_in_export"]))
+            self.assertTrue(
+                bool(carry_forward_checks["no_ventilator_locf_outside_supported_windows"])
+            )
+
+        primary_model_ready = dataset.feature_sets["primary"].model_ready.table
+        stay_a_block1 = primary_model_ready[
+            (primary_model_ready["stay_id_global"] == "stay_a")
+            & (primary_model_ready["block_index"] == 1)
+        ]
+        self.assertTrue(stay_a_block1["albumin_filled_by_locf"].eq(True).all())
+        self.assertTrue(stay_a_block1["fio2_filled_by_locf"].eq(True).all())
+        self.assertTrue(stay_a_block1["fio2_ventilation_window_active"].eq(True).all())
+        self.assertTrue(stay_a_block1["heart_rate_filled_by_locf"].eq(False).all())
+        self.assertTrue(stay_a_block1["heart_rate_missing_after_locf"].eq(True).all())
+        self.assertTrue(stay_a_block1["albumin_last"].eq(3.1).all())
+        self.assertTrue(stay_a_block1["fio2_last"].eq(40).all())
+        self.assertTrue(stay_a_block1["heart_rate_last"].isna().all())
+
+        stay_g_block1 = primary_model_ready[
+            (primary_model_ready["stay_id_global"] == "stay_g")
+            & (primary_model_ready["block_index"] == 1)
+        ]
+        self.assertTrue(stay_g_block1["fio2_filled_by_locf"].eq(False).all())
+        self.assertTrue(stay_g_block1["fio2_ventilation_window_active"].eq(False).all())
+        self.assertTrue(stay_g_block1["fio2_missing_after_locf"].eq(True).all())
+
+        locf_summary = dataset.feature_sets["primary"].model_ready.locf_feature_summary.set_index(
+            "base_variable"
+        )
+        self.assertEqual(int(locf_summary.at["albumin", "locf_filled_instances"]), 1)
+        self.assertEqual(int(locf_summary.at["fio2", "locf_filled_instances"]), 1)
+        self.assertEqual(int(locf_summary.at["heart_rate", "locf_filled_instances"]), 0)
+
+        ventilator_summary = dataset.feature_sets["primary"].model_ready.ventilator_locf_summary
+        self.assertEqual(
+            int(
+                ventilator_summary.loc[
+                    ventilator_summary["base_variable"] == "fio2",
+                    "locf_fills_inside_ventilation_window",
+                ].iloc[0]
+            ),
+            1,
+        )
+        self.assertEqual(
+            int(
+                ventilator_summary.loc[
+                    ventilator_summary["base_variable"] == "fio2",
+                    "locf_fills_outside_ventilation_window",
+                ].iloc[0]
+            ),
+            0,
+        )
+
+        readiness_summary = dataset.feature_sets["primary"].model_ready.readiness_summary.set_index(
+            "metric"
+        )
+        self.assertEqual(
+            readiness_summary.at["global_median_imputation_applied_in_export", "value"],
+            False,
+        )
+        self.assertEqual(
+            readiness_summary.at["downstream_imputation_policy", "value"],
+            "deferred_to_model_training_stage",
+        )
 
         reason_summary = dataset.labels.unlabeled_reason_summary
         self.assertEqual(
@@ -688,13 +978,54 @@ class Chapter1PreprocessingTest(unittest.TestCase):
             self.assertTrue(
                 (output_dir / "model_ready" / "chapter1_extended_model_ready_dataset.csv").exists()
             )
+            self.assertTrue(
+                (output_dir / "splits" / "chapter1_stay_split_assignments.csv").exists()
+            )
+            self.assertTrue(
+                (output_dir / "splits" / "chapter1_stay_split_summary.csv").exists()
+            )
+            self.assertTrue(
+                (output_dir / "splits" / "chapter1_primary_split_summary.csv").exists()
+            )
+            self.assertTrue(
+                (output_dir / "splits" / "chapter1_extended_split_summary.csv").exists()
+            )
+            self.assertTrue(
+                (
+                    output_dir
+                    / "carry_forward"
+                    / "chapter1_primary_locf_feature_summary.csv"
+                ).exists()
+            )
+            self.assertTrue(
+                (
+                    output_dir
+                    / "carry_forward"
+                    / "chapter1_primary_ventilator_locf_summary.csv"
+                ).exists()
+            )
+            self.assertTrue(
+                (
+                    output_dir
+                    / "carry_forward"
+                    / "chapter1_primary_missingness_by_hospital_and_family.csv"
+                ).exists()
+            )
 
             label_summary = pd.read_csv(
                 output_dir / "labels" / "chapter1_proxy_label_summary_by_horizon.csv"
             )
             self.assertEqual(set(label_summary["horizon_h"].tolist()), {8, 16, 24, 48, 72})
+            primary_model_ready = pd.read_csv(
+                output_dir / "model_ready" / "chapter1_primary_model_ready_dataset.csv"
+            )
+            self.assertIn("split", primary_model_ready.columns)
+            self.assertTrue(primary_model_ready.groupby("stay_id_global")["split"].nunique().le(1).all())
             self.assertIn("Valid prediction instances:", result.stdout)
             self.assertIn("Usable proxy labels:", result.stdout)
+            self.assertIn("train stays:", result.stdout)
+            self.assertIn("validation stays:", result.stdout)
+            self.assertIn("test stays:", result.stdout)
             self.assertIn("primary model-ready rows:", result.stdout)
             self.assertIn("extended model-ready rows:", result.stdout)
 
@@ -734,6 +1065,16 @@ class Chapter1PreprocessingTest(unittest.TestCase):
             self.assertTrue((output_dir / "instances" / "chapter1_valid_instances.csv").exists())
             self.assertTrue(
                 (output_dir / "labels" / "chapter1_proxy_horizon_labels.csv").exists()
+            )
+            self.assertTrue(
+                (output_dir / "splits" / "chapter1_stay_split_assignments.csv").exists()
+            )
+            self.assertTrue(
+                (
+                    output_dir
+                    / "carry_forward"
+                    / "chapter1_extended_carry_forward_verification_summary.csv"
+                ).exists()
             )
 
 
