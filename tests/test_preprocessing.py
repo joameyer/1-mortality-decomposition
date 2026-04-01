@@ -92,58 +92,132 @@ def build_synthetic_inputs() -> Chapter1InputTables:
             {
                 "stay_id_global": "stay_a",
                 "hospital_id": "H1",
-                "heart_rate": 88,
-                "map": 72,
+                "time": "0 days 02:00:00",
+                "minutes_since_admit": 120,
+                "heart_rate": pd.NA,
+                "sbp": pd.NA,
+                "map": pd.NA,
+                "dbp": pd.NA,
                 "resp_rate": 18,
-                "spo2": 97,
+                "spo2": pd.NA,
+                "sao2": pd.NA,
             },
             {
                 "stay_id_global": "stay_b",
                 "hospital_id": "H1",
+                "time": "0 days 00:00:00",
+                "minutes_since_admit": 0,
                 "heart_rate": 84,
+                "sbp": 110,
                 "map": 69,
+                "dbp": 58,
                 "resp_rate": 20,
                 "spo2": 96,
+                "sao2": pd.NA,
             },
             {
                 "stay_id_global": "stay_c",
                 "hospital_id": "H1",
+                "time": "0 days 00:00:00",
+                "minutes_since_admit": 0,
                 "heart_rate": 90,
+                "sbp": 115,
                 "map": 74,
+                "dbp": 61,
                 "resp_rate": 21,
                 "spo2": 95,
+                "sao2": pd.NA,
+            },
+            {
+                "stay_id_global": "stay_a",
+                "hospital_id": "H1",
+                "time": "0 days 05:00:00",
+                "minutes_since_admit": 300,
+                "heart_rate": pd.NA,
+                "sbp": 112,
+                "map": 72,
+                "dbp": 60,
+                "resp_rate": pd.NA,
+                "spo2": pd.NA,
+                "sao2": pd.NA,
             },
             {
                 "stay_id_global": "stay_f",
                 "hospital_id": "H1",
+                "time": "0 days 00:00:00",
+                "minutes_since_admit": 0,
                 "heart_rate": 78,
+                "sbp": 109,
                 "map": 70,
+                "dbp": 57,
                 "resp_rate": 17,
                 "spo2": 98,
+                "sao2": pd.NA,
             },
             {
-                "stay_id_global": "stay_g",
+                "stay_id_global": "stay_a",
                 "hospital_id": "H1",
-                "heart_rate": 76,
-                "map": 68,
-                "resp_rate": 16,
-                "spo2": 99,
+                "time": "0 days 07:30:00",
+                "minutes_since_admit": 450,
+                "heart_rate": 88,
+                "sbp": pd.NA,
+                "map": pd.NA,
+                "dbp": pd.NA,
+                "resp_rate": pd.NA,
+                "spo2": pd.NA,
+                "sao2": pd.NA,
             },
             {
                 "stay_id_global": "stay_d",
                 "hospital_id": "H2",
+                "time": "0 days 00:00:00",
+                "minutes_since_admit": 0,
                 "heart_rate": 82,
+                "sbp": pd.NA,
                 "map": pd.NA,
+                "dbp": pd.NA,
                 "resp_rate": pd.NA,
                 "spo2": pd.NA,
+                "sao2": pd.NA,
             },
             {
                 "stay_id_global": "stay_h",
                 "hospital_id": "H1",
+                "time": "0 days 00:00:00",
+                "minutes_since_admit": 0,
                 "heart_rate": 80,
+                "sbp": 114,
                 "map": 71,
+                "dbp": 59,
                 "resp_rate": 19,
                 "spo2": 98,
+                "sao2": 97,
+            },
+            {
+                "stay_id_global": "stay_a",
+                "hospital_id": "H1",
+                "time": "0 days 08:30:00",
+                "minutes_since_admit": 510,
+                "heart_rate": pd.NA,
+                "sbp": 105,
+                "map": 68,
+                "dbp": 56,
+                "resp_rate": 24,
+                "spo2": 94,
+                "sao2": pd.NA,
+            },
+            {
+                "stay_id_global": "stay_g",
+                "hospital_id": "H1",
+                "time": "0 days 10:00:00",
+                "minutes_since_admit": 600,
+                "heart_rate": 74,
+                "sbp": 108,
+                "map": 67,
+                "dbp": 55,
+                "resp_rate": 15,
+                "spo2": 99,
+                "sao2": 97,
             },
         ]
     )
@@ -293,8 +367,8 @@ def build_synthetic_inputs() -> Chapter1InputTables:
                 "map_mean": 72,
                 "resp_rate_obs_count": 1,
                 "resp_rate_mean": 18,
-                "spo2_obs_count": 1,
-                "spo2_mean": 97,
+                "spo2_obs_count": 0,
+                "spo2_mean": pd.NA,
                 "fio2_obs_count": 1,
                 "fio2_mean": 40,
                 "fio2_median": 40,
@@ -919,6 +993,67 @@ class Chapter1PreprocessingTest(unittest.TestCase):
             3,
         )
 
+        observation_process = dataset.observation_process.block_features.set_index(
+            ["stay_id_global", "block_index"]
+        )
+        self.assertEqual(dataset.observation_process.block_features.shape[0], 3)
+        self.assertEqual(int(observation_process.at[("stay_a", 0), "obs_hr_grp_block"]), 1)
+        self.assertEqual(int(observation_process.at[("stay_a", 0), "obs_bp_grp_block"]), 1)
+        self.assertEqual(int(observation_process.at[("stay_a", 0), "obs_resp_grp_block"]), 1)
+        self.assertEqual(int(observation_process.at[("stay_a", 0), "obs_oxy_grp_block"]), 0)
+        self.assertEqual(int(observation_process.at[("stay_a", 0), "n_core_grps_obs_block"]), 3)
+        self.assertAlmostEqual(float(observation_process.at[("stay_a", 0), "tsl_hr_grp_h"]), 0.5)
+        self.assertAlmostEqual(float(observation_process.at[("stay_a", 0), "tsl_bp_grp_h"]), 3.0)
+        self.assertAlmostEqual(float(observation_process.at[("stay_a", 0), "tsl_resp_grp_h"]), 6.0)
+        self.assertTrue(pd.isna(observation_process.at[("stay_a", 0), "tsl_oxy_grp_h"]))
+
+        self.assertEqual(int(observation_process.at[("stay_a", 1), "obs_hr_grp_block"]), 0)
+        self.assertEqual(int(observation_process.at[("stay_a", 1), "obs_bp_grp_block"]), 1)
+        self.assertEqual(int(observation_process.at[("stay_a", 1), "obs_resp_grp_block"]), 1)
+        self.assertEqual(int(observation_process.at[("stay_a", 1), "obs_oxy_grp_block"]), 1)
+        self.assertEqual(int(observation_process.at[("stay_a", 1), "n_core_grps_obs_block"]), 3)
+        self.assertAlmostEqual(float(observation_process.at[("stay_a", 1), "tsl_hr_grp_h"]), 8.5)
+        self.assertAlmostEqual(float(observation_process.at[("stay_a", 1), "tsl_bp_grp_h"]), 7.5)
+        self.assertAlmostEqual(float(observation_process.at[("stay_a", 1), "tsl_resp_grp_h"]), 7.5)
+        self.assertAlmostEqual(float(observation_process.at[("stay_a", 1), "tsl_oxy_grp_h"]), 7.5)
+
+        self.assertEqual(int(observation_process.at[("stay_g", 1), "n_core_grps_obs_block"]), 4)
+        self.assertAlmostEqual(float(observation_process.at[("stay_g", 1), "tsl_hr_grp_h"]), 6.0)
+        self.assertAlmostEqual(float(observation_process.at[("stay_g", 1), "tsl_bp_grp_h"]), 6.0)
+        self.assertAlmostEqual(float(observation_process.at[("stay_g", 1), "tsl_resp_grp_h"]), 6.0)
+        self.assertAlmostEqual(float(observation_process.at[("stay_g", 1), "tsl_oxy_grp_h"]), 6.0)
+
+        observation_checks = dataset.observation_process.verification_summary.set_index("check_id")[
+            "passed"
+        ]
+        self.assertTrue(bool(observation_checks["obs_hr_grp_block_binary_values_only"]))
+        self.assertTrue(bool(observation_checks["obs_bp_grp_block_binary_values_only"]))
+        self.assertTrue(bool(observation_checks["obs_resp_grp_block_binary_values_only"]))
+        self.assertTrue(bool(observation_checks["obs_oxy_grp_block_binary_values_only"]))
+        self.assertTrue(bool(observation_checks["n_core_grps_obs_block_matches_group_sum"]))
+        self.assertTrue(bool(observation_checks["n_core_grps_obs_block_within_expected_range"]))
+        self.assertTrue(bool(observation_checks["tsl_hr_grp_h_non_negative"]))
+        self.assertTrue(bool(observation_checks["tsl_bp_grp_h_non_negative"]))
+        self.assertTrue(bool(observation_checks["tsl_resp_grp_h_non_negative"]))
+        self.assertTrue(bool(observation_checks["tsl_oxy_grp_h_non_negative"]))
+        self.assertTrue(
+            bool(observation_checks["tsl_oxy_grp_h_never_observed_rows_remain_missing"])
+        )
+
+        observation_spot_checks = dataset.observation_process.spot_check_examples
+        self.assertIn(
+            "observed_in_current_block_recent_measurement",
+            observation_spot_checks["scenario"].tolist(),
+        )
+        self.assertIn(
+            "historical_measurement_before_current_block",
+            observation_spot_checks["scenario"].tolist(),
+        )
+        self.assertIn(
+            "never_observed_by_prediction_time",
+            observation_spot_checks["scenario"].tolist(),
+        )
+
     def test_cli_writes_outputs(self) -> None:
         with tempfile.TemporaryDirectory() as tempdir:
             temp_path = Path(tempdir)
@@ -979,6 +1114,13 @@ class Chapter1PreprocessingTest(unittest.TestCase):
                 (output_dir / "model_ready" / "chapter1_extended_model_ready_dataset.csv").exists()
             )
             self.assertTrue(
+                (
+                    output_dir
+                    / "model_ready"
+                    / "chapter1_primary_model_ready_with_observation_process.csv"
+                ).exists()
+            )
+            self.assertTrue(
                 (output_dir / "splits" / "chapter1_stay_split_assignments.csv").exists()
             )
             self.assertTrue(
@@ -1011,6 +1153,41 @@ class Chapter1PreprocessingTest(unittest.TestCase):
                     / "chapter1_primary_missingness_by_hospital_and_family.csv"
                 ).exists()
             )
+            self.assertTrue(
+                (
+                    output_dir
+                    / "observation_process"
+                    / "chapter1_observation_process_block_features.csv"
+                ).exists()
+            )
+            self.assertTrue(
+                (
+                    output_dir
+                    / "observation_process"
+                    / "chapter1_observation_process_qc_summary.csv"
+                ).exists()
+            )
+            self.assertTrue(
+                (
+                    output_dir
+                    / "observation_process"
+                    / "chapter1_observation_process_verification_summary.csv"
+                ).exists()
+            )
+            self.assertTrue(
+                (
+                    output_dir
+                    / "observation_process"
+                    / "chapter1_observation_process_spot_check_examples.csv"
+                ).exists()
+            )
+            self.assertTrue(
+                (
+                    output_dir
+                    / "observation_process"
+                    / "chapter1_observation_process_implementation_note.md"
+                ).exists()
+            )
 
             label_summary = pd.read_csv(
                 output_dir / "labels" / "chapter1_proxy_label_summary_by_horizon.csv"
@@ -1021,6 +1198,14 @@ class Chapter1PreprocessingTest(unittest.TestCase):
             )
             self.assertIn("split", primary_model_ready.columns)
             self.assertTrue(primary_model_ready.groupby("stay_id_global")["split"].nunique().le(1).all())
+            primary_optional = pd.read_csv(
+                output_dir
+                / "model_ready"
+                / "chapter1_primary_model_ready_with_observation_process.csv"
+            )
+            self.assertIn("obs_hr_grp_block", primary_optional.columns)
+            self.assertIn("n_core_grps_obs_block", primary_optional.columns)
+            self.assertIn("tsl_oxy_grp_h", primary_optional.columns)
             self.assertIn("Valid prediction instances:", result.stdout)
             self.assertIn("Usable proxy labels:", result.stdout)
             self.assertIn("train stays:", result.stdout)
