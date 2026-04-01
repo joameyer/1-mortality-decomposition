@@ -3,9 +3,9 @@ requires = ["setuptools>=69", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "chapter1-mortality-decomposition"
+name = "chapter1-mortality-decomposition-hpc-bundle"
 version = "0.1.0"
-description = "Standalone Chapter 1 mortality preprocessing from standardized ASIC artifacts."
+description = "Self-contained HPC bundle for Chapter 1 mortality preprocessing, baseline modeling, and evaluation."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -16,14 +16,6 @@ dependencies = [
   "xgboost>=2.1",
 ]
 
-[project.optional-dependencies]
-dev = [
-  "pytest>=8.0",
-]
-parquet = [
-  "pyarrow>=14.0",
-]
-
 [project.scripts]
 chapter1-preprocess = "chapter1_mortality_decomposition.cli:main"
 chapter1-logistic-baseline = "chapter1_mortality_decomposition.baseline_logistic:main"
@@ -32,7 +24,3 @@ chapter1-evaluate-baselines = "chapter1_mortality_decomposition.baseline_evaluat
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-ra"

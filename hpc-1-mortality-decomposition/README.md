@@ -1,8 +1,9 @@
 # HPC Chapter 1 Bundle
 
 This folder is a self-contained upload bundle for running the Chapter 1
-mortality preprocessing pipeline on the HPC cluster against the full ASIC data
-that already exists in `hpc-icu-data-platform`.
+mortality preprocessing pipeline, the ASIC logistic-regression baseline, the
+ASIC XGBoost baseline, and the baseline evaluation package on the HPC cluster
+against the full ASIC data that already exists in `hpc-icu-data-platform`.
 
 It includes:
 - the full `chapter1_mortality_decomposition` source package
@@ -10,8 +11,15 @@ It includes:
 - a cluster-ready run config pointing at `hpc-icu-data-platform`
 - a Python launcher that works without installing this repo as a package
 - a shell wrapper and Slurm submission template
+- a Python launcher, shell wrapper, and Slurm submission template for the ASIC
+  logistic-regression baseline
+- a Python launcher, shell wrapper, and Slurm submission template for the ASIC
+  XGBoost baseline
+- a Python launcher, shell wrapper, and Slurm submission template for the ASIC
+  baseline evaluation package
 - the Chapter 1 preprocessing runbook notebook
 - the observation-process / missingness visualization notebook
+- the ASIC baseline evaluation review notebook
 
 It does not include full ASIC data.
 
@@ -67,6 +75,19 @@ pip install -r requirements.txt
 If you already use a shared cluster environment, you can skip the local venv and
 activate your existing environment instead.
 
+Optional editable install:
+
+```bash
+pip install -e .
+```
+
+That also registers these CLI commands inside the active environment:
+
+- `chapter1-preprocess`
+- `chapter1-logistic-baseline`
+- `chapter1-xgboost-baseline`
+- `chapter1-evaluate-baselines`
+
 ### 3. Run preprocessing
 
 The simplest path is:
@@ -88,6 +109,69 @@ and writes Chapter 1 outputs to:
 
 ```text
 /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1
+```
+
+### 4. Run the ASIC logistic-regression baseline
+
+After preprocessing finishes, the logistic-regression baseline consumes:
+
+```text
+artifacts/chapter1/model_ready/chapter1_primary_model_ready_dataset.csv
+artifacts/chapter1/feature_sets/chapter1_feature_set_definition.csv
+```
+
+The simplest path is:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch run_logistic_baseline.sh
+```
+
+By default this writes baseline outputs under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression
+```
+
+### 5. Run the ASIC XGBoost baseline
+
+After preprocessing finishes, the XGBoost baseline consumes:
+
+```text
+artifacts/chapter1/model_ready/chapter1_primary_model_ready_dataset.csv
+artifacts/chapter1/feature_sets/chapter1_feature_set_definition.csv
+```
+
+The simplest path is:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch run_xgboost_baseline.sh
+```
+
+By default this writes baseline outputs under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost
+```
+
+### 6. Run baseline evaluation
+
+After both baseline model runs finish, the evaluation package reads the saved
+prediction artifacts and writes metrics, figures, and a short interpretation
+note.
+
+The simplest path is:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch run_evaluate_baselines.sh
+```
+
+By default this writes evaluation outputs under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians
 ```
 
 ## Main Config
@@ -124,11 +208,84 @@ python run_chapter1_preprocessing.py \
   --input-dir /rwthfs/rz/cluster/home/am861154/projects/hpc-icu-data-platform/artifacts/asic_harmonized_full
 ```
 
+### Direct Python launcher for logistic baseline
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+python run_chapter1_logistic_baseline.py
+```
+
+If needed, override the baseline inputs or restrict to selected horizons:
+
+```bash
+python run_chapter1_logistic_baseline.py \
+  --input-dataset artifacts/chapter1/model_ready/chapter1_primary_model_ready_dataset.csv \
+  --feature-set-definition artifacts/chapter1/feature_sets/chapter1_feature_set_definition.csv \
+  --output-dir artifacts/chapter1/baselines/asic/primary_medians/logistic_regression \
+  --horizons 24 48
+```
+
+### Direct Python launcher for XGBoost baseline
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+python run_chapter1_xgboost_baseline.py
+```
+
+If needed, override the baseline inputs or restrict to selected horizons:
+
+```bash
+python run_chapter1_xgboost_baseline.py \
+  --input-dataset artifacts/chapter1/model_ready/chapter1_primary_model_ready_dataset.csv \
+  --feature-set-definition artifacts/chapter1/feature_sets/chapter1_feature_set_definition.csv \
+  --output-dir artifacts/chapter1/baselines/asic/primary_medians/xgboost \
+  --horizons 24 48
+```
+
+### Direct Python launcher for baseline evaluation
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+python run_chapter1_evaluate_baselines.py
+```
+
+If needed, override the evaluation inputs or restrict models or horizons:
+
+```bash
+python run_chapter1_evaluate_baselines.py \
+  --input-root artifacts/chapter1/baselines/asic/primary_medians \
+  --output-dir artifacts/chapter1/evaluation/asic/baselines/primary_medians \
+  --models logistic_regression xgboost \
+  --horizons 24 48 \
+  --primary-horizon 24
+```
+
 ### Shell wrapper
 
 ```bash
 cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
 ./scripts/run_chapter1_preprocessing.sh --run-config config/ch1_run_config.json
+```
+
+### Shell wrapper for logistic baseline
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+./scripts/run_chapter1_logistic_baseline.sh
+```
+
+### Shell wrapper for XGBoost baseline
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+./scripts/run_chapter1_xgboost_baseline.sh
+```
+
+### Shell wrapper for baseline evaluation
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+./scripts/run_chapter1_evaluate_baselines.sh
 ```
 
 ### Slurm template
@@ -148,14 +305,67 @@ sbatch \
   slurm/submit_chapter1_preprocessing.slurm
 ```
 
+### Slurm template for logistic baseline
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch \
+  --export=ALL,PROJECT_DIR=$PWD \
+  slurm/submit_chapter1_logistic_baseline.slurm
+```
+
+If needed, override the horizons:
+
+```bash
+sbatch \
+  --export=ALL,PROJECT_DIR=$PWD,HORIZONS="24 48" \
+  slurm/submit_chapter1_logistic_baseline.slurm
+```
+
+### Slurm template for XGBoost baseline
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch \
+  --export=ALL,PROJECT_DIR=$PWD \
+  slurm/submit_chapter1_xgboost_baseline.slurm
+```
+
+If needed, override the horizons:
+
+```bash
+sbatch \
+  --export=ALL,PROJECT_DIR=$PWD,HORIZONS="24 48" \
+  slurm/submit_chapter1_xgboost_baseline.slurm
+```
+
+### Slurm template for baseline evaluation
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch \
+  --export=ALL,PROJECT_DIR=$PWD \
+  slurm/submit_chapter1_evaluate_baselines.slurm
+```
+
+If needed, restrict the models or horizons:
+
+```bash
+sbatch \
+  --export=ALL,PROJECT_DIR=$PWD,MODELS="logistic_regression xgboost",HORIZONS="24 48",PRIMARY_HORIZON=24 \
+  slurm/submit_chapter1_evaluate_baselines.slurm
+```
+
 ## Notebooks
 
 The bundle includes:
 - `notebooks/ch1_preprocessing_runbook.ipynb`
 - `notebooks/ch1_observation_process_visualization.ipynb`
+- `notebooks/ch1_asic_baseline_evaluation_review.ipynb`
 
-Both notebooks read the written `artifacts/chapter1` outputs. They are mainly
-for inspection and visualization after the preprocessing job finishes.
+These notebooks read the written `artifacts/chapter1` outputs. They are mainly
+for inspection and visualization after preprocessing, baseline training, and
+evaluation jobs finish.
 
 Note:
 - batch preprocessing does not require Jupyter
@@ -179,6 +389,35 @@ including:
 - `carry_forward/`
 - `model_ready/`
 - `observation_process/`
+- `baselines/asic/primary_medians/logistic_regression/`
+- `baselines/asic/primary_medians/xgboost/`
+- `evaluation/asic/baselines/primary_medians/`
+
+The logistic baseline writes one subdirectory per horizon, each containing:
+- `predictions.csv`
+- `metrics.csv`
+- `metadata.json`
+- `selected_feature_columns.json`
+- `preprocessing.pkl`
+- `logistic_regression_model.pkl`
+- `pipeline.pkl`
+
+and the root baseline directory also contains:
+- `horizon_run_summary.csv`
+- `run_manifest.json`
+
+The XGBoost baseline writes the same per-horizon structure, but with:
+- `xgboost_model.pkl`
+
+The evaluation package writes:
+- `combined_metrics.csv`
+- `reporting_split_summary.csv`
+- `combined_risk_binned_summary.csv`
+- `interpretation_note.md`
+- per-model horizon comparison figures
+- per-model reliability and mortality-vs-risk plots by horizon
+- primary-horizon site sanity-check outputs
+- `run_manifest.json`
 
 ## Notes
 

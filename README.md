@@ -140,45 +140,155 @@ Chapter 1 now includes a canonical stay-level split path driven by the retained 
 
 Because ASIC lacks patient identifiers, this remains operationally a stay-level split after readmission-based proxy first-stay filtering. Small hospital-specific strata may prevent exact `70/15/15` and exact within-hospital outcome balance, so the repo writes explicit split-balance summaries rather than assuming perfect stratification.
 
-## Quick Start
+## Run The Pipeline
 
-Install the package in editable mode:
+Run all commands from the repository root.
+
+### 1. Install the package
+
+Editable install:
 
 ```bash
 python -m pip install -e ".[dev]"
 ```
 
-Open the notebook runbook if you want a step-by-step orchestration and QC view:
+This installs the project dependencies and registers the CLI commands:
 
-```bash
-jupyter notebook notebooks/ch1_preprocessing_runbook.ipynb
-```
+- `chapter1-preprocess`
+- `chapter1-logistic-baseline`
+- `chapter1-xgboost-baseline`
+- `chapter1-evaluate-baselines`
 
-The notebook reads [`config/ch1_run_config.json`](/Users/joanameyer/repository/1-mortality-decomposition/config/ch1_run_config.json), which currently points to the standardized ASIC artifact root at `/Users/joanameyer/repository/icu-data-platform/artifacts/asic_harmonized`.
+### 2. Run preprocessing
 
-Run the preprocessing CLI:
+The preprocessing CLI needs either:
 
-```bash
-chapter1-preprocess --input-dir path/to/standardized_asic --output-dir artifacts/chapter1
-```
+- `--run-config config/ch1_run_config.json`
+- or `--input-dir path/to/standardized_asic`
 
-Or reuse the shared run config directly:
+The simplest repo-local command is:
 
 ```bash
 chapter1-preprocess --run-config config/ch1_run_config.json
 ```
 
-Or run it as a module from the repo root:
+If you want to point directly at a different standardized ASIC artifact root:
 
 ```bash
-PYTHONPATH=src python -m chapter1_mortality_decomposition \
+chapter1-preprocess \
   --input-dir path/to/standardized_asic \
   --output-dir artifacts/chapter1
 ```
 
+You can also run preprocessing as a module:
+
+```bash
+python -m chapter1_mortality_decomposition.cli \
+  --run-config config/ch1_run_config.json
+```
+
+The preprocessing runbook notebook is:
+
+```bash
+jupyter notebook notebooks/ch1_preprocessing_runbook.ipynb
+```
+
+The frozen Chapter 1 primary model-ready dataset used by downstream baselines is written to:
+
+- [`chapter1_primary_model_ready_dataset.csv`](/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/model_ready/chapter1_primary_model_ready_dataset.csv)
+
+### 3. Train the logistic-regression baseline
+
+```bash
+chapter1-logistic-baseline
+```
+
+Or as a module:
+
+```bash
+python -m chapter1_mortality_decomposition.baseline_logistic
+```
+
+To restrict the run to selected horizons:
+
+```bash
+chapter1-logistic-baseline --horizons 24 48
+```
+
+This writes artifacts under:
+
+- [`logistic_regression`](/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression)
+
+### 4. Train the XGBoost baseline
+
+```bash
+chapter1-xgboost-baseline
+```
+
+Or as a module:
+
+```bash
+python -m chapter1_mortality_decomposition.baseline_xgboost
+```
+
+To restrict the run to selected horizons:
+
+```bash
+chapter1-xgboost-baseline --horizons 24 48
+```
+
+This writes artifacts under:
+
+- [`xgboost`](/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost)
+
+### 5. Run baseline evaluation
+
+After both baseline models have produced predictions, run:
+
+```bash
+chapter1-evaluate-baselines
+```
+
+Or as a module:
+
+```bash
+python -m chapter1_mortality_decomposition.baseline_evaluation
+```
+
+This writes evaluation outputs under:
+
+- [`primary_medians`](/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians)
+
+The evaluation notebook is:
+
+```bash
+jupyter notebook notebooks/ch1_asic_baseline_evaluation_review.ipynb
+```
+
+This notebook reads saved evaluation artifacts only. It does not retrain models.
+
+### 6. Recommended end-to-end command sequence
+
+```bash
+python -m pip install -e ".[dev]"
+chapter1-preprocess --run-config config/ch1_run_config.json
+chapter1-logistic-baseline
+chapter1-xgboost-baseline
+chapter1-evaluate-baselines
+```
+
+### 7. Local sample-data caveat
+
+On the local smoke-test sample, the frozen `test` split may contain zero events.
+
+- Do not change the split logic because of this.
+- The baseline training scripts still run normally.
+- The evaluation package will record `NaN` for metrics that require both classes.
+- The evaluation package will fall back to the first binary-evaluable reporting split, which is often `validation` on the local sample.
+
 ## Outputs
 
-The pipeline writes seven output groups under the chosen output directory:
+Preprocessing writes seven output groups under the chosen output directory:
 
 - `cohort/`: site eligibility, stay exclusions, retained stays, cohort notes, canonical cohort summary, and verification summary
 - `feature_sets/`: combined feature-set definition table and validation summary
@@ -187,6 +297,29 @@ The pipeline writes seven output groups under the chosen output directory:
 - `carry_forward/`: feature-level LOCF summaries, ventilator-window QC, missingness before/after LOCF summaries, and carry-forward verification tables
 - `model_ready/`: feature-set-specific model-ready datasets, readiness summaries, and missingness summaries
 - `splits/`: stay-level split assignments, split verification, and split-balance summaries for both the retained stay cohort and the feature-set-specific model-ready tables
+
+Baseline model training writes:
+
+- `artifacts/chapter1/baselines/asic/primary_medians/logistic_regression/`
+- `artifacts/chapter1/baselines/asic/primary_medians/xgboost/`
+
+Each model directory contains one subdirectory per horizon with:
+
+- `predictions.csv`
+- `metrics.csv`
+- `metadata.json`
+- `selected_feature_columns.json`
+- `preprocessing.pkl`
+- model object file
+- `pipeline.pkl`
+
+Evaluation writes:
+
+- `artifacts/chapter1/evaluation/asic/baselines/primary_medians/combined_metrics.csv`
+- `artifacts/chapter1/evaluation/asic/baselines/primary_medians/reporting_split_summary.csv`
+- `artifacts/chapter1/evaluation/asic/baselines/primary_medians/combined_risk_binned_summary.csv`
+- `artifacts/chapter1/evaluation/asic/baselines/primary_medians/interpretation_note.md`
+- model-specific reliability plots, mortality-vs-risk plots, horizon comparison figures, and primary-horizon site sanity-check outputs
 
 ## Tests
 
