@@ -2,8 +2,9 @@
 
 This folder is a self-contained upload bundle for running the Chapter 1
 mortality preprocessing pipeline, the ASIC logistic-regression baseline, the
-ASIC XGBoost baseline, and the baseline evaluation package on the HPC cluster
-against the full ASIC data that already exists in `hpc-icu-data-platform`.
+ASIC XGBoost baseline, the baseline evaluation package, and the narrow ASIC 16h
+temporal aggregation preview on the HPC cluster against the full ASIC data that
+already exists in `hpc-icu-data-platform`.
 
 It includes:
 - the full `chapter1_mortality_decomposition` source package
@@ -17,6 +18,8 @@ It includes:
   XGBoost baseline
 - a Python launcher, shell wrapper, and Slurm submission template for the ASIC
   baseline evaluation package
+- a Python launcher, shell wrapper, and Slurm submission template for the ASIC
+  16h temporal aggregation preview
 - the Chapter 1 preprocessing runbook notebook
 - the observation-process / missingness visualization notebook
 - the ASIC baseline evaluation review notebook
@@ -87,6 +90,7 @@ That also registers these CLI commands inside the active environment:
 - `chapter1-logistic-baseline`
 - `chapter1-xgboost-baseline`
 - `chapter1-evaluate-baselines`
+- `chapter1-temporal-preview`
 
 ### 3. Run preprocessing
 
@@ -174,6 +178,31 @@ By default this writes evaluation outputs under:
 /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians
 ```
 
+### 7. Run the ASIC 16h temporal aggregation preview
+
+Run this only after the frozen 8h preprocessing and 8h baseline evaluation
+artifacts already exist in the bundle, because the preview reuses the frozen
+stay-level split assignments and compares back to the saved 8h evaluation.
+
+The simplest path is:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch run_temporal_preview.sh
+```
+
+By default this writes the separate preview package under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/temporal_preview/asic/aggregation_16h
+```
+
+and writes the compact comparison notebook to:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/notebooks/ch1_asic_temporal_aggregation_preview_16h.ipynb
+```
+
 ## Main Config
 
 The default config file is:
@@ -258,6 +287,28 @@ python run_chapter1_evaluate_baselines.py \
   --models logistic_regression xgboost \
   --horizons 24 48 \
   --primary-horizon 24
+```
+
+### Direct Python launcher for the 16h temporal aggregation preview
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+python run_chapter1_temporal_preview.py
+```
+
+If needed, override the standardized ASIC input path, the frozen 8h artifact
+roots, or the selected horizons:
+
+```bash
+python run_chapter1_temporal_preview.py \
+  --run-config config/ch1_run_config.json \
+  --input-dir /rwthfs/rz/cluster/home/am861154/projects/hpc-icu-data-platform/artifacts/asic_harmonized_full \
+  --output-root artifacts/chapter1/temporal_preview/asic/aggregation_16h \
+  --frozen-chapter1-dir artifacts/chapter1 \
+  --eight-hour-evaluation-root artifacts/chapter1/evaluation/asic/baselines/primary_medians \
+  --notebook-path notebooks/ch1_asic_temporal_aggregation_preview_16h.ipynb \
+  --block-hours 16 \
+  --horizons 8 16 24 48 72
 ```
 
 ### Shell wrapper
