@@ -19,7 +19,7 @@ feature_set_definition="${FEATURE_SET_DEFINITION:-${project_root}/artifacts/chap
 output_dir="${OUTPUT_DIR:-${project_root}/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression}"
 horizons="${HORIZONS:-}"
 
-VENV_PATH="${VENV_PATH:-/home/am861154/mypyenv}"
+VENV_PATH="${VENV_PATH:-/home/am861154/projects/hpc-1-mortality-decomposition/.venv}"
 
 mkdir -p "${project_root}/logs"
 

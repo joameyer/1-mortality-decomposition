@@ -15,7 +15,7 @@ set -euo pipefail
 project_root="${PROJECT_ROOT:-${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}}"
 run_config="${RUN_CONFIG:-${project_root}/config/ch1_run_config.json}"
 
-VENV_PATH="${VENV_PATH:-/home/am861154/mypyenv}"
+VENV_PATH="${VENV_PATH:-/home/am861154/projects/hpc-1-mortality-decomposition/.venv}"
 INPUT_DIR="${INPUT_DIR:-}"
 OUTPUT_DIR="${OUTPUT_DIR:-}"
 INPUT_FORMAT="${INPUT_FORMAT:-}"
