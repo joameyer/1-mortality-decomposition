@@ -16,6 +16,7 @@ from sklearn.pipeline import Pipeline
 from chapter1_mortality_decomposition.baseline_logistic import (
     DEFAULT_FEATURE_SET_DEFINITION_PATH,
     DEFAULT_PRIMARY_MODEL_READY_DATASET_PATH,
+    EXPECTED_BASELINE_SPLITS,
     IDENTIFIER_COLUMNS,
     REQUIRED_MODEL_READY_COLUMNS,
     _build_numeric_feature_frame,
@@ -24,6 +25,7 @@ from chapter1_mortality_decomposition.baseline_logistic import (
     _ordered_unique,
     compute_binary_classification_metrics,
     select_primary_logistic_feature_columns,
+    validate_expected_split_labels,
 )
 from chapter1_mortality_decomposition.utils import (
     ensure_directory,
@@ -206,6 +208,7 @@ def run_horizon_xgboost(
         REQUIRED_MODEL_READY_COLUMNS,
         "horizon_dataset",
     )
+    validate_expected_split_labels(horizon_dataset, dataset_name="horizon_dataset")
 
     horizon_value = int(pd.to_numeric(horizon_dataset["horizon_h"], errors="coerce").dropna().iloc[0])
     horizon_path = _horizon_output_dir(output_dir, horizon_value)
@@ -247,7 +250,7 @@ def run_horizon_xgboost(
     metrics_frames: list[pd.DataFrame] = []
     split_row_counts: dict[str, dict[str, int]] = {}
 
-    for split_name in ("train", "validation", "test"):
+    for split_name in EXPECTED_BASELINE_SPLITS:
         split_df = ordered_dataset[
             ordered_dataset["split"].astype("string").eq(split_name)
         ].reset_index(drop=True)
@@ -279,6 +282,12 @@ def run_horizon_xgboost(
         )
 
     predictions = pd.concat(prediction_frames, ignore_index=True)
+    if predictions.shape[0] != ordered_dataset.shape[0]:
+        raise RuntimeError(
+            "Chapter 1 XGBoost prediction export row count did not match the input "
+            f"horizon dataset for horizon {horizon_value}h: expected "
+            f"{ordered_dataset.shape[0]}, wrote {predictions.shape[0]}."
+        )
     metrics = pd.concat(metrics_frames, ignore_index=True)[
         [
             "horizon_h",

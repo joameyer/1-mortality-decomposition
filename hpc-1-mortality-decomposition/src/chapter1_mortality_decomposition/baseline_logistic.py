@@ -44,6 +44,7 @@ DEFAULT_LOGISTIC_BASELINE_OUTPUT_DIR = (
 PRIMARY_FEATURE_SET_NAME = "primary"
 MODEL_NAME = "logistic_regression"
 SUPPORTED_DYNAMIC_STATISTICS = {"obs_count", "mean", "median", "min", "max", "last"}
+EXPECTED_BASELINE_SPLITS = ("train", "validation", "test")
 IDENTIFIER_COLUMNS = [
     "instance_id",
     "stay_id_global",
@@ -153,6 +154,34 @@ def _ordered_unique(values: Sequence[str]) -> list[str]:
             ordered.append(value)
             seen.add(value)
     return ordered
+
+
+def validate_expected_split_labels(
+    dataset: pd.DataFrame,
+    *,
+    dataset_name: str,
+) -> None:
+    split_values = dataset["split"].astype("string")
+    missing_split_count = int(split_values.isna().sum())
+    unexpected_split_labels = sorted(
+        {
+            str(value)
+            for value in split_values.dropna().unique().tolist()
+            if str(value) not in EXPECTED_BASELINE_SPLITS
+        }
+    )
+    if missing_split_count == 0 and not unexpected_split_labels:
+        return
+
+    problems: list[str] = []
+    if missing_split_count:
+        problems.append(f"missing split values={missing_split_count}")
+    if unexpected_split_labels:
+        problems.append(f"unexpected split labels={unexpected_split_labels}")
+    raise ValueError(
+        f"{dataset_name} must use only the expected Chapter 1 baseline split labels "
+        f"{list(EXPECTED_BASELINE_SPLITS)}; found " + "; ".join(problems)
+    )
 
 
 def select_primary_logistic_feature_columns(
@@ -435,6 +464,7 @@ def run_horizon_logistic_regression(
         REQUIRED_MODEL_READY_COLUMNS,
         "horizon_dataset",
     )
+    validate_expected_split_labels(horizon_dataset, dataset_name="horizon_dataset")
 
     horizon_value = int(pd.to_numeric(horizon_dataset["horizon_h"], errors="coerce").dropna().iloc[0])
     horizon_path = _horizon_output_dir(output_dir, horizon_value)
@@ -472,7 +502,7 @@ def run_horizon_logistic_regression(
     metrics_frames: list[pd.DataFrame] = []
     split_row_counts: dict[str, dict[str, int]] = {}
 
-    for split_name in ("train", "validation", "test"):
+    for split_name in EXPECTED_BASELINE_SPLITS:
         split_df = ordered_dataset[
             ordered_dataset["split"].astype("string").eq(split_name)
         ].reset_index(drop=True)
@@ -504,6 +534,12 @@ def run_horizon_logistic_regression(
         )
 
     predictions = pd.concat(prediction_frames, ignore_index=True)
+    if predictions.shape[0] != ordered_dataset.shape[0]:
+        raise RuntimeError(
+            "Chapter 1 logistic-regression prediction export row count did not match the "
+            f"input horizon dataset for horizon {horizon_value}h: expected "
+            f"{ordered_dataset.shape[0]}, wrote {predictions.shape[0]}."
+        )
     metrics = pd.concat(metrics_frames, ignore_index=True)[
         [
             "horizon_h",

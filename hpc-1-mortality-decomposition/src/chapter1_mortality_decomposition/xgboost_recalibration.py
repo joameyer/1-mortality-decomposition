@@ -99,6 +99,11 @@ RELIABILITY_SUMMARY_COLUMNS = [
     "predicted_probability_max",
     "observed_mortality",
 ]
+CANONICAL_VARIANT_PREDICTION_COLUMNS = [
+    *IDENTIFIER_COLUMNS,
+    "model_variant",
+    "predicted_probability",
+]
 
 
 @dataclass(frozen=True)
@@ -113,6 +118,8 @@ class HorizonRecalibrationArtifacts:
     method_prediction_paths: dict[str, Path]
     method_metrics_paths: dict[str, Path]
     method_statuses: dict[str, str]
+    canonical_prediction_paths: dict[str, Path]
+    combined_canonical_predictions_path: Path
 
 
 @dataclass(frozen=True)
@@ -486,6 +493,21 @@ def _build_recalibrated_predictions(
     return recalibrated_predictions
 
 
+def _build_canonical_variant_predictions(
+    predictions: pd.DataFrame,
+    *,
+    model_variant: str,
+    probability_column: str,
+) -> pd.DataFrame:
+    canonical_predictions = predictions.loc[:, IDENTIFIER_COLUMNS].copy()
+    canonical_predictions["model_variant"] = model_variant
+    canonical_predictions["predicted_probability"] = pd.to_numeric(
+        predictions[probability_column],
+        errors="coerce",
+    )
+    return canonical_predictions.loc[:, CANONICAL_VARIANT_PREDICTION_COLUMNS].copy()
+
+
 def _variant_reliability_summary(
     predictions: pd.DataFrame,
     *,
@@ -850,6 +872,8 @@ def run_asic_xgboost_recalibration(
         method_metrics_paths: dict[str, Path] = {}
         method_fit_summaries: dict[str, dict[str, object]] = {}
         method_statuses: dict[str, str] = {}
+        canonical_prediction_paths: dict[str, Path] = {}
+        canonical_prediction_frames: dict[str, pd.DataFrame] = {}
 
         logistic_metrics = _variant_metrics_frame(
             logistic_predictions,
@@ -862,6 +886,16 @@ def run_asic_xgboost_recalibration(
             model_variant="xgboost_raw",
             probability_column="predicted_probability",
             base_notes=["reference_saved_xgboost_predictions"],
+        )
+        canonical_prediction_frames["xgboost_raw"] = _build_canonical_variant_predictions(
+            xgboost_predictions,
+            model_variant="xgboost_raw",
+            probability_column="predicted_probability",
+        )
+        canonical_prediction_paths["xgboost_raw"] = write_dataframe(
+            canonical_prediction_frames["xgboost_raw"],
+            horizon_output_dir / "xgboost_raw_canonical_predictions.csv",
+            output_format="csv",
         )
 
         logistic_metrics_path = write_dataframe(
@@ -915,6 +949,30 @@ def run_asic_xgboost_recalibration(
             recalibrated_metrics_frames[method_name] = recalibrated_metrics
             method_prediction_paths[method_name] = predictions_path
             method_metrics_paths[method_name] = metrics_path
+            canonical_variant_name = f"xgboost_{method_name}"
+            canonical_prediction_frames[canonical_variant_name] = _build_canonical_variant_predictions(
+                recalibrated_predictions,
+                model_variant=canonical_variant_name,
+                probability_column="recalibrated_probability",
+            )
+            canonical_prediction_paths[canonical_variant_name] = write_dataframe(
+                canonical_prediction_frames[canonical_variant_name],
+                horizon_output_dir / f"{canonical_variant_name}_canonical_predictions.csv",
+                output_format="csv",
+            )
+
+        combined_canonical_predictions = pd.concat(
+            [canonical_prediction_frames[model_variant] for model_variant in VARIANT_ORDER[1:]],
+            ignore_index=True,
+        ).sort_values(
+            [*IDENTIFIER_COLUMNS, "model_variant"],
+            kind="stable",
+        ).reset_index(drop=True)
+        combined_canonical_predictions_path = write_dataframe(
+            combined_canonical_predictions,
+            horizon_output_dir / "xgboost_canonical_variant_predictions.csv",
+            output_format="csv",
+        )
 
         comparison_metrics = pd.concat(
             [
@@ -1009,6 +1067,12 @@ def run_asic_xgboost_recalibration(
                 "method_prediction_paths": {
                     key: str(value.resolve()) for key, value in method_prediction_paths.items()
                 },
+                "canonical_prediction_paths": {
+                    key: str(value.resolve()) for key, value in canonical_prediction_paths.items()
+                },
+                "combined_canonical_predictions_path": str(
+                    combined_canonical_predictions_path.resolve()
+                ),
                 "method_metrics_paths": {
                     key: str(value.resolve()) for key, value in method_metrics_paths.items()
                 },
@@ -1038,6 +1102,8 @@ def run_asic_xgboost_recalibration(
                 method_prediction_paths=method_prediction_paths,
                 method_metrics_paths=method_metrics_paths,
                 method_statuses=method_statuses,
+                canonical_prediction_paths=canonical_prediction_paths,
+                combined_canonical_predictions_path=combined_canonical_predictions_path,
             )
         )
 
@@ -1102,6 +1168,13 @@ def run_asic_xgboost_recalibration(
                         key: str(value.resolve())
                         for key, value in horizon_result.method_prediction_paths.items()
                     },
+                    "canonical_prediction_paths": {
+                        key: str(value.resolve())
+                        for key, value in horizon_result.canonical_prediction_paths.items()
+                    },
+                    "combined_canonical_predictions_path": str(
+                        horizon_result.combined_canonical_predictions_path.resolve()
+                    ),
                     "method_metrics_paths": {
                         key: str(value.resolve())
                         for key, value in horizon_result.method_metrics_paths.items()
