@@ -157,6 +157,10 @@ class XGBoostRecalibrationTests(TestCase):
             self.assertTrue((horizon_dir / "platt_metrics_by_split.csv").exists())
             self.assertTrue((horizon_dir / "isotonic_predictions.csv").exists())
             self.assertTrue((horizon_dir / "isotonic_metrics_by_split.csv").exists())
+            self.assertTrue((horizon_dir / "xgboost_raw_canonical_predictions.csv").exists())
+            self.assertTrue((horizon_dir / "xgboost_platt_canonical_predictions.csv").exists())
+            self.assertTrue((horizon_dir / "xgboost_isotonic_canonical_predictions.csv").exists())
+            self.assertTrue((horizon_dir / "xgboost_canonical_variant_predictions.csv").exists())
             self.assertTrue((horizon_dir / "test_reliability_comparison.png").exists())
             self.assertTrue((horizon_dir / "test_probability_distribution.png").exists())
 
@@ -176,6 +180,27 @@ class XGBoostRecalibrationTests(TestCase):
             self.assertIn("raw_predicted_probability", platt_predictions.columns)
             self.assertIn("recalibrated_probability", platt_predictions.columns)
             self.assertEqual(set(platt_predictions["recalibration_method"].tolist()), {"platt"})
+
+            canonical_predictions = pd.read_csv(horizon_dir / "xgboost_canonical_variant_predictions.csv")
+            self.assertEqual(
+                canonical_predictions.columns.tolist(),
+                [
+                    "instance_id",
+                    "stay_id_global",
+                    "hospital_id",
+                    "block_index",
+                    "prediction_time_h",
+                    "horizon_h",
+                    "split",
+                    "label_value",
+                    "model_variant",
+                    "predicted_probability",
+                ],
+            )
+            self.assertEqual(
+                set(canonical_predictions["model_variant"].tolist()),
+                {"xgboost_raw", "xgboost_platt", "xgboost_isotonic"},
+            )
 
             platt_fit_summary = json.loads((horizon_dir / "platt_fit_summary.json").read_text())
             isotonic_fit_summary = json.loads((horizon_dir / "isotonic_fit_summary.json").read_text())

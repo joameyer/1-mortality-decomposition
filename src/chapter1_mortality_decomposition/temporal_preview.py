@@ -69,11 +69,13 @@ DEFAULT_PREVIEW_OUTPUT_ROOT = (
 DEFAULT_EIGHT_HOUR_EVALUATION_ROOT = (
     Path("artifacts") / "chapter1" / "evaluation" / "asic" / "baselines" / "primary_medians"
 )
-DEFAULT_NOTEBOOK_PATH = Path("notebooks") / "ch1_asic_temporal_aggregation_preview_16h.ipynb"
+DEFAULT_NOTEBOOK_RELATIVE_PATH = Path("comparison") / "preview_review.ipynb"
+DEFAULT_NOTEBOOK_PATH = DEFAULT_PREVIEW_OUTPUT_ROOT / DEFAULT_NOTEBOOK_RELATIVE_PATH
 PRIMARY_FEATURE_SET_NAME = "primary"
 PRIMARY_HORIZON_HOURS = 24
 COMPARISON_AGGREGATIONS = ("8h", "16h")
 COMPARISON_MODELS = ("logistic_regression", "xgboost")
+MODULE_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 @dataclass(frozen=True)
@@ -93,6 +95,21 @@ class TemporalAggregationPreviewRunResult:
     baseline_root: Path
     evaluation_root: Path
     comparison: TemporalAggregationComparisonResult
+
+
+def _encode_notebook_artifact_path(path: Path) -> dict[str, str | None]:
+    resolved_path = path.resolve()
+    try:
+        repo_relative_path = resolved_path.relative_to(MODULE_REPO_ROOT).as_posix()
+    except ValueError:
+        return {
+            "repo_relative": None,
+            "absolute_fallback": resolved_path.as_posix(),
+        }
+    return {
+        "repo_relative": repo_relative_path,
+        "absolute_fallback": None,
+    }
 
 
 def _require_matplotlib() -> None:
@@ -765,11 +782,13 @@ def _notebook_payload(
     note_path: Path,
     figure_paths: Sequence[Path],
 ) -> dict[str, object]:
-    figure_path_strings = [str(path.resolve()) for path in figure_paths]
-    eight_hour_evaluation_root = eight_hour_evaluation_root.resolve()
-    sixteen_hour_evaluation_root = sixteen_hour_evaluation_root.resolve()
-    comparison_table_path = comparison_table_path.resolve()
-    note_path = note_path.resolve()
+    path_specs = {
+        "eight_hour_eval_root": _encode_notebook_artifact_path(eight_hour_evaluation_root),
+        "sixteen_hour_eval_root": _encode_notebook_artifact_path(sixteen_hour_evaluation_root),
+        "comparison_table_path": _encode_notebook_artifact_path(comparison_table_path),
+        "note_path": _encode_notebook_artifact_path(note_path),
+        "figure_paths": [_encode_notebook_artifact_path(path) for path in figure_paths],
+    }
     cells = [
         {
             "cell_type": "markdown",
@@ -787,14 +806,36 @@ def _notebook_payload(
             "outputs": [],
             "source": [
                 "from pathlib import Path\n",
+                "import json\n",
                 "import pandas as pd\n",
                 "import matplotlib.pyplot as plt\n",
                 "\n",
-                f"EIGHT_HOUR_EVAL_ROOT = Path({eight_hour_evaluation_root.as_posix()!r})\n",
-                f"SIXTEEN_HOUR_EVAL_ROOT = Path({sixteen_hour_evaluation_root.as_posix()!r})\n",
-                f"COMPARISON_TABLE_PATH = Path({comparison_table_path.as_posix()!r})\n",
-                f"NOTE_PATH = Path({note_path.as_posix()!r})\n",
-                f"FIGURE_PATHS = [Path(path) for path in {figure_path_strings!r}]\n",
+                "def find_project_root(start: Path) -> Path:\n",
+                "    for candidate in [start, *start.parents]:\n",
+                "        if (candidate / 'pyproject.toml').exists() and (candidate / 'src').exists():\n",
+                "            return candidate\n",
+                "    raise RuntimeError('Could not locate the repository root from the current working directory.')\n",
+                "\n",
+                "\n",
+                "REPO_ROOT = find_project_root(Path.cwd().resolve())\n",
+                f"PATH_SPECS = json.loads({json.dumps(path_specs)!r})\n",
+                "\n",
+                "\n",
+                "def resolve_artifact_path(path_spec: dict[str, str | None]) -> Path:\n",
+                "    repo_relative = path_spec.get('repo_relative')\n",
+                "    if repo_relative:\n",
+                "        return REPO_ROOT / Path(repo_relative)\n",
+                "    absolute_fallback = path_spec.get('absolute_fallback')\n",
+                "    if absolute_fallback:\n",
+                "        return Path(absolute_fallback)\n",
+                "    raise RuntimeError(f'Could not resolve notebook artifact path from spec: {path_spec}')\n",
+                "\n",
+                "\n",
+                "EIGHT_HOUR_EVAL_ROOT = resolve_artifact_path(PATH_SPECS['eight_hour_eval_root'])\n",
+                "SIXTEEN_HOUR_EVAL_ROOT = resolve_artifact_path(PATH_SPECS['sixteen_hour_eval_root'])\n",
+                "COMPARISON_TABLE_PATH = resolve_artifact_path(PATH_SPECS['comparison_table_path'])\n",
+                "NOTE_PATH = resolve_artifact_path(PATH_SPECS['note_path'])\n",
+                "FIGURE_PATHS = [resolve_artifact_path(path_spec) for path_spec in PATH_SPECS['figure_paths']]\n",
                 "\n",
                 "for path in [EIGHT_HOUR_EVAL_ROOT, SIXTEEN_HOUR_EVAL_ROOT, COMPARISON_TABLE_PATH, NOTE_PATH]:\n",
                 "    print(path, 'exists=', path.exists())\n",
@@ -1006,7 +1047,7 @@ def run_asic_temporal_aggregation_preview(
     output_format: str = "csv",
     frozen_chapter1_dir: Path = DEFAULT_FROZEN_CHAPTER1_DIR,
     eight_hour_evaluation_root: Path = DEFAULT_EIGHT_HOUR_EVALUATION_ROOT,
-    notebook_path: Path = DEFAULT_NOTEBOOK_PATH,
+    notebook_path: Path | None = None,
     block_hours: int = DEFAULT_BLOCK_HOURS,
     horizons: Sequence[int] | None = None,
 ) -> TemporalAggregationPreviewRunResult:
@@ -1031,6 +1072,11 @@ def run_asic_temporal_aggregation_preview(
     )
 
     output_root = Path(output_root)
+    notebook_output_path = (
+        Path(notebook_path)
+        if notebook_path is not None
+        else output_root / DEFAULT_NOTEBOOK_RELATIVE_PATH
+    )
     preprocessing_root = output_root / "preprocessing"
     baseline_root = output_root / "baselines" / "asic" / "primary_medians"
     evaluation_root = output_root / "evaluation" / "asic" / "baselines" / "primary_medians"
@@ -1257,7 +1303,7 @@ def run_asic_temporal_aggregation_preview(
         eight_hour_evaluation_root=Path(eight_hour_evaluation_root),
         sixteen_hour_evaluation_root=evaluation_root,
         comparison_output_dir=comparison_root,
-        notebook_path=notebook_path,
+        notebook_path=notebook_output_path,
     )
     return TemporalAggregationPreviewRunResult(
         output_root=output_root,
@@ -1319,8 +1365,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--notebook-path",
         type=Path,
-        default=DEFAULT_NOTEBOOK_PATH,
-        help="Path for the compact review notebook.",
+        help=(
+            "Optional path for the compact review notebook. Defaults to "
+            "<output-root>/comparison/preview_review.ipynb."
+        ),
     )
     parser.add_argument(
         "--block-hours",

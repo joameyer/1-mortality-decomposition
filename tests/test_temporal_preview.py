@@ -10,7 +10,10 @@ from chapter1_mortality_decomposition.temporal_blocks import (
     build_asic_temporal_block_artifacts,
 )
 from chapter1_mortality_decomposition.temporal_preview import (
+    DEFAULT_NOTEBOOK_PATH,
+    DEFAULT_PREVIEW_OUTPUT_ROOT,
     _build_comparison_package,
+    _notebook_payload,
 )
 
 
@@ -270,3 +273,22 @@ class TemporalComparisonPackageTests(TestCase):
             self.assertEqual(len(result.figure_paths), 4)
             for figure_path in result.figure_paths:
                 self.assertTrue(figure_path.exists())
+
+    def test_default_notebook_path_lives_under_preview_output_root(self) -> None:
+        self.assertTrue(str(DEFAULT_NOTEBOOK_PATH).startswith(str(DEFAULT_PREVIEW_OUTPUT_ROOT)))
+
+    def test_notebook_payload_uses_repo_relative_specs_when_available(self) -> None:
+        repo_root = Path(__file__).resolve().parents[1]
+        payload = _notebook_payload(
+            eight_hour_evaluation_root=repo_root / "artifacts/chapter1/evaluation/asic/baselines/primary_medians",
+            sixteen_hour_evaluation_root=repo_root / "artifacts/chapter1/temporal_preview/asic/aggregation_16h/evaluation/asic/baselines/primary_medians",
+            comparison_table_path=repo_root / "artifacts/chapter1/temporal_preview/asic/aggregation_16h/comparison/aggregation_comparison_metrics.csv",
+            note_path=repo_root / "artifacts/chapter1/temporal_preview/asic/aggregation_16h/comparison/preview_note.md",
+            figure_paths=[
+                repo_root / "artifacts/chapter1/temporal_preview/asic/aggregation_16h/comparison/logistic_regression_24h_reliability_8h_vs_16h.png",
+            ],
+        )
+        source = "".join(payload["cells"][1]["source"])
+        self.assertIn("REPO_ROOT = find_project_root", source)
+        self.assertIn('"repo_relative"', source)
+        self.assertNotIn(str(repo_root), source)

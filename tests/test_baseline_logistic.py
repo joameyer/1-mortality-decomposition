@@ -294,3 +294,58 @@ class LogisticBaselineTests(TestCase):
 
                 metrics = pd.read_csv(horizon_dir / "metrics.csv")
                 self.assertEqual(set(metrics["split"].tolist()), {"train", "validation", "test"})
+
+    def test_run_asic_primary_logistic_regression_rejects_unexpected_split_labels(self) -> None:
+        model_ready = pd.DataFrame(
+            [
+                {
+                    "instance_id": "stay_a__b0__h24",
+                    "stay_id_global": "stay_a",
+                    "hospital_id": "H1",
+                    "block_index": 0,
+                    "prediction_time_h": 8,
+                    "horizon_h": 24,
+                    "split": "train",
+                    "label_value": 1,
+                    "heart_rate_median": 90,
+                },
+                {
+                    "instance_id": "stay_b__b0__h24",
+                    "stay_id_global": "stay_b",
+                    "hospital_id": "H1",
+                    "block_index": 0,
+                    "prediction_time_h": 8,
+                    "horizon_h": 24,
+                    "split": "holdout",
+                    "label_value": 0,
+                    "heart_rate_median": 70,
+                },
+            ]
+        )
+        feature_set_definition = pd.DataFrame(
+            [
+                {
+                    "feature_set_name": "primary",
+                    "feature_name": "heart_rate_median",
+                    "base_variable": "heart_rate",
+                    "statistic": "median",
+                    "selected_for_model": True,
+                },
+            ]
+        )
+
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            input_path = tmp_path / "chapter1_primary_model_ready_dataset.csv"
+            feature_path = tmp_path / "chapter1_feature_set_definition.csv"
+            output_dir = tmp_path / "baselines"
+            model_ready.to_csv(input_path, index=False)
+            feature_set_definition.to_csv(feature_path, index=False)
+
+            with self.assertRaisesRegex(ValueError, "unexpected split labels"):
+                run_asic_primary_logistic_regression(
+                    input_dataset_path=input_path,
+                    feature_set_definition_path=feature_path,
+                    output_dir=output_dir,
+                    horizons=[24],
+                )
