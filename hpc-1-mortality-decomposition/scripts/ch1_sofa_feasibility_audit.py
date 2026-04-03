@@ -150,6 +150,10 @@ def build_audit_outputs() -> tuple[pd.DataFrame, str]:
     available_in_block_cols = [resp_in_block, coag_in_block, liver_in_block, cv_in_block, renal_in_block]
     complete_after = pd.concat(available_after_cols, axis=1).all(axis=1)
     complete_in_block = pd.concat(available_in_block_cols, axis=1).all(axis=1)
+    pf_ratio_available = merged["pf_ratio_last"].notna()
+    pao2_available = merged["pao2_last"].notna()
+    fio2_available = merged["fio2_last"].notna()
+    spo2_available = merged["spo2_last"].notna()
 
     table = pd.DataFrame(
         [
@@ -341,7 +345,7 @@ def build_audit_outputs() -> tuple[pd.DataFrame, str]:
             f"- This artifact already stores one last eligible prediction instance per stay and horizon; upstream reconstruction is available from `{_relative(UPSTREAM_PREDICTIONS_PATH)}` via `select_last_eligible_stay_points` and `classify_hard_cases_for_horizon` in `src/chapter1_mortality_decomposition/hard_case_definition.py`.",
             "",
             "## Component-by-Component Inventory",
-            "- Respiratory: `pf_ratio_last` plus `fio2_ventilation_window_active` make a partial standard mapping possible in `7/10` fatal stays. `pao2_last` is present in `9/10`, but `fio2_last` and the derived PF ratio are only available in `7/10`. `spo2_last` is present in `10/10`, but an S/F rescue mapping would be nonstandard and should not be introduced for Issue 3.2.",
+            f"- Respiratory: `pf_ratio_last` plus `fio2_ventilation_window_active` make a partial standard mapping possible in `{_fmt_count(int(resp_after.sum()), total)}` fatal stays. `pao2_last` is present in `{_fmt_count(int(pao2_available.sum()), total)}`, `fio2_last` is present in `{_fmt_count(int(fio2_available.sum()), total)}`, and the derived PF ratio is available in `{_fmt_count(int(pf_ratio_available.sum()), total)}`. `spo2_last` is present in `{_fmt_count(int(spo2_available.sum()), total)}`, but an S/F rescue mapping would be nonstandard and should not be introduced for Issue 3.2.",
             f"- Coagulation: `platelets_last` is available in `{_fmt_count(int(coag_after.sum()), total)}`. The raw mapping is standard, but only `{_fmt_count(int(coag_in_block.sum()), total)}` are observed in the current 8h block and `{_fmt_count(_bool_count(merged['platelets_filled_by_locf']), total)}` depend on 24h LOCF.",
             f"- Liver: `bilirubin_total_last` is available in `{_fmt_count(int(liver_after.sum()), total)}`. Only `{_fmt_count(int(liver_in_block.sum()), total)}` are observed in the current block; `{_fmt_count(_bool_count(merged['bilirubin_total_filled_by_locf']), total)}` rely on 48h LOCF and `{_fmt_count(_bool_count(merged['bilirubin_total_missing_after_locf']), total)}` remain missing.",
             f"- Cardiovascular: `map_last` is available in `{_fmt_count(int(cv_after.sum()), total)}` and is current-block in `{_fmt_count(int(cv_in_block.sum()), total)}`. No vasopressor variables were found in the feature dictionary or the model-ready layer, so standard SOFA cardiovascular scoring cannot be completed.",
@@ -350,9 +354,9 @@ def build_audit_outputs() -> tuple[pd.DataFrame, str]:
             "",
             "## Timepoint Alignment Assessment",
             "- The Chapter 1 analysis layer is block-based. Candidate values are 8h-block summaries ending at `prediction_time_h`, not instantaneous bedside measurements.",
-            f"- Current-block availability across the partially represented SOFA organs is: respiratory `7/10`, coagulation `3/10`, liver `2/10`, cardiovascular MAP `9/10`, renal creatinine `3/10`.",
-            f"- Allowing only the repo's existing bounded LOCF windows raises availability to: respiratory `7/10`, coagulation `10/10`, liver `5/10`, cardiovascular MAP `9/10`, renal creatinine `8/10`.",
-            f"- Complete-case coverage across those five partially represented organs is `0/10` using current-block observations only and `3/10` after LOCF.",
+            f"- Current-block availability across the partially represented SOFA organs is: respiratory `{_fmt_count(int(resp_in_block.sum()), total)}`, coagulation `{_fmt_count(int(coag_in_block.sum()), total)}`, liver `{_fmt_count(int(liver_in_block.sum()), total)}`, cardiovascular MAP `{_fmt_count(int(cv_in_block.sum()), total)}`, renal creatinine `{_fmt_count(int(renal_in_block.sum()), total)}`.",
+            f"- Allowing only the repo's existing bounded LOCF windows raises availability to: respiratory `{_fmt_count(int(resp_after.sum()), total)}`, coagulation `{_fmt_count(int(coag_after.sum()), total)}`, liver `{_fmt_count(int(liver_after.sum()), total)}`, cardiovascular MAP `{_fmt_count(int(cv_after.sum()), total)}`, renal creatinine `{_fmt_count(int(renal_after.sum()), total)}`.",
+            f"- Complete-case coverage across those five partially represented organs is `{_fmt_count(int(complete_in_block.sum()), total)}` using current-block observations only and `{_fmt_count(int(complete_after.sum()), total)}` after LOCF.",
             "- Respiratory support status is only indirectly aligned through `fio2_ventilation_window_active`, which flags overlap between the current block and a documented mechanical-ventilation episode.",
             "- Coagulation, liver, and renal coverage are materially dependent on carry-forward from earlier blocks. That makes any score a mixture of current physiology and stale laboratory values rather than a clean same-timepoint severity snapshot.",
             "",
@@ -366,7 +370,7 @@ def build_audit_outputs() -> tuple[pd.DataFrame, str]:
             "",
             "## Feasibility Classification",
             "- Final classification: `NOT FEASIBLE`.",
-            "- Rationale: standard SOFA is blocked by absent CNS, absent vasopressors, and absent urine output. Even a reduced pseudo-SOFA would still depend on nonstandard omissions plus heavy 24-48h carry-forward and would have only `3/10` complete cases across the available organs after LOCF.",
+            f"- Rationale: standard SOFA is blocked by absent CNS, absent vasopressors, and absent urine output. Even a reduced pseudo-SOFA would still depend on nonstandard omissions plus heavy 24-48h carry-forward and would have only `{_fmt_count(int(complete_after.sum()), total)}` complete cases across the available organs after LOCF.",
             "",
             "## Recommendation",
             "- Recommendation: `C. Do not use SOFA in Issue 3.2; proceed with direct organ-support/dysfunction proxies only.`",

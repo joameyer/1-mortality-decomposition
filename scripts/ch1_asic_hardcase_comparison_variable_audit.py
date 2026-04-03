@@ -33,7 +33,11 @@ MODEL_READY_PATH = ARTIFACT_ROOT / "model_ready" / "chapter1_primary_model_ready
 BLOCKED_DYNAMIC_PATH = ASIC_INPUT_ROOT / "blocked" / "asic_8h_blocked_dynamic_features.csv"
 STATIC_PATH = ASIC_INPUT_ROOT / "static" / "harmonized.csv"
 DYNAMIC_SOURCE_MAP_PATH = ASIC_INPUT_ROOT / "dynamic" / "source_map.csv"
-COHORT_STAY_LEVEL_PATH = ASIC_INPUT_ROOT / "cohort" / "chapter1_stay_level.csv"
+CHAPTER1_RETAINED_STAY_TABLE_PATH = (
+    ARTIFACT_ROOT / "cohort" / "chapter1_retained_stay_table.csv"
+)
+UPSTREAM_CHAPTER1_COHORT_PATH = ASIC_INPUT_ROOT / "cohort" / "chapter1_stay_level.csv"
+UPSTREAM_STAY_LEVEL_PATH = ASIC_INPUT_ROOT / "cohort" / "stay_level.csv"
 
 OUTPUT_DIR = HARD_CASE_PATH.parent / "asic_hardcase_comparison_variable_audit"
 TABLE_PATH = OUTPUT_DIR / "asic_hardcase_comparison_variable_audit_table.csv"
@@ -58,6 +62,7 @@ VASOPRESSOR_CANONICAL_NAMES = [
     "terlipressin_iv_bolus",
 ]
 RRT_SEARCH_TERMS = ("rrt", "renal replacement", "dialysis", "cvvh", "crrt", "hemofil")
+CSV_CHUNKSIZE = 100_000
 
 
 def _display_path(path: Path) -> str:
@@ -123,19 +128,75 @@ def _markdown_table(frame: pd.DataFrame) -> str:
     return "\n".join([header, separator, *rows])
 
 
+def _csv_columns(path: Path) -> list[str]:
+    return pd.read_csv(path, nrows=0).columns.astype(str).tolist()
+
+
+def _filter_csv_to_target(
+    path: Path,
+    usecols: list[str],
+    key_columns: list[str],
+    target_keys: pd.DataFrame,
+) -> pd.DataFrame:
+    target_index = pd.MultiIndex.from_frame(target_keys[key_columns].drop_duplicates())
+    parts: list[pd.DataFrame] = []
+    for chunk in pd.read_csv(path, usecols=usecols, chunksize=CSV_CHUNKSIZE):
+        mask = pd.MultiIndex.from_frame(chunk[key_columns]).isin(target_index)
+        if bool(mask.any()):
+            parts.append(chunk.loc[mask].copy())
+    if parts:
+        return pd.concat(parts, ignore_index=True)
+    return pd.read_csv(path, usecols=usecols, nrows=0)
+
+
+def _resolve_cohort_metadata_path() -> Path:
+    candidates = [
+        CHAPTER1_RETAINED_STAY_TABLE_PATH,
+        UPSTREAM_CHAPTER1_COHORT_PATH,
+        UPSTREAM_STAY_LEVEL_PATH,
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(
+        "Could not locate a cohort stay-level table for ICU timing metadata. Checked: "
+        + ", ".join(str(path) for path in candidates)
+    )
+
+
 def build_outputs() -> tuple[pd.DataFrame, str]:
-    hard_cases = pd.read_csv(HARD_CASE_PATH)
-    model_ready = pd.read_csv(MODEL_READY_PATH)
-    blocked_dynamic = pd.read_csv(BLOCKED_DYNAMIC_PATH)
-    static = pd.read_csv(STATIC_PATH)
+    hard_case_columns = [*MERGE_KEYS, "hard_case_flag"]
+    hard_cases = pd.read_csv(HARD_CASE_PATH, usecols=hard_case_columns)
     dynamic_source_map = pd.read_csv(DYNAMIC_SOURCE_MAP_PATH)
-    cohort = pd.read_csv(COHORT_STAY_LEVEL_PATH)
 
     target = hard_cases[
         hard_cases["horizon_h"].eq(TARGET_HORIZON_H) & hard_cases["label_value"].eq(1)
     ].copy()
     if target.empty:
         raise ValueError("The 24h fatal hard-case target population is empty.")
+
+    model_ready_columns = [
+        *MERGE_KEYS,
+        "pf_ratio_last",
+        "pf_ratio_observed_in_block",
+        "pf_ratio_filled_by_locf",
+        "spo2_last",
+        "fio2_last",
+        "map_last",
+        "map_observed_in_block",
+        "creatinine_last",
+        "creatinine_observed_in_block",
+        "creatinine_filled_by_locf",
+        "peep_last",
+        "peep_observed_in_block",
+        "peep_filled_by_locf",
+    ]
+    model_ready = _filter_csv_to_target(
+        MODEL_READY_PATH,
+        usecols=model_ready_columns,
+        key_columns=MERGE_KEYS,
+        target_keys=target[MERGE_KEYS],
+    )
 
     merged = target.merge(
         model_ready,
@@ -149,9 +210,10 @@ def build_outputs() -> tuple[pd.DataFrame, str]:
         raise ValueError("Some 24h fatal hard-case rows could not be linked to model-ready data.")
     merged = merged.drop(columns="_merge")
 
+    blocked_dynamic_header = _csv_columns(BLOCKED_DYNAMIC_PATH)
     vasopressor_columns = BLOCK_KEYS + [
         column
-        for column in blocked_dynamic.columns
+        for column in blocked_dynamic_header
         if any(
             column.startswith(f"{base_name}_")
             for base_name in [
@@ -165,17 +227,44 @@ def build_outputs() -> tuple[pd.DataFrame, str]:
             ]
         )
     ]
+    rrt_columns = [
+        column
+        for column in blocked_dynamic_header
+        if any(term in column.lower() for term in RRT_SEARCH_TERMS)
+    ]
+    blocked_dynamic = _filter_csv_to_target(
+        BLOCKED_DYNAMIC_PATH,
+        usecols=list(dict.fromkeys([*vasopressor_columns, *rrt_columns])),
+        key_columns=BLOCK_KEYS,
+        target_keys=target[BLOCK_KEYS],
+    )
     merged = merged.merge(
         blocked_dynamic[vasopressor_columns],
         on=BLOCK_KEYS,
         how="left",
         validate="one_to_one",
     )
+
+    static_columns = _csv_columns(STATIC_PATH)
+    static = _filter_csv_to_target(
+        STATIC_PATH,
+        usecols=["stay_id_global", "hospital_id", "age_group", "sex", "icd10_codes"],
+        key_columns=["stay_id_global", "hospital_id"],
+        target_keys=target[["stay_id_global", "hospital_id"]],
+    )
     merged = merged.merge(
         static[["stay_id_global", "hospital_id", "age_group", "sex", "icd10_codes"]],
         on=["stay_id_global", "hospital_id"],
         how="left",
         validate="one_to_one",
+    )
+
+    cohort_path = _resolve_cohort_metadata_path()
+    cohort = _filter_csv_to_target(
+        cohort_path,
+        usecols=["stay_id_global", "hospital_id", "icu_admission_time", "icu_end_time_proxy"],
+        key_columns=["stay_id_global", "hospital_id"],
+        target_keys=target[["stay_id_global", "hospital_id"]],
     )
     merged = merged.merge(
         cohort[["stay_id_global", "hospital_id", "icu_admission_time", "icu_end_time_proxy"]],
@@ -193,14 +282,9 @@ def build_outputs() -> tuple[pd.DataFrame, str]:
 
     exact_age_candidates = [
         column
-        for column in static.columns
+        for column in static_columns
         if "age" in column.lower() and column.lower() != "age_group"
     ]
-    exact_age_nonmissing = 0
-    if exact_age_candidates:
-        exact_age_nonmissing = int(
-            static[exact_age_candidates].notna().any(axis=1).sum()
-        )
     target_age_group_nonmissing = int(merged["age_group"].notna().sum())
     sex_nonmissing = int(merged["sex"].notna().sum())
     icd_nonmissing = int(merged["icd10_codes"].notna().sum())
@@ -262,11 +346,7 @@ def build_outputs() -> tuple[pd.DataFrame, str]:
     renal_primary_nonmissing = int(merged["creatinine_last"].notna().sum())
     renal_primary_in_block = int(merged["creatinine_observed_in_block"].fillna(False).sum())
     renal_primary_locf = int(merged["creatinine_filled_by_locf"].fillna(False).sum())
-    rrt_columns = [
-        column
-        for column in blocked_dynamic.columns
-        if any(term in column.lower() for term in RRT_SEARCH_TERMS)
-    ]
+    rrt_nonmissing = 0
     renal_status = "READY"
     renal_family_status = "PRIMARY FEASIBLE"
 
@@ -327,7 +407,7 @@ def build_outputs() -> tuple[pd.DataFrame, str]:
                 "status": "READY",
                 "notes": (
                     "prediction_time_h is already stored on the stay-level hard-case artifact. "
-                    "In chapter1_stay_level, icu_admission_time is 0 for all retained stays, so this is hours since ICU admission."
+                    f"In `{_display_path(cohort_path)}`, icu_admission_time is 0 for all retained stays, so this is hours since ICU admission."
                 ),
             },
             {
@@ -390,7 +470,7 @@ def build_outputs() -> tuple[pd.DataFrame, str]:
                 "timepoint_aligned": "partial",
                 "completeness": (
                     f"primary {_fmt_count(renal_primary_nonmissing, total)}; "
-                    "fallback 0/10 (0%)"
+                    f"fallback {_fmt_count(rrt_nonmissing, total)}"
                 ),
                 "status": renal_status,
                 "notes": (
@@ -443,7 +523,7 @@ def build_outputs() -> tuple[pd.DataFrame, str]:
         "- `age`: no exact age field was found in the current Chapter 1 analysis artifacts or the upstream ASIC static harmonized table; only static `age_group` exists.",
         "- `sex`: static `sex` from the harmonized static table via the stay-level static join.",
         "- `ICD-10-derived coarse disease group`: derive from static `icd10_codes` after the same stay-level static join.",
-        "- `time from ICU admission to last eligible prediction`: use `prediction_time_h` from the stay-level hard-case artifact. Because `icu_admission_time` is 0 in the retained stay table, this already equals hours since ICU admission.",
+        f"- `time from ICU admission to last eligible prediction`: use `prediction_time_h` from the stay-level hard-case artifact. Because `icu_admission_time` is 0 in `{_display_path(cohort_path)}`, this already equals hours since ICU admission.",
         "- `site / hospital`: use `hospital_id` from the stay-level hard-case artifact.",
         "- `respiratory primary`: use `pf_ratio_last` from model-ready. It is directly available at the saved last eligible block when present and is not LOCF-filled in this Chapter 1 export.",
         "- `respiratory fallback`: derive `spo2_last / fio2_last` from model-ready if needed. It is derivable from the same block row but offers no extra rescue in this artifact bundle.",
@@ -464,7 +544,7 @@ def build_outputs() -> tuple[pd.DataFrame, str]:
         f"- `hemodynamic primary (vasopressor use)`: directly observable in `{vasopressor_observable}/{total}` stays; `{vasopressor_yes}/{vasopressor_observable}` of those show use. `{vasopressor_structural_missing}/{total}` are structurally unmapped because the hospital-level raw vasopressor source fields are absent.",
         f"- `hemodynamic fallback (MAP)`: `{map_nonmissing}/{total}` non-missing and `{map_in_block}/{total}` are direct current-block observations.",
         f"- `renal primary (creatinine)`: `{renal_primary_nonmissing}/{total}` non-missing; `{renal_primary_in_block}/{total}` direct current-block; `{renal_primary_locf}/{total}` require existing 48h LOCF.",
-        "- `renal fallback (RRT)`: no time-varying field found, so coverage is `0/10` by the agreed fallback definition.",
+        f"- `renal fallback (RRT)`: no time-varying field found, so coverage is `{rrt_nonmissing}/{total}` by the agreed fallback definition.",
         f"- `ventilation primary (PEEP)`: `{ventilation_nonmissing}/{total}` non-missing; `{ventilation_in_block}/{total}` direct current-block; `{ventilation_locf}/{total}` within-window LOCF.",
         "",
         "## Proxy Family Feasibility",

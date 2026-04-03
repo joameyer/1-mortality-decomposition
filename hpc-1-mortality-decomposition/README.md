@@ -24,6 +24,8 @@ It includes:
   hard-case definition package
 - a Python launcher, shell wrapper, and Slurm submission template for the ASIC
   hard-case agreement sensitivity package
+- a shell wrapper and Slurm submission template for the ASIC ICD-10
+  disease-group validation package
 - a Python launcher, shell wrapper, and Slurm submission template for the ASIC
   16h temporal aggregation preview
 - the Chapter 1 preprocessing runbook notebook
@@ -277,6 +279,25 @@ and writes the compact comparison notebook to:
 /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/notebooks/ch1_asic_temporal_aggregation_preview_16h.ipynb
 ```
 
+### 11. Run the ASIC ICD-10 disease-group validation package
+
+This job inspects the upstream ASIC static `icd10_codes` field on the full
+cluster artifact, applies the frozen six-group hierarchy, and writes reviewable
+counts, ambiguity summaries, sample rows, and a short validation memo.
+
+The simplest path is:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch run_asic_icd10_disease_group_validation.sh
+```
+
+By default this writes outputs under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/evaluation/asic/icd10_disease_group_validation
+```
+
 ## Main Config
 
 The default config file is:
@@ -385,6 +406,20 @@ python run_chapter1_temporal_preview.py \
   --horizons 8 16 24 48 72
 ```
 
+### Direct Python launcher for ASIC ICD-10 disease-group validation
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+python scripts/ch1_asic_icd10_disease_group_inspection.py
+```
+
+If needed, override the upstream artifact root explicitly:
+
+```bash
+ASIC_INPUT_ROOT=/rwthfs/rz/cluster/home/am861154/projects/hpc-icu-data-platform/artifacts/asic_harmonized_full \
+python scripts/ch1_asic_icd10_disease_group_inspection.py
+```
+
 ### Shell wrapper
 
 ```bash
@@ -411,6 +446,13 @@ cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
 ```bash
 cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
 ./scripts/run_chapter1_evaluate_baselines.sh
+```
+
+### Shell wrapper for ASIC ICD-10 disease-group validation
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+./scripts/run_chapter1_asic_icd10_disease_group_validation.sh
 ```
 
 ### Slurm template
@@ -479,6 +521,23 @@ If needed, restrict the models or horizons:
 sbatch \
   --export=ALL,PROJECT_DIR=$PWD,MODELS="logistic_regression xgboost",HORIZONS="24 48",PRIMARY_HORIZON=24 \
   slurm/submit_chapter1_evaluate_baselines.slurm
+```
+
+### Slurm template for ASIC ICD-10 disease-group validation
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch \
+  --export=ALL,PROJECT_DIR=$PWD \
+  slurm/submit_chapter1_asic_icd10_disease_group_validation.slurm
+```
+
+If needed, override the upstream artifact directory explicitly:
+
+```bash
+sbatch \
+  --export=ALL,PROJECT_DIR=$PWD,ASIC_INPUT_ROOT=/rwthfs/rz/cluster/home/am861154/projects/hpc-icu-data-platform/artifacts/asic_harmonized_full \
+  slurm/submit_chapter1_asic_icd10_disease_group_validation.slurm
 ```
 
 ## Notebooks
