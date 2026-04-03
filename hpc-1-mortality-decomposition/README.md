@@ -17,12 +17,19 @@ It includes:
 - a Python launcher, shell wrapper, and Slurm submission template for the ASIC
   XGBoost baseline
 - a Python launcher, shell wrapper, and Slurm submission template for the ASIC
+  XGBoost recalibration package
+- a Python launcher, shell wrapper, and Slurm submission template for the ASIC
   baseline evaluation package
+- a Python launcher, shell wrapper, and Slurm submission template for the ASIC
+  hard-case definition package
+- a Python launcher, shell wrapper, and Slurm submission template for the ASIC
+  hard-case agreement sensitivity package
 - a Python launcher, shell wrapper, and Slurm submission template for the ASIC
   16h temporal aggregation preview
 - the Chapter 1 preprocessing runbook notebook
 - the observation-process / missingness visualization notebook
 - the ASIC baseline evaluation review notebook
+- the ASIC hard-case review notebook
 
 It does not include full ASIC data.
 
@@ -89,7 +96,10 @@ That also registers these CLI commands inside the active environment:
 - `chapter1-preprocess`
 - `chapter1-logistic-baseline`
 - `chapter1-xgboost-baseline`
+- `chapter1-xgboost-recalibration`
 - `chapter1-evaluate-baselines`
+- `chapter1-define-hard-cases`
+- `chapter1-hard-case-agreement`
 - `chapter1-temporal-preview`
 
 ### 3. Run preprocessing
@@ -159,7 +169,26 @@ By default this writes baseline outputs under:
 /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost
 ```
 
-### 6. Run baseline evaluation
+### 6. Run the ASIC XGBoost recalibration package
+
+After the XGBoost baseline finishes, the recalibration package reads the saved
+XGBoost prediction artifacts and writes recalibrated prediction tables for each
+horizon.
+
+The simplest path is:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch run_xgboost_recalibration.sh
+```
+
+By default this writes recalibration outputs under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost
+```
+
+### 7. Run baseline evaluation
 
 After both baseline model runs finish, the evaluation package reads the saved
 prediction artifacts and writes metrics, figures, and a short interpretation
@@ -178,7 +207,52 @@ By default this writes evaluation outputs under:
 /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians
 ```
 
-### 7. Run the ASIC 16h temporal aggregation preview
+### 8. Run the ASIC hard-case definition package
+
+After the logistic-regression baseline finishes, the hard-case package reads the
+saved logistic prediction artifacts and writes the stay-level hard-case flags
+plus the horizon summary table.
+
+The simplest path is:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch run_define_hard_cases.sh
+```
+
+By default this writes hard-case outputs under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression
+```
+
+### 9. Run the ASIC hard-case agreement sensitivity package
+
+After the logistic baseline and XGBoost recalibration finish, the agreement
+package reads the saved logistic and recalibrated XGBoost prediction artifacts
+and writes the fatal-stay agreement table plus the horizon-level overlap
+summary.
+
+The simplest path is:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch run_hard_case_agreement.sh
+```
+
+By default this writes agreement outputs under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/agreement/logistic_regression_vs_xgboost_platt
+```
+
+The first-pass review notebook for these artifacts lives at:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/notebooks/ch1_asic_hard_case_review.ipynb
+```
+
+### 10. Run the ASIC 16h temporal aggregation preview
 
 Run this only after the frozen 8h preprocessing and 8h baseline evaluation
 artifacts already exist in the bundle, because the preview reuses the frozen

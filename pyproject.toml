@@ -29,6 +29,8 @@ chapter1-preprocess = "chapter1_mortality_decomposition.cli:main"
 chapter1-logistic-baseline = "chapter1_mortality_decomposition.baseline_logistic:main"
 chapter1-xgboost-baseline = "chapter1_mortality_decomposition.baseline_xgboost:main"
 chapter1-evaluate-baselines = "chapter1_mortality_decomposition.baseline_evaluation:main"
+chapter1-define-hard-cases = "chapter1_mortality_decomposition.hard_case_definition:main"
+chapter1-hard-case-agreement = "chapter1_mortality_decomposition.hard_case_agreement:main"
 chapter1-xgboost-recalibration = "chapter1_mortality_decomposition.xgboost_recalibration:main"
 chapter1-temporal-preview = "chapter1_mortality_decomposition.temporal_preview:main"
 
