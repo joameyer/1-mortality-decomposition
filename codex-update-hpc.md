@@ -6,6 +6,7 @@ Context:
 - The main local repo is where I develop and test code against a small synthetic sample dataset.
 - The nested `hpc-1-mortality-decomposition` directory is the bundle I upload to the RWTH HPC cluster to run the real analysis on the full dataset.
 - When I ask this, I want you to update the HPC bundle so it matches the relevant new code/notebook changes from the main repo.
+- Important naming convention: in the local development setup, the upstream standardized ICU data repo may be named `icu-data-platform`, but in the HPC bundle and on the cluster the corresponding upstream repo/path is `hpc-icu-data-platform`. Preserve that environment-specific naming when propagating path references, defaults, run configs, scripts, notebooks, or docs into the HPC bundle.
 
 What I want you to do:
 1. Inspect the recent/local changes in the main repo.

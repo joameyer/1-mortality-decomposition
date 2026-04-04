@@ -23,6 +23,7 @@ chapter1-xgboost-baseline = "chapter1_mortality_decomposition.baseline_xgboost:m
 chapter1-evaluate-baselines = "chapter1_mortality_decomposition.baseline_evaluation:main"
 chapter1-define-hard-cases = "chapter1_mortality_decomposition.hard_case_definition:main"
 chapter1-hard-case-agreement = "chapter1_mortality_decomposition.hard_case_agreement:main"
+chapter1-asic-hardcase-comparison = "chapter1_mortality_decomposition.asic_hardcase_comparison:main"
 chapter1-xgboost-recalibration = "chapter1_mortality_decomposition.xgboost_recalibration:main"
 chapter1-temporal-preview = "chapter1_mortality_decomposition.temporal_preview:main"
 
