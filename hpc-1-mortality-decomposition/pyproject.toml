@@ -27,6 +27,7 @@ chapter1-asic-hard-case-comparison = "chapter1_mortality_decomposition.asic_hard
 chapter1-asic-horizon-dependence-foundation = "chapter1_mortality_decomposition.asic_horizon_dependence_foundation:main"
 chapter1-asic-horizon-hard-case-stability = "chapter1_mortality_decomposition.asic_horizon_hard_case_stability:main"
 chapter1-asic-horizon-dependence-final = "chapter1_mortality_decomposition.asic_horizon_dependence_final:main"
+chapter1-ch1-asic-descriptive-viability = "chapter1_mortality_decomposition.ch1_asic_descriptive_viability:main"
 chapter1-xgboost-recalibration = "chapter1_mortality_decomposition.xgboost_recalibration:main"
 chapter1-temporal-preview = "chapter1_mortality_decomposition.temporal_preview:main"
 
