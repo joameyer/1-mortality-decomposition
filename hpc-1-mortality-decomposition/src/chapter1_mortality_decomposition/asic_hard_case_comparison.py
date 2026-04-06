@@ -49,7 +49,7 @@ DEFAULT_HARD_CASE_PATH = DEFAULT_HARD_CASE_OUTPUT_DIR / "stay_level_hard_case_fl
 DEFAULT_MODEL_READY_PATH = (
     REPO_ROOT / "artifacts" / "chapter1" / "model_ready" / "chapter1_primary_model_ready_dataset.csv"
 )
-DEFAULT_OUTPUT_DIR = DEFAULT_HARD_CASE_OUTPUT_DIR / "issue_3_2_asic_hardcase_comparison"
+DEFAULT_OUTPUT_DIR = DEFAULT_HARD_CASE_OUTPUT_DIR / "asic_hard_case_comparison"
 STATIC_RELATIVE_PATH = Path("static") / "harmonized.csv"
 
 ISSUE_ID = "phase1_chapter1_sprint3_issue_3_2"
@@ -206,7 +206,7 @@ def _candidate_asic_input_roots() -> list[Path]:
         if input_dir:
             candidates.append(Path(str(input_dir)).expanduser())
 
-    upstream_artifact_root = REPO_ROOT.parent / "icu-data-platform" / "artifacts"
+    upstream_artifact_root = REPO_ROOT.parent / "hpc-icu-data-platform" / "artifacts"
     candidates.extend(
         [
             upstream_artifact_root / "asic_harmonized",
@@ -907,7 +907,7 @@ def _plot_effect_sizes(effect_size_plot_data: pd.DataFrame, *, output_path: Path
     return output_path
 
 
-def run_asic_hardcase_comparison(
+def run_asic_hard_case_comparison(
     *,
     hard_case_path: Path = DEFAULT_HARD_CASE_PATH,
     model_ready_path: Path = DEFAULT_MODEL_READY_PATH,
@@ -1030,8 +1030,7 @@ def run_asic_hardcase_comparison(
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Assemble the frozen ASIC 24h fatal-stay hard-case comparison package for "
-            "Phase 1 / Chapter 1 / Sprint 3 / Issue 3.2."
+            "Assemble the frozen ASIC 24h fatal-stay hard-case comparison package."
         )
     )
     parser.add_argument(
@@ -1055,7 +1054,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output-dir",
         type=Path,
         default=DEFAULT_OUTPUT_DIR,
-        help="Directory where the Issue 3.2 comparison package will be written.",
+        help="Directory where the hard-case comparison package will be written.",
     )
     return parser
 
@@ -1064,7 +1063,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    result = run_asic_hardcase_comparison(
+    result = run_asic_hard_case_comparison(
         hard_case_path=args.hard_case_path,
         model_ready_path=args.model_ready_path,
         asic_input_root=args.asic_input_root,

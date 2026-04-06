@@ -10,7 +10,7 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from chapter1_mortality_decomposition.asic_hardcase_comparison import main
+from chapter1_mortality_decomposition.asic_horizon_dependence_foundation import main
 
 
 if __name__ == "__main__":

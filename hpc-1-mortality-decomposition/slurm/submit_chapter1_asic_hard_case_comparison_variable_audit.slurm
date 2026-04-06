@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=chapter1-asic-hardcase-variable-audit
-#SBATCH --output=logs/chapter1_asic_hardcase_variable_audit_%j.out
-#SBATCH --error=logs/chapter1_asic_hardcase_variable_audit_%j.err
+#SBATCH --job-name=chapter1-asic-hard-case-variable-audit
+#SBATCH --output=logs/chapter1_asic_hard_case_variable_audit_%j.out
+#SBATCH --error=logs/chapter1_asic_hard_case_variable_audit_%j.err
 #SBATCH --time=02:00:00
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=8G
@@ -11,7 +11,7 @@ set -euo pipefail
 PROJECT_DIR="${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
 MODEL_READY_PATH="${MODEL_READY_PATH:-${PROJECT_DIR}/artifacts/chapter1/model_ready/chapter1_primary_model_ready_dataset.csv}"
 HARD_CASE_PATH="${HARD_CASE_PATH:-${PROJECT_DIR}/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/stay_level_hard_case_flags.csv}"
-LAUNCHER_PATH="${PROJECT_DIR}/run_asic_hardcase_comparison_variable_audit.sh"
+LAUNCHER_PATH="${PROJECT_DIR}/run_asic_hard_case_comparison_variable_audit.sh"
 
 if [ ! -d "$PROJECT_DIR" ]; then
   echo "PROJECT_DIR does not exist: $PROJECT_DIR" >&2

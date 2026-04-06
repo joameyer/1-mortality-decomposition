@@ -2,10 +2,10 @@
 
 # SLURM directives
 # Submit this script from inside hpc-1-mortality-decomposition/ with:
-# sbatch run_asic_hardcase_comparison_variable_audit.sh
+# sbatch run_asic_hard_case_comparison.sh
 # Prerequisites: preprocessing + logistic baseline + hard-case definition.
-# This writes the ASIC hard-case comparison variable audit memo and compact table.
-#SBATCH --job-name=chapter1_hardcase_variable_audit
+# This writes the ASIC Issue 3.2 fatal-case comparison package.
+#SBATCH --job-name=chapter1_asic_hard_case_comparison
 #SBATCH --time=02:00:00
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=8G
@@ -18,7 +18,8 @@ set -euo pipefail
 project_root="${PROJECT_ROOT:-${SLURM_SUBMIT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}}"
 model_ready_path="${MODEL_READY_PATH:-${project_root}/artifacts/chapter1/model_ready/chapter1_primary_model_ready_dataset.csv}"
 hard_case_path="${HARD_CASE_PATH:-${project_root}/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/stay_level_hard_case_flags.csv}"
-script_path="${project_root}/scripts/ch1_asic_hardcase_comparison_variable_audit.py"
+output_dir="${OUTPUT_DIR:-${project_root}/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison}"
+asic_input_root="${ASIC_INPUT_ROOT:-}"
 
 VENV_PATH="${VENV_PATH:-/home/am861154/projects/hpc-1-mortality-decomposition/.venv}"
 
@@ -36,11 +37,6 @@ if [ ! -f "${hard_case_path}" ]; then
     exit 1
 fi
 
-if [ ! -f "${script_path}" ]; then
-    echo "Missing feasibility script: ${script_path}" >&2
-    exit 1
-fi
-
 module purge
 # module load Python/3.11.5
 
@@ -50,12 +46,28 @@ fi
 
 cd "${project_root}"
 
-echo "[$(date)] Starting ASIC hard-case comparison variable audit job"
+cmd=(
+    python
+    run_chapter1_asic_hard_case_comparison.py
+    --hard-case-path "${hard_case_path}"
+    --model-ready-path "${model_ready_path}"
+    --output-dir "${output_dir}"
+)
+
+if [ -n "${asic_input_root}" ]; then
+    cmd+=(--asic-input-root "${asic_input_root}")
+fi
+
+echo "[$(date)] Starting Chapter 1 ASIC Issue 3.2 hard-case comparison job"
 echo "HOSTNAME: $(hostname)"
 echo "PROJECT_ROOT: ${project_root}"
 echo "MODEL_READY_PATH: ${model_ready_path}"
 echo "HARD_CASE_PATH: ${hard_case_path}"
+echo "OUTPUT_DIR: ${output_dir}"
+if [ -n "${asic_input_root}" ]; then
+    echo "ASIC_INPUT_ROOT override: ${asic_input_root}"
+fi
 
-python "${script_path}"
+"${cmd[@]}"
 
-echo "[$(date)] ASIC hard-case comparison variable audit job finished"
+echo "[$(date)] Chapter 1 ASIC Issue 3.2 hard-case comparison job finished"

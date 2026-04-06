@@ -15,16 +15,16 @@ SRC = ROOT / "src"
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
-from chapter1_mortality_decomposition.asic_hardcase_comparison import (  # noqa: E402
+from chapter1_mortality_decomposition.asic_hard_case_comparison import (  # noqa: E402
     LOW_PREDICTED_FATAL_GROUP,
     OTHER_FATAL_GROUP,
     build_stay_level_comparison_dataset,
-    run_asic_hardcase_comparison,
+    run_asic_hard_case_comparison,
 )
 
 
 class ASICHardCaseComparisonTests(TestCase):
-    def test_run_asic_hardcase_comparison_writes_issue_package(self) -> None:
+    def test_run_asic_hard_case_comparison_writes_package(self) -> None:
         with TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
             hard_case_path = tmp_path / "stay_level_hard_case_flags.csv"
@@ -194,11 +194,11 @@ class ASICHardCaseComparisonTests(TestCase):
                 ]
             ).to_csv(static_dir / "harmonized.csv", index=False)
 
-            result = run_asic_hardcase_comparison(
+            result = run_asic_hard_case_comparison(
                 hard_case_path=hard_case_path,
                 model_ready_path=model_ready_path,
                 asic_input_root=asic_input_root,
-                output_dir=tmp_path / "issue_3_2_output",
+                output_dir=tmp_path / "asic_hard_case_comparison_output",
             )
 
             self.assertEqual(result.comparison_dataset.shape[0], 4)

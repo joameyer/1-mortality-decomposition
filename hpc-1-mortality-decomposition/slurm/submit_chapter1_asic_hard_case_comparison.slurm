@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=chapter1-asic-hardcase-comparison
-#SBATCH --output=logs/chapter1_asic_hardcase_comparison_%j.out
-#SBATCH --error=logs/chapter1_asic_hardcase_comparison_%j.err
+#SBATCH --job-name=chapter1-asic-hard-case-comparison
+#SBATCH --output=logs/chapter1_asic_hard_case_comparison_%j.out
+#SBATCH --error=logs/chapter1_asic_hard_case_comparison_%j.err
 #SBATCH --time=02:00:00
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=8G
@@ -11,7 +11,7 @@ set -euo pipefail
 PROJECT_DIR="${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
 MODEL_READY_PATH="${MODEL_READY_PATH:-${PROJECT_DIR}/artifacts/chapter1/model_ready/chapter1_primary_model_ready_dataset.csv}"
 HARD_CASE_PATH="${HARD_CASE_PATH:-${PROJECT_DIR}/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/stay_level_hard_case_flags.csv}"
-OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/issue_3_2_asic_hardcase_comparison}"
+OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison}"
 ASIC_INPUT_ROOT="${ASIC_INPUT_ROOT:-}"
 
 if [ ! -d "$PROJECT_DIR" ]; then
@@ -31,8 +31,8 @@ if [ ! -f "$HARD_CASE_PATH" ]; then
   exit 1
 fi
 
-if [ ! -f "$PROJECT_DIR/scripts/run_chapter1_asic_hardcase_comparison.sh" ]; then
-  echo "Missing launcher script: $PROJECT_DIR/scripts/run_chapter1_asic_hardcase_comparison.sh" >&2
+if [ ! -f "$PROJECT_DIR/scripts/run_chapter1_asic_hard_case_comparison.sh" ]; then
+  echo "Missing launcher script: $PROJECT_DIR/scripts/run_chapter1_asic_hard_case_comparison.sh" >&2
   exit 1
 fi
 
@@ -40,7 +40,7 @@ mkdir -p "$PROJECT_DIR/logs"
 cd "$PROJECT_DIR"
 
 cmd=(
-  "$PROJECT_DIR/scripts/run_chapter1_asic_hardcase_comparison.sh"
+  "$PROJECT_DIR/scripts/run_chapter1_asic_hard_case_comparison.sh"
   --hard-case-path "$HARD_CASE_PATH"
   --model-ready-path "$MODEL_READY_PATH"
   --output-dir "$OUTPUT_DIR"

@@ -144,7 +144,19 @@ Because ASIC lacks patient identifiers, this remains operationally a stay-level 
 
 Run all commands from the repository root.
 
-### 1. Install the package
+### 1. Create and activate a local virtual environment
+
+Recommended repo-local setup:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+```
+
+If you prefer not to activate the environment, replace `python` below with `./.venv/bin/python`.
+
+### 2. Install the package
 
 Editable install:
 
@@ -152,14 +164,20 @@ Editable install:
 python -m pip install -e ".[dev]"
 ```
 
-This installs the project dependencies and registers the CLI commands:
+This installs the project dependencies, installs `pytest`, and registers the CLI commands:
 
 - `chapter1-preprocess`
 - `chapter1-logistic-baseline`
 - `chapter1-xgboost-baseline`
 - `chapter1-evaluate-baselines`
 
-### 2. Run preprocessing
+You can verify the test runner with:
+
+```bash
+python -m pytest --version
+```
+
+### 3. Run preprocessing
 
 The preprocessing CLI needs either:
 
@@ -197,7 +215,7 @@ The frozen Chapter 1 primary model-ready dataset used by downstream baselines is
 
 - [`chapter1_primary_model_ready_dataset.csv`](/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/model_ready/chapter1_primary_model_ready_dataset.csv)
 
-### 3. Train the logistic-regression baseline
+### 4. Train the logistic-regression baseline
 
 ```bash
 chapter1-logistic-baseline
@@ -219,7 +237,7 @@ This writes artifacts under:
 
 - [`logistic_regression`](/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression)
 
-### 4. Train the XGBoost baseline
+### 5. Train the XGBoost baseline
 
 ```bash
 chapter1-xgboost-baseline
@@ -241,7 +259,7 @@ This writes artifacts under:
 
 - [`xgboost`](/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost)
 
-### 5. Run baseline evaluation
+### 6. Run baseline evaluation
 
 After both baseline models have produced predictions, run:
 

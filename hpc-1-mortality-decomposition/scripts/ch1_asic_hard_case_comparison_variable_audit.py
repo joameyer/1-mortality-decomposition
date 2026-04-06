@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ast
+import json
+import os
 import re
 from pathlib import Path
 
@@ -9,7 +11,52 @@ import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ARTIFACT_ROOT = REPO_ROOT / "artifacts" / "chapter1"
-ASIC_INPUT_ROOT = Path("/Users/joanameyer/repository/icu-data-platform/artifacts/asic_harmonized")
+RUN_CONFIG_PATH = REPO_ROOT / "config" / "ch1_run_config.json"
+
+
+def _candidate_asic_input_roots() -> list[Path]:
+    candidates: list[Path] = []
+
+    env_value = os.environ.get("ASIC_INPUT_ROOT")
+    if env_value:
+        candidates.append(Path(env_value).expanduser())
+
+    if RUN_CONFIG_PATH.exists():
+        payload = json.loads(RUN_CONFIG_PATH.read_text(encoding="utf-8"))
+        config_input = payload.get("input_dir")
+        if isinstance(config_input, str) and config_input.strip():
+            config_path = Path(config_input).expanduser()
+            if not config_path.is_absolute():
+                config_path = (REPO_ROOT / config_path).resolve()
+            candidates.append(config_path)
+
+    upstream_artifact_root = REPO_ROOT.parent / "hpc-icu-data-platform" / "artifacts"
+    candidates.extend(
+        [
+            upstream_artifact_root / "asic_harmonized",
+            upstream_artifact_root / "asic_harmonized_full",
+        ]
+    )
+
+    deduplicated: list[Path] = []
+    for candidate in candidates:
+        if candidate not in deduplicated:
+            deduplicated.append(candidate)
+    return deduplicated
+
+
+def _resolve_asic_input_root() -> Path:
+    candidates = _candidate_asic_input_roots()
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate.resolve()
+    raise FileNotFoundError(
+        "Could not locate the upstream ASIC harmonized artifacts. Checked: "
+        + ", ".join(str(path) for path in candidates)
+    )
+
+
+ASIC_INPUT_ROOT = _resolve_asic_input_root()
 
 HARD_CASE_PATH = (
     ARTIFACT_ROOT
@@ -39,9 +86,9 @@ CHAPTER1_RETAINED_STAY_TABLE_PATH = (
 UPSTREAM_CHAPTER1_COHORT_PATH = ASIC_INPUT_ROOT / "cohort" / "chapter1_stay_level.csv"
 UPSTREAM_STAY_LEVEL_PATH = ASIC_INPUT_ROOT / "cohort" / "stay_level.csv"
 
-OUTPUT_DIR = HARD_CASE_PATH.parent / "asic_hardcase_comparison_variable_audit"
-TABLE_PATH = OUTPUT_DIR / "asic_hardcase_comparison_variable_audit_table.csv"
-MEMO_PATH = OUTPUT_DIR / "asic_hardcase_comparison_variable_audit_memo.md"
+OUTPUT_DIR = HARD_CASE_PATH.parent / "asic_hard_case_comparison_variable_audit"
+TABLE_PATH = OUTPUT_DIR / "asic_hard_case_comparison_variable_audit_table.csv"
+MEMO_PATH = OUTPUT_DIR / "asic_hard_case_comparison_variable_audit_memo.md"
 
 TARGET_HORIZON_H = 24
 MERGE_KEYS = [

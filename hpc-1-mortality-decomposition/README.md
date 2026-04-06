@@ -2,9 +2,10 @@
 
 This folder is a self-contained upload bundle for running the Chapter 1
 mortality preprocessing pipeline, the ASIC logistic-regression baseline, the
-ASIC XGBoost baseline, the baseline evaluation package, and the narrow ASIC 16h
-temporal aggregation preview on the HPC cluster against the full ASIC data that
-already exists in `hpc-icu-data-platform`.
+ASIC XGBoost baseline, the baseline evaluation package, the ASIC horizon-
+dependence comparison packages, and the narrow ASIC 16h temporal aggregation
+preview on the HPC cluster against the full ASIC data that already exists in
+`hpc-icu-data-platform`.
 
 It includes:
 - the full `chapter1_mortality_decomposition` source package
@@ -24,14 +25,30 @@ It includes:
   hard-case definition package
 - a Python launcher, shell wrapper, and Slurm submission template for the ASIC
   hard-case agreement sensitivity package
+- a Python launcher, shell wrapper, and Slurm submission template for the ASIC
+  hard-case comparison package
+- a shell wrapper and Slurm submission template for the ASIC hard-case
+  comparison variable audit
+- a Python launcher, shell wrapper, and Slurm submission template for the ASIC
+  horizon-dependence foundation package
+- a Python launcher, shell wrapper, and Slurm submission template for the ASIC
+  horizon hard-case stability package
+- a Python launcher, shell wrapper, and Slurm submission template for the ASIC
+  final horizon-comparison package
 - a shell wrapper and Slurm submission template for the ASIC ICD-10
   disease-group validation package
+- a shell wrapper and Slurm submission template for the ASIC SOFA feasibility
+  audit
 - a Python launcher, shell wrapper, and Slurm submission template for the ASIC
   16h temporal aggregation preview
 - the Chapter 1 preprocessing runbook notebook
 - the observation-process / missingness visualization notebook
+- the baseline model-readiness check notebook
 - the ASIC baseline evaluation review notebook
+- the XGBoost recalibration review notebook
 - the ASIC hard-case review notebook
+- the ASIC hard-case comparison notebook
+- the ASIC 16h temporal aggregation preview notebook
 
 It does not include full ASIC data.
 
@@ -102,6 +119,10 @@ That also registers these CLI commands inside the active environment:
 - `chapter1-evaluate-baselines`
 - `chapter1-define-hard-cases`
 - `chapter1-hard-case-agreement`
+- `chapter1-asic-hard-case-comparison`
+- `chapter1-asic-horizon-dependence-foundation`
+- `chapter1-asic-horizon-hard-case-stability`
+- `chapter1-asic-horizon-dependence-final`
 - `chapter1-temporal-preview`
 
 ### 3. Run preprocessing
@@ -279,7 +300,79 @@ and writes the compact comparison notebook to:
 /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/notebooks/ch1_asic_temporal_aggregation_preview_16h.ipynb
 ```
 
-### 11. Run the ASIC ICD-10 disease-group validation package
+### 11. Run the ASIC horizon-dependence foundation package
+
+After the hard-case definition job finishes, this package validates the saved
+stay-level hard-case artifacts across the five frozen horizons and writes the
+foundation summary tables and note.
+
+The simplest path is:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch run_asic_horizon_dependence_foundation.sh
+```
+
+By default this writes outputs under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/evaluation/asic/horizon_dependence/foundation
+```
+
+### 12. Run the ASIC hard-case stability package
+
+After the hard-case definition job finishes, this package computes pairwise
+hard-case overlap, directional overlap, and persistence across the frozen
+horizons.
+
+The simplest path is:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch run_asic_horizon_hard_case_stability.sh
+```
+
+By default this writes outputs under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/evaluation/asic/horizon_dependence/overlap
+```
+
+### 13. Run the final ASIC horizon-comparison package
+
+After the foundation and hard-case stability jobs finish, this package writes
+the five-panel mortality-vs-risk comparison figure plus the short interpretation
+memo and final summary note.
+
+The simplest path is:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch run_asic_horizon_dependence_final.sh
+```
+
+By default this writes outputs under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/evaluation/asic/horizon_dependence/final
+```
+
+### 14. Submit the full horizon-dependence chain in one command
+
+If you always run the three horizon packages together, use the convenience
+wrapper below. It submits the foundation job, then the overlap job with an
+`afterok` dependency, then the final figure/memo job with an `afterok`
+dependency on the overlap job.
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+bash run_asic_horizon_dependence_pipeline.sh
+```
+
+This keeps the jobs separate at the scheduler level while giving you a single
+entrypoint.
+
+### 15. Run the ASIC ICD-10 disease-group validation package
 
 This job inspects the upstream ASIC static `icd10_codes` field on the full
 cluster artifact, applies the frozen six-group hierarchy, and writes reviewable
@@ -296,6 +389,63 @@ By default this writes outputs under:
 
 ```text
 /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/evaluation/asic/icd10_disease_group_validation
+```
+
+### 16. Run the ASIC hard-case comparison package
+
+After preprocessing, the logistic baseline, and hard-case definition finish,
+this job builds the fatal-stay comparison package used for Issue 3.2 follow-up
+review.
+
+The simplest path is:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch run_asic_hard_case_comparison.sh
+```
+
+By default this writes outputs under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison
+```
+
+### 17. Run the hard-case comparison variable audit
+
+After preprocessing, the logistic baseline, and hard-case definition finish,
+this utility audit writes a compact table and memo about variable availability
+for the 24h comparison package.
+
+The simplest path is:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch run_asic_hard_case_comparison_variable_audit.sh
+```
+
+By default this writes outputs under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison_variable_audit
+```
+
+### 18. Run the ASIC SOFA feasibility audit
+
+After preprocessing, the logistic baseline, and hard-case definition finish,
+this utility audit writes the SOFA component feasibility table and memo for the
+same follow-up review path.
+
+The simplest path is:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch run_sofa_feasibility.sh
+```
+
+By default this writes outputs under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_sofa_feasibility_audit
 ```
 
 ## Main Config
@@ -384,6 +534,29 @@ python run_chapter1_evaluate_baselines.py \
   --primary-horizon 24
 ```
 
+### Direct Python launchers for additional Chapter 1 analysis packages
+
+Run any of the follow-on analysis packages directly with:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+python run_chapter1_xgboost_recalibration.py
+python run_chapter1_define_hard_cases.py
+python run_chapter1_hard_case_agreement.py
+python run_chapter1_asic_hard_case_comparison.py
+python run_chapter1_asic_horizon_dependence_foundation.py
+python run_chapter1_asic_horizon_hard_case_stability.py
+python run_chapter1_asic_horizon_dependence_final.py
+```
+
+The standalone utility audits use:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+python scripts/ch1_asic_hard_case_comparison_variable_audit.py
+python scripts/ch1_sofa_feasibility_audit.py
+```
+
 ### Direct Python launcher for the 16h temporal aggregation preview
 
 ```bash
@@ -446,6 +619,24 @@ cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
 ```bash
 cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
 ./scripts/run_chapter1_evaluate_baselines.sh
+```
+
+### Additional shell wrappers
+
+The bundle also includes these wrapper entrypoints:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+./scripts/run_chapter1_xgboost_recalibration.sh
+./scripts/run_chapter1_define_hard_cases.sh
+./scripts/run_chapter1_hard_case_agreement.sh
+./scripts/run_chapter1_asic_hard_case_comparison.sh
+./scripts/run_chapter1_asic_horizon_dependence_foundation.sh
+./scripts/run_chapter1_asic_horizon_hard_case_stability.sh
+./scripts/run_chapter1_asic_horizon_dependence_final.sh
+./scripts/run_chapter1_temporal_preview.sh
+./scripts/run_chapter1_asic_hard_case_comparison_variable_audit.sh
+./scripts/run_chapter1_sofa_feasibility.sh
 ```
 
 ### Shell wrapper for ASIC ICD-10 disease-group validation
@@ -523,6 +714,21 @@ sbatch \
   slurm/submit_chapter1_evaluate_baselines.slurm
 ```
 
+### Additional Slurm templates
+
+The bundle also includes these ready-to-submit templates:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch --export=ALL,PROJECT_DIR=$PWD slurm/submit_chapter1_xgboost_recalibration.slurm
+sbatch --export=ALL,PROJECT_DIR=$PWD slurm/submit_chapter1_define_hard_cases.slurm
+sbatch --export=ALL,PROJECT_DIR=$PWD slurm/submit_chapter1_hard_case_agreement.slurm
+sbatch --export=ALL,PROJECT_DIR=$PWD slurm/submit_chapter1_temporal_preview.slurm
+sbatch --export=ALL,PROJECT_DIR=$PWD slurm/submit_chapter1_asic_hard_case_comparison.slurm
+sbatch --export=ALL,PROJECT_DIR=$PWD slurm/submit_chapter1_asic_hard_case_comparison_variable_audit.slurm
+sbatch --export=ALL,PROJECT_DIR=$PWD slurm/submit_chapter1_sofa_feasibility.slurm
+```
+
 ### Slurm template for ASIC ICD-10 disease-group validation
 
 ```bash
@@ -540,12 +746,44 @@ sbatch \
   slurm/submit_chapter1_asic_icd10_disease_group_validation.slurm
 ```
 
+### Slurm template for ASIC horizon-dependence foundation
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch \
+  --export=ALL,PROJECT_DIR=$PWD \
+  slurm/submit_chapter1_asic_horizon_dependence_foundation.slurm
+```
+
+### Slurm template for ASIC hard-case stability
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch \
+  --export=ALL,PROJECT_DIR=$PWD \
+  slurm/submit_chapter1_asic_horizon_hard_case_stability.slurm
+```
+
+### Slurm template for final ASIC horizon comparison
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+sbatch \
+  --export=ALL,PROJECT_DIR=$PWD \
+  slurm/submit_chapter1_asic_horizon_dependence_final.slurm
+```
+
 ## Notebooks
 
 The bundle includes:
 - `notebooks/ch1_preprocessing_runbook.ipynb`
 - `notebooks/ch1_observation_process_visualization.ipynb`
+- `notebooks/ch1_baseline_model_readiness_check.ipynb`
 - `notebooks/ch1_asic_baseline_evaluation_review.ipynb`
+- `notebooks/ch1_xgboost_recalibration_review.ipynb`
+- `notebooks/ch1_asic_hard_case_review.ipynb`
+- `notebooks/ch1_asic_hard_case_comparison.ipynb`
+- `notebooks/ch1_asic_temporal_aggregation_preview_16h.ipynb`
 
 These notebooks read the written `artifacts/chapter1` outputs. They are mainly
 for inspection and visualization after preprocessing, baseline training, and
@@ -576,6 +814,13 @@ including:
 - `baselines/asic/primary_medians/logistic_regression/`
 - `baselines/asic/primary_medians/xgboost/`
 - `evaluation/asic/baselines/primary_medians/`
+- `evaluation/asic/hard_cases/primary_medians/logistic_regression/`
+- `evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/`
+- `evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison_variable_audit/`
+- `evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_sofa_feasibility_audit/`
+- `evaluation/asic/horizon_dependence/foundation/`
+- `evaluation/asic/horizon_dependence/overlap/`
+- `evaluation/asic/horizon_dependence/final/`
 
 The logistic baseline writes one subdirectory per horizon, each containing:
 - `predictions.csv`
