@@ -80,6 +80,7 @@ COMPARISON_DATASET_COLUMNS = [
     "sex",
     "disease_group",
     "prediction_time_h",
+    "icu_end_time_proxy_hours",
     "hospital_id",
     "pf_ratio_last",
     "map_last",
@@ -121,6 +122,45 @@ ORDERED_CATEGORICAL_LEVELS = {
     "disease_group": FROZEN_DISEASE_GROUP_HIERARCHY,
 }
 
+EARLY_VS_LATE_OUTPUT_DIRNAME = "early_vs_late_death_split"
+EARLY_VS_LATE_SUMMARY_FILENAME = "early_vs_late_fatal_timing_summary.csv"
+EARLY_VS_LATE_FIGURE_FILENAME = "early_vs_late_low_pred_share.png"
+EARLY_VS_LATE_NOTE_FILENAME = "early_vs_late_interpretation_note.md"
+EARLY_ICU_DEATH_GROUP = "early ICU death (<=48h)"
+LATE_ICU_DEATH_GROUP = "late ICU death (>48h)"
+FATAL_TIMING_SPLIT_HOURS = 48.0
+FATAL_TIMING_GROUP_ORDER = (EARLY_ICU_DEATH_GROUP, LATE_ICU_DEATH_GROUP)
+TIMING_SPLIT_MIN_GROUP_SIZE = 10
+TIMING_SPLIT_MIN_CELL_SIZE = 5
+EARLY_LATE_CATEGORICAL_VARIABLES = ("age_group", "disease_group", "hospital_id")
+EARLY_LATE_CONTINUOUS_VARIABLES = (
+    "prediction_time_h",
+    "icu_end_time_proxy_hours",
+    "creatinine_last",
+    "peep_last",
+)
+EARLY_LATE_VARIABLE_ORDER = [
+    *EARLY_LATE_CATEGORICAL_VARIABLES,
+    *EARLY_LATE_CONTINUOUS_VARIABLES,
+]
+EARLY_LATE_VARIABLE_LABELS = {
+    "age_group": "Age group",
+    "disease_group": "Disease group",
+    "hospital_id": "Hospital",
+    "prediction_time_h": "Prediction time from ICU admission (h)",
+    "icu_end_time_proxy_hours": "ICU death/end proxy time from admission (h)",
+    "creatinine_last": "Creatinine",
+    "peep_last": "PEEP",
+}
+
+
+@dataclass(frozen=True)
+class EarlyVsLateFatalTimingArtifacts:
+    output_dir: Path
+    summary_path: Path
+    figure_path: Path
+    note_path: Path
+
 
 @dataclass(frozen=True)
 class ASICHardCaseComparisonArtifacts:
@@ -131,6 +171,7 @@ class ASICHardCaseComparisonArtifacts:
     figure_path: Path
     summary_path: Path
     manifest_path: Path
+    early_vs_late_fatal_timing: EarlyVsLateFatalTimingArtifacts
 
 
 @dataclass(frozen=True)
@@ -436,6 +477,7 @@ def build_stay_level_comparison_dataset(
         resolved_model_ready_path,
         usecols=[
             *MERGE_KEYS,
+            "icu_end_time_proxy_hours",
             "pf_ratio_last",
             "map_last",
             "creatinine_last",
@@ -457,6 +499,14 @@ def build_stay_level_comparison_dataset(
             "Some 24h fatal hard-case rows could not be linked to the Chapter 1 model-ready dataset."
         )
     merged = merged.drop(columns="_merge")
+    merged["icu_end_time_proxy_hours"] = pd.to_numeric(
+        merged["icu_end_time_proxy_hours"],
+        errors="coerce",
+    )
+    if merged["icu_end_time_proxy_hours"].isna().any():
+        raise ValueError(
+            "Some 24h fatal hard-case rows are missing icu_end_time_proxy_hours in the Chapter 1 model-ready dataset."
+        )
 
     static = _filter_table_to_target(
         resolved_static_path,
@@ -526,7 +576,14 @@ def build_stay_level_comparison_dataset(
                 "path": resolved_model_ready_path,
                 "join_type": "left",
                 "join_keys": MERGE_KEYS,
-                "selected_columns": [*MERGE_KEYS, "pf_ratio_last", "map_last", "creatinine_last", "peep_last"],
+                "selected_columns": [
+                    *MERGE_KEYS,
+                    "icu_end_time_proxy_hours",
+                    "pf_ratio_last",
+                    "map_last",
+                    "creatinine_last",
+                    "peep_last",
+                ],
                 "validation": "one_to_one",
             },
             {
@@ -735,6 +792,507 @@ def _modifier_from_abs_effect_size(abs_effect_size: float) -> str:
     if abs_effect_size >= 0.8:
         return ""
     return "modestly "
+
+
+def _with_fatal_timing_group(comparison_dataset: pd.DataFrame) -> pd.DataFrame:
+    timed = comparison_dataset.copy()
+    require_columns(
+        timed,
+        {"icu_end_time_proxy_hours", "hard_case_flag"},
+        "ASIC 24h fatal stay-level comparison dataset",
+    )
+    timed["icu_end_time_proxy_hours"] = pd.to_numeric(
+        timed["icu_end_time_proxy_hours"],
+        errors="coerce",
+    )
+    if timed["icu_end_time_proxy_hours"].isna().any():
+        raise ValueError(
+            "The ASIC 24h fatal stay-level comparison dataset is missing icu_end_time_proxy_hours."
+        )
+    timed["fatal_timing_group"] = pd.Categorical(
+        np.where(
+            timed["icu_end_time_proxy_hours"].le(FATAL_TIMING_SPLIT_HOURS),
+            EARLY_ICU_DEATH_GROUP,
+            LATE_ICU_DEATH_GROUP,
+        ),
+        categories=list(FATAL_TIMING_GROUP_ORDER),
+        ordered=True,
+    )
+    return timed
+
+
+def _format_pct(value: float) -> str:
+    if pd.isna(value):
+        return "NA"
+    return f"{100.0 * float(value):.1f}%"
+
+
+def _share_from_counts(count: int, total: int) -> float:
+    if total == 0:
+        return float("nan")
+    return float(count / total)
+
+
+def _build_early_vs_late_descriptive_rows(
+    timed_dataset: pd.DataFrame,
+) -> list[dict[str, object]]:
+    early_group = timed_dataset[timed_dataset["fatal_timing_group"].eq(EARLY_ICU_DEATH_GROUP)].copy()
+    late_group = timed_dataset[timed_dataset["fatal_timing_group"].eq(LATE_ICU_DEATH_GROUP)].copy()
+    n_early = int(early_group.shape[0])
+    n_late = int(late_group.shape[0])
+
+    rows: list[dict[str, object]] = []
+    for variable_name in EARLY_LATE_VARIABLE_ORDER:
+        if variable_name in EARLY_LATE_CATEGORICAL_VARIABLES:
+            levels = _ordered_levels(timed_dataset[variable_name], variable_name=variable_name)
+            early_summary_parts: list[str] = []
+            late_summary_parts: list[str] = []
+            level_rows: list[dict[str, object]] = []
+
+            for level in levels:
+                early_count = int(_categorical_level_mask(early_group[variable_name], level).sum())
+                late_count = int(_categorical_level_mask(late_group[variable_name], level).sum())
+                early_fraction = _share_from_counts(early_count, n_early)
+                late_fraction = _share_from_counts(late_count, n_late)
+                standardized_difference = _proportion_standardized_difference(
+                    early_fraction,
+                    late_fraction,
+                )
+                level_rows.append(
+                    {
+                        "level": level,
+                        "standardized_difference": standardized_difference,
+                        "absolute_standardized_difference": abs(standardized_difference)
+                        if np.isfinite(standardized_difference)
+                        else np.nan,
+                    }
+                )
+                early_summary_parts.append(f"{level}: {_format_count_pct(early_count, n_early)}")
+                late_summary_parts.append(f"{level}: {_format_count_pct(late_count, n_late)}")
+
+            level_frame = pd.DataFrame(level_rows)
+            level_frame = level_frame.sort_values(
+                ["absolute_standardized_difference", "level"],
+                ascending=[False, True],
+                na_position="last",
+                kind="stable",
+            ).reset_index(drop=True)
+            dominant_row = level_frame.iloc[0]
+            rows.append(
+                {
+                    "section": "compact_descriptive_comparison",
+                    "variable": variable_name,
+                    "variable_label": EARLY_LATE_VARIABLE_LABELS[variable_name],
+                    "early_icu_death": "; ".join(early_summary_parts),
+                    "late_icu_death": "; ".join(late_summary_parts),
+                    "comparison_statistic": "max absolute level-specific standardized difference",
+                    "comparison_value": dominant_row["absolute_standardized_difference"],
+                    "comparison_basis": dominant_row["level"],
+                }
+            )
+            continue
+
+        standardized_difference, _ = _continuous_standardized_difference(
+            early_group[variable_name],
+            late_group[variable_name],
+        )
+        rows.append(
+            {
+                "section": "compact_descriptive_comparison",
+                "variable": variable_name,
+                "variable_label": EARLY_LATE_VARIABLE_LABELS[variable_name],
+                "early_icu_death": _format_continuous_summary(
+                    early_group[variable_name],
+                    variable_name=variable_name,
+                ),
+                "late_icu_death": _format_continuous_summary(
+                    late_group[variable_name],
+                    variable_name=variable_name,
+                ),
+                "comparison_statistic": "continuous pooled-SD standardized mean difference",
+                "comparison_value": abs(standardized_difference)
+                if np.isfinite(standardized_difference)
+                else np.nan,
+                "comparison_basis": "available values",
+            }
+        )
+    return rows
+
+
+def build_early_vs_late_fatal_timing_summary(
+    comparison_dataset: pd.DataFrame,
+) -> tuple[pd.DataFrame, dict[str, object]]:
+    timed_dataset = _with_fatal_timing_group(comparison_dataset)
+    group_counts = (
+        timed_dataset["fatal_timing_group"]
+        .value_counts()
+        .reindex(FATAL_TIMING_GROUP_ORDER, fill_value=0)
+    )
+    cell_counts = (
+        timed_dataset.groupby(["fatal_timing_group", "hard_case_flag"], observed=False)
+        .size()
+        .reindex(
+            pd.MultiIndex.from_product(
+                [FATAL_TIMING_GROUP_ORDER, [False, True]],
+                names=["fatal_timing_group", "hard_case_flag"],
+            ),
+            fill_value=0,
+        )
+    )
+    total_fatal = int(timed_dataset.shape[0])
+    early_total = int(group_counts[EARLY_ICU_DEATH_GROUP])
+    late_total = int(group_counts[LATE_ICU_DEATH_GROUP])
+    early_low = int(cell_counts[(EARLY_ICU_DEATH_GROUP, True)])
+    early_other = int(cell_counts[(EARLY_ICU_DEATH_GROUP, False)])
+    late_low = int(cell_counts[(LATE_ICU_DEATH_GROUP, True)])
+    late_other = int(cell_counts[(LATE_ICU_DEATH_GROUP, False)])
+
+    early_low_share = _share_from_counts(early_low, early_total)
+    late_low_share = _share_from_counts(late_low, late_total)
+    signed_difference_pp = (
+        100.0 * (late_low_share - early_low_share)
+        if np.isfinite(early_low_share) and np.isfinite(late_low_share)
+        else np.nan
+    )
+    absolute_difference_pp = abs(signed_difference_pp) if np.isfinite(signed_difference_pp) else np.nan
+
+    sparse_reasons: list[str] = []
+    for group_label, count in (
+        (EARLY_ICU_DEATH_GROUP, early_total),
+        (LATE_ICU_DEATH_GROUP, late_total),
+    ):
+        if count < TIMING_SPLIT_MIN_GROUP_SIZE:
+            sparse_reasons.append(
+                f"{group_label} had {count} fatal stays (<{TIMING_SPLIT_MIN_GROUP_SIZE})"
+            )
+    for group_label, hard_case_count, other_count in (
+        (EARLY_ICU_DEATH_GROUP, early_low, early_other),
+        (LATE_ICU_DEATH_GROUP, late_low, late_other),
+    ):
+        if hard_case_count < TIMING_SPLIT_MIN_CELL_SIZE:
+            sparse_reasons.append(
+                f"{group_label} had {hard_case_count} low-predicted fatal stays (<{TIMING_SPLIT_MIN_CELL_SIZE})"
+            )
+        if other_count < TIMING_SPLIT_MIN_CELL_SIZE:
+            sparse_reasons.append(
+                f"{group_label} had {other_count} other fatal stays (<{TIMING_SPLIT_MIN_CELL_SIZE})"
+            )
+    comparison_performed = not sparse_reasons
+    sparse_reason = "; ".join(sparse_reasons) if sparse_reasons else ""
+
+    summary_rows: list[dict[str, object]] = [
+        {
+            "section": "core_timing_summary",
+            "variable": "fatal_stays",
+            "variable_label": "Fatal stays",
+            "early_icu_death": f"{early_total} ({_format_pct(_share_from_counts(early_total, total_fatal))} of fatal stays)",
+            "late_icu_death": f"{late_total} ({_format_pct(_share_from_counts(late_total, total_fatal))} of fatal stays)",
+            "comparison_statistic": "share of all fatal stays",
+            "comparison_value": np.nan,
+            "comparison_basis": "within fatal stays",
+        },
+        {
+            "section": "core_timing_summary",
+            "variable": "low_predicted_fatal",
+            "variable_label": "Low-predicted fatal stays",
+            "early_icu_death": _format_count_pct(early_low, early_total),
+            "late_icu_death": _format_count_pct(late_low, late_total),
+            "comparison_statistic": "absolute difference in low-predicted fatal share (pp)",
+            "comparison_value": absolute_difference_pp,
+            "comparison_basis": (
+                f"late minus early = {signed_difference_pp:+.1f} pp"
+                if np.isfinite(signed_difference_pp)
+                else "late minus early unavailable"
+            ),
+        },
+        {
+            "section": "core_timing_summary",
+            "variable": "other_fatal",
+            "variable_label": "Other fatal stays",
+            "early_icu_death": _format_count_pct(early_other, early_total),
+            "late_icu_death": _format_count_pct(late_other, late_total),
+            "comparison_statistic": "row percentages within timing group",
+            "comparison_value": np.nan,
+            "comparison_basis": "complement of low-predicted fatal share",
+        },
+        {
+            "section": "core_timing_summary",
+            "variable": "comparison_status",
+            "variable_label": "Compact descriptive comparison",
+            "early_icu_death": (
+                "performed"
+                if comparison_performed
+                else "counts/share note only"
+            ),
+            "late_icu_death": (
+                "performed"
+                if comparison_performed
+                else sparse_reason
+            ),
+            "comparison_statistic": "sparse-stop rule",
+            "comparison_value": np.nan,
+            "comparison_basis": (
+                f"require >={TIMING_SPLIT_MIN_GROUP_SIZE} fatal stays per timing group and "
+                f">={TIMING_SPLIT_MIN_CELL_SIZE} stays in each timing x hard-case cell"
+            ),
+        },
+    ]
+
+    if comparison_performed:
+        summary_rows.extend(_build_early_vs_late_descriptive_rows(timed_dataset))
+
+    summary_frame = pd.DataFrame(summary_rows)
+    if "comparison_value" in summary_frame.columns:
+        summary_frame["comparison_value"] = pd.to_numeric(
+            summary_frame["comparison_value"],
+            errors="coerce",
+        ).round(3)
+
+    return summary_frame, {
+        "comparison_performed": comparison_performed,
+        "sparse_reason": sparse_reason,
+        "total_fatal_stays": total_fatal,
+        "early_total": early_total,
+        "late_total": late_total,
+        "early_low_predicted_count": early_low,
+        "early_other_count": early_other,
+        "late_low_predicted_count": late_low,
+        "late_other_count": late_other,
+        "early_low_predicted_share": early_low_share,
+        "late_low_predicted_share": late_low_share,
+        "signed_difference_pp": signed_difference_pp,
+        "absolute_difference_pp": absolute_difference_pp,
+    }
+
+
+def _plot_early_vs_late_low_pred_share(
+    timing_summary: dict[str, object],
+    *,
+    output_path: Path,
+) -> Path:
+    _require_matplotlib()
+    totals = [
+        int(timing_summary["early_total"]),
+        int(timing_summary["late_total"]),
+    ]
+    low_counts = [
+        int(timing_summary["early_low_predicted_count"]),
+        int(timing_summary["late_low_predicted_count"]),
+    ]
+    low_shares = [
+        _share_from_counts(low_counts[0], totals[0]),
+        _share_from_counts(low_counts[1], totals[1]),
+    ]
+    low_bar_values = [0.0 if pd.isna(value) else float(value) for value in low_shares]
+    other_bar_values = [
+        0.0 if total == 0 else max(0.0, 1.0 - low_share)
+        for total, low_share in zip(totals, low_bar_values, strict=True)
+    ]
+
+    figure, axis = plt.subplots(figsize=(5.8, 4.2))
+    x_positions = np.arange(len(FATAL_TIMING_GROUP_ORDER))
+    axis.bar(
+        x_positions,
+        low_bar_values,
+        color="#4c78a8",
+        edgecolor="#1f3a5f",
+        linewidth=0.7,
+        label="Low-predicted fatal",
+    )
+    axis.bar(
+        x_positions,
+        other_bar_values,
+        bottom=low_bar_values,
+        color="#d9d9d9",
+        edgecolor="#7f7f7f",
+        linewidth=0.7,
+        label="Other fatal",
+    )
+    axis.set_xticks(x_positions)
+    axis.set_xticklabels(["Early\n<=48h", "Late\n>48h"])
+    axis.set_ylim(0.0, 1.08)
+    axis.set_yticks(np.linspace(0.0, 1.0, 6))
+    axis.set_yticklabels([f"{int(tick * 100)}%" for tick in np.linspace(0.0, 1.0, 6)])
+    axis.set_ylabel("Share of fatal stays")
+    axis.set_title("ASIC fatal stays by ICU-death timing", fontsize=12)
+    axis.grid(axis="y", color="#d9d9d9", linewidth=0.8)
+    axis.set_axisbelow(True)
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    axis.legend(loc="upper right", frameon=False, fontsize=9)
+
+    for index, (low_count, total, low_share) in enumerate(
+        zip(low_counts, totals, low_shares, strict=True)
+    ):
+        axis.text(
+            index,
+            1.02,
+            f"n={total}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+            color="#333333",
+        )
+        if total == 0 or pd.isna(low_share):
+            continue
+        label_y = (float(low_share) / 2.0) if float(low_share) >= 0.12 else float(low_share) + 0.05
+        axis.text(
+            index,
+            label_y,
+            f"{low_count}/{total}\n{100.0 * float(low_share):.0f}%",
+            ha="center",
+            va="center",
+            fontsize=8,
+            color="white" if float(low_share) >= 0.22 else "#1f3a5f",
+            fontweight="bold",
+        )
+
+    figure.savefig(output_path, dpi=160, bbox_inches="tight")
+    plt.close(figure)
+    return output_path
+
+
+def build_early_vs_late_interpretation_note(
+    *,
+    timing_summary: dict[str, object],
+) -> str:
+    early_total = int(timing_summary["early_total"])
+    late_total = int(timing_summary["late_total"])
+    early_low = int(timing_summary["early_low_predicted_count"])
+    late_low = int(timing_summary["late_low_predicted_count"])
+    early_share = float(timing_summary["early_low_predicted_share"])
+    late_share = float(timing_summary["late_low_predicted_share"])
+    absolute_difference_pp = float(timing_summary["absolute_difference_pp"])
+    comparison_performed = bool(timing_summary["comparison_performed"])
+    sparse_reason = str(timing_summary["sparse_reason"]).strip()
+
+    lines = [
+        "# Early vs Late Fatal Timing Note",
+        "",
+        (
+            f"- This appendix-only sensitivity reuses the frozen ASIC fatal-stay hard-case artifact "
+            f"anchored to `{HARD_CASE_RULE}`."
+        ),
+        (
+            "- Fatal stays are split pragmatically at 48 hours from ICU admission using "
+            "`icu_end_time_proxy_hours` from the existing Chapter 1 proxy-label workflow: "
+            f"`{EARLY_ICU_DEATH_GROUP}` vs `{LATE_ICU_DEATH_GROUP}`."
+        ),
+        (
+            f"- Low-predicted fatal stays were `{early_low}/{early_total}` ({100.0 * early_share:.1f}%) "
+            f"among early ICU deaths and `{late_low}/{late_total}` ({100.0 * late_share:.1f}%) "
+            f"among late ICU deaths; absolute share difference = `{absolute_difference_pp:.1f}` percentage points."
+        ),
+    ]
+
+    if not comparison_performed:
+        lines.extend(
+            [
+                (
+                    "- The subgroup split is too sparse for a stable descriptive comparison under the "
+                    f"conservative implementation rule (>={TIMING_SPLIT_MIN_GROUP_SIZE} fatal stays per timing "
+                    f"group and >={TIMING_SPLIT_MIN_CELL_SIZE} stays in each timing x hard-case cell): "
+                    f"{sparse_reason}."
+                ),
+                (
+                    "- Interpretation: on this run, early-vs-late timing is not informative enough to "
+                    "materially change the existing ASIC hard-case reading and is best treated as decorative."
+                ),
+            ]
+        )
+    else:
+        if early_share > late_share:
+            concentration_sentence = (
+                "- Low-predicted fatal cases were somewhat more concentrated in early ICU deaths."
+            )
+        elif late_share > early_share:
+            concentration_sentence = (
+                "- Low-predicted fatal cases were not more concentrated in early ICU deaths; the larger "
+                "share was among later ICU deaths."
+            )
+        else:
+            concentration_sentence = (
+                "- Low-predicted fatal cases were split almost identically across early and later ICU deaths."
+            )
+
+        if absolute_difference_pp < 5.0:
+            interpretation_sentence = (
+                "- Early-vs-late timing does not materially alter the existing ASIC hard-case interpretation."
+            )
+            retain_sentence = (
+                "- Chapter 1 value: this looks essentially negligible and can be dropped as non-consequential."
+            )
+        elif absolute_difference_pp < 15.0:
+            interpretation_sentence = (
+                "- Timing may partly explain a small share of the pattern, but the existing ASIC hard-case "
+                "interpretation remains materially unchanged."
+            )
+            retain_sentence = (
+                "- Chapter 1 value: retain only as a short appendix sensitivity if the full-data rerun shows "
+                "the same direction with non-sparse subgroup counts."
+            )
+        else:
+            interpretation_sentence = (
+                "- Timing may partly explain some concentration of the low-predicted fatal pattern, but this "
+                "binary split still does not justify reframing the ASIC hard cases as distinct death subtypes."
+            )
+            retain_sentence = (
+                "- Chapter 1 value: retain only as a bounded appendix note rather than a main analytic result."
+            )
+        lines.extend([concentration_sentence, interpretation_sentence, retain_sentence])
+
+    lines.extend(
+        [
+            (
+                "- This is descriptive only. The late-death group is not a baseline subgroup, so the split "
+                "should not be given immortal-time-style, causal, or subtype interpretation."
+            ),
+            (
+                "- The 48h split is a pragmatic binary sensitivity choice for interpretability, not evidence "
+                "of biological death subtypes."
+            ),
+            (
+                "- Admission type was not available in the frozen comparison dataset, so the compact "
+                "comparison reuses only existing age-group, disease-group, site, timing, creatinine, and "
+                "PEEP fields from the established hard-case workflow."
+            ),
+        ]
+    )
+    return "\n".join(lines) + "\n"
+
+
+def write_early_vs_late_fatal_timing_artifacts(
+    comparison_dataset: pd.DataFrame,
+    *,
+    output_dir: Path,
+) -> tuple[EarlyVsLateFatalTimingArtifacts, pd.DataFrame, dict[str, object], str]:
+    summary_frame, timing_summary = build_early_vs_late_fatal_timing_summary(comparison_dataset)
+    timing_output_dir = Path(output_dir) / EARLY_VS_LATE_OUTPUT_DIRNAME
+    summary_path = write_dataframe(
+        summary_frame,
+        timing_output_dir / EARLY_VS_LATE_SUMMARY_FILENAME,
+        output_format="csv",
+    )
+    figure_path = _plot_early_vs_late_low_pred_share(
+        timing_summary,
+        output_path=timing_output_dir / EARLY_VS_LATE_FIGURE_FILENAME,
+    )
+    note_markdown = build_early_vs_late_interpretation_note(timing_summary=timing_summary)
+    note_path = write_text(
+        note_markdown,
+        timing_output_dir / EARLY_VS_LATE_NOTE_FILENAME,
+    )
+    return (
+        EarlyVsLateFatalTimingArtifacts(
+            output_dir=timing_output_dir,
+            summary_path=summary_path,
+            figure_path=figure_path,
+            note_path=note_path,
+        ),
+        summary_frame,
+        timing_summary,
+        note_markdown,
+    )
 
 
 def build_summary_markdown(
@@ -954,6 +1512,10 @@ def run_asic_hard_case_comparison(
         output_path=resolved_output_dir / "effect_size_figure.png",
     )
     summary_path = write_text(summary_markdown, resolved_output_dir / "summary.md")
+    early_vs_late_artifacts, _, timing_summary, _ = write_early_vs_late_fatal_timing_artifacts(
+        comparison_dataset,
+        output_dir=resolved_output_dir,
+    )
 
     manifest_payload = {
         "timestamp_utc": _utc_timestamp(),
@@ -971,6 +1533,43 @@ def run_asic_hard_case_comparison(
             "creatinine_last",
             "peep_last",
         ],
+        "secondary_outputs": {
+            "early_vs_late_fatal_timing_split": {
+                "timing_variable": "icu_end_time_proxy_hours",
+                "timing_split_hours": FATAL_TIMING_SPLIT_HOURS,
+                "timing_groups": list(FATAL_TIMING_GROUP_ORDER),
+                "comparison_performed": bool(timing_summary["comparison_performed"]),
+                "sparse_stop_rule": (
+                    f">={TIMING_SPLIT_MIN_GROUP_SIZE} fatal stays per timing group and "
+                    f">={TIMING_SPLIT_MIN_CELL_SIZE} stays in each timing x hard-case cell"
+                ),
+                "comparison_variables": EARLY_LATE_VARIABLE_ORDER,
+                "group_counts": {
+                    EARLY_ICU_DEATH_GROUP: int(timing_summary["early_total"]),
+                    LATE_ICU_DEATH_GROUP: int(timing_summary["late_total"]),
+                },
+                "low_predicted_fatal_counts": {
+                    EARLY_ICU_DEATH_GROUP: int(timing_summary["early_low_predicted_count"]),
+                    LATE_ICU_DEATH_GROUP: int(timing_summary["late_low_predicted_count"]),
+                },
+                "low_predicted_fatal_shares": {
+                    EARLY_ICU_DEATH_GROUP: float(timing_summary["early_low_predicted_share"])
+                    if np.isfinite(timing_summary["early_low_predicted_share"])
+                    else None,
+                    LATE_ICU_DEATH_GROUP: float(timing_summary["late_low_predicted_share"])
+                    if np.isfinite(timing_summary["late_low_predicted_share"])
+                    else None,
+                },
+                "absolute_difference_pp": float(timing_summary["absolute_difference_pp"])
+                if np.isfinite(timing_summary["absolute_difference_pp"])
+                else None,
+                "output_paths": {
+                    "summary_table": str(Path(early_vs_late_artifacts.summary_path).resolve()),
+                    "figure": str(Path(early_vs_late_artifacts.figure_path).resolve()),
+                    "interpretation_note": str(Path(early_vs_late_artifacts.note_path).resolve()),
+                },
+            }
+        },
         "group_counts": {
             LOW_PREDICTED_FATAL_GROUP: int(comparison_dataset["hard_case_flag"].astype(bool).sum()),
             OTHER_FATAL_GROUP: int((~comparison_dataset["hard_case_flag"].astype(bool)).sum()),
@@ -1018,6 +1617,7 @@ def run_asic_hard_case_comparison(
             figure_path=figure_path,
             summary_path=summary_path,
             manifest_path=manifest_path,
+            early_vs_late_fatal_timing=early_vs_late_artifacts,
         ),
         comparison_dataset=comparison_dataset,
         comparison_table=comparison_table.drop(columns="figure_label"),
@@ -1078,6 +1678,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"Figure: {result.artifacts.figure_path}")
     print(f"Summary markdown: {result.artifacts.summary_path}")
     print(f"Manifest: {result.artifacts.manifest_path}")
+    print(f"Early vs late timing summary: {result.artifacts.early_vs_late_fatal_timing.summary_path}")
+    print(f"Early vs late timing figure: {result.artifacts.early_vs_late_fatal_timing.figure_path}")
+    print(f"Early vs late timing note: {result.artifacts.early_vs_late_fatal_timing.note_path}")
     return 0
 
 

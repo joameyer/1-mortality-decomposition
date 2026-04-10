@@ -183,6 +183,9 @@ def _discover_prediction_artifacts(
             )
 
         for horizon_h in selected_horizons:
+            # Formal Chapter 1 baseline metrics continue to run on the saved evaluation-only
+            # prediction export. The parallel all_valid_predictions.csv artifact is reserved for
+            # descriptive trajectory analysis and must not replace predictions.csv here.
             predictions_path = model_root / f"horizon_{horizon_h}h" / "predictions.csv"
             if not predictions_path.exists():
                 raise FileNotFoundError(

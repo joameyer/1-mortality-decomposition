@@ -14,6 +14,8 @@ from sklearn.impute import SimpleImputer
 from sklearn.pipeline import Pipeline
 
 from chapter1_mortality_decomposition.baseline_logistic import (
+    ALL_VALID_PREDICTIONS_FILENAME,
+    ALL_VALID_PREDICTION_QC_FILENAME,
     DEFAULT_FEATURE_SET_DEFINITION_PATH,
     DEFAULT_PRIMARY_MODEL_READY_DATASET_PATH,
     EXPECTED_BASELINE_SPLITS,
@@ -23,6 +25,9 @@ from chapter1_mortality_decomposition.baseline_logistic import (
     _horizon_output_dir,
     _normalize_horizons,
     _ordered_unique,
+    build_all_valid_prediction_frame,
+    build_all_valid_prediction_qc,
+    build_primary_all_valid_scoring_dataset,
     compute_binary_classification_metrics,
     select_primary_logistic_feature_columns,
     validate_expected_split_labels,
@@ -74,6 +79,8 @@ DEFAULT_XGBOOST_PARAMETERS = {
 @dataclass(frozen=True)
 class XGBoostBaselineArtifacts:
     predictions_path: Path
+    all_valid_predictions_path: Path
+    all_valid_prediction_qc_path: Path
     metrics_path: Path
     metadata_path: Path
     selected_features_path: Path
@@ -198,6 +205,7 @@ def _metrics_frame(
 def run_horizon_xgboost(
     horizon_dataset: pd.DataFrame,
     *,
+    all_valid_horizon_dataset: pd.DataFrame,
     feature_columns: Sequence[str],
     input_dataset_path: Path,
     feature_set_definition_path: Path,
@@ -209,12 +217,33 @@ def run_horizon_xgboost(
         "horizon_dataset",
     )
     validate_expected_split_labels(horizon_dataset, dataset_name="horizon_dataset")
+    require_columns(
+        all_valid_horizon_dataset,
+        {
+            "instance_id",
+            "stay_id_global",
+            "hospital_id",
+            "block_index",
+            "prediction_time_h",
+            "horizon_h",
+            "split",
+        },
+        "all_valid_horizon_dataset",
+    )
+    validate_expected_split_labels(
+        all_valid_horizon_dataset,
+        dataset_name="all_valid_horizon_dataset",
+    )
 
     horizon_value = int(pd.to_numeric(horizon_dataset["horizon_h"], errors="coerce").dropna().iloc[0])
     horizon_path = _horizon_output_dir(output_dir, horizon_value)
     ensure_directory(horizon_path)
 
     ordered_dataset = horizon_dataset.sort_values(
+        ["split", "hospital_id", "stay_id_global", "block_index", "prediction_time_h", "instance_id"],
+        kind="stable",
+    ).reset_index(drop=True)
+    ordered_all_valid_dataset = all_valid_horizon_dataset.sort_values(
         ["split", "hospital_id", "stay_id_global", "block_index", "prediction_time_h", "instance_id"],
         kind="stable",
     ).reset_index(drop=True)
@@ -288,6 +317,23 @@ def run_horizon_xgboost(
             f"horizon dataset for horizon {horizon_value}h: expected "
             f"{ordered_dataset.shape[0]}, wrote {predictions.shape[0]}."
         )
+    if fitted_pipeline is None or model is None:
+        all_valid_predicted_probability = np.full(ordered_all_valid_dataset.shape[0], np.nan, dtype=float)
+    else:
+        all_valid_features = _build_numeric_feature_frame(ordered_all_valid_dataset, feature_columns)
+        transformed_all_valid_features = preprocessing.transform(all_valid_features)
+        all_valid_predicted_probability = model.predict_proba(transformed_all_valid_features)[:, 1]
+    all_valid_predictions = build_all_valid_prediction_frame(
+        ordered_all_valid_dataset,
+        all_valid_predicted_probability,
+        model_name=MODEL_NAME,
+    )
+    all_valid_prediction_qc = build_all_valid_prediction_qc(
+        evaluation_predictions=predictions,
+        all_valid_predictions=all_valid_predictions,
+        model_name=MODEL_NAME,
+        horizon_h=horizon_value,
+    )
     metrics = pd.concat(metrics_frames, ignore_index=True)[
         [
             "horizon_h",
@@ -321,6 +367,16 @@ def run_horizon_xgboost(
         horizon_path / "predictions.csv",
         output_format="csv",
     )
+    all_valid_predictions_path = write_dataframe(
+        all_valid_predictions,
+        horizon_path / ALL_VALID_PREDICTIONS_FILENAME,
+        output_format="csv",
+    )
+    all_valid_prediction_qc_path = write_dataframe(
+        all_valid_prediction_qc,
+        horizon_path / ALL_VALID_PREDICTION_QC_FILENAME,
+        output_format="csv",
+    )
     metrics_path = write_dataframe(
         metrics,
         horizon_path / "metrics.csv",
@@ -335,6 +391,18 @@ def run_horizon_xgboost(
         "feature_set_definition_path": str(feature_set_definition_path.resolve()),
         "selected_feature_columns": list(feature_columns),
         "selected_feature_count": len(feature_columns),
+        "prediction_exports": {
+            "predictions.csv": (
+                "Evaluation-only predictions on horizon-labelable rows used for formal metrics."
+            ),
+            ALL_VALID_PREDICTIONS_FILENAME: (
+                "Predictions for all scorable valid instances at this horizon, including unlabeled "
+                "rows, for descriptive trajectory analysis only."
+            ),
+            "formal_metrics_note": (
+                "metrics.csv must continue to be interpreted on the labeled evaluation subset only."
+            ),
+        },
         "preprocessing": {
             "median_imputation": "fit_on_training_split_only",
             "scaling": "not_used_for_xgboost_baseline",
@@ -379,6 +447,8 @@ def run_horizon_xgboost(
         warnings=tuple(warnings_for_horizon),
         artifacts=XGBoostBaselineArtifacts(
             predictions_path=predictions_path,
+            all_valid_predictions_path=all_valid_predictions_path,
+            all_valid_prediction_qc_path=all_valid_prediction_qc_path,
             metrics_path=metrics_path,
             metadata_path=metadata_path,
             selected_features_path=selected_features_path,
@@ -395,6 +465,10 @@ def run_asic_primary_xgboost(
     feature_set_definition_path: Path = DEFAULT_FEATURE_SET_DEFINITION_PATH,
     output_dir: Path = DEFAULT_XGBOOST_BASELINE_OUTPUT_DIR,
     horizons: Sequence[int] | None = None,
+    preprocessing_root: Path | None = None,
+    standardized_input_dir: Path | None = None,
+    standardized_input_format: str | None = None,
+    run_config_path: Path | None = None,
 ) -> XGBoostBaselineRunResult:
     if XGBClassifier is None:
         raise ImportError(
@@ -415,6 +489,14 @@ def run_asic_primary_xgboost(
         feature_set_definition,
     )
     selected_horizons = _normalize_horizons(model_ready, horizons)
+    all_valid_scoring_dataset = build_primary_all_valid_scoring_dataset(
+        input_dataset_path=Path(input_dataset_path),
+        feature_set_definition=feature_set_definition,
+        preprocessing_root=preprocessing_root,
+        standardized_input_dir=standardized_input_dir,
+        standardized_input_format=standardized_input_format,
+        run_config_path=run_config_path,
+    )
 
     horizon_results: list[HorizonXGBoostBaselineResult] = []
     summary_rows: list[dict[str, object]] = []
@@ -422,8 +504,12 @@ def run_asic_primary_xgboost(
         horizon_dataset = model_ready[
             pd.to_numeric(model_ready["horizon_h"], errors="coerce").eq(int(horizon_h))
         ].reset_index(drop=True)
+        all_valid_horizon_dataset = all_valid_scoring_dataset[
+            pd.to_numeric(all_valid_scoring_dataset["horizon_h"], errors="coerce").eq(int(horizon_h))
+        ].reset_index(drop=True)
         horizon_result = run_horizon_xgboost(
             horizon_dataset,
+            all_valid_horizon_dataset=all_valid_horizon_dataset,
             feature_columns=feature_columns,
             input_dataset_path=Path(input_dataset_path),
             feature_set_definition_path=Path(feature_set_definition_path),
@@ -538,6 +624,38 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         help="Optional subset of horizons to process.",
     )
+    parser.add_argument(
+        "--preprocessing-root",
+        type=Path,
+        help=(
+            "Optional root directory containing the Chapter 1 preprocessing artifacts "
+            "(instances/, labels/, splits/). If omitted, it is inferred from --input-dataset."
+        ),
+    )
+    parser.add_argument(
+        "--standardized-input-dir",
+        type=Path,
+        help=(
+            "Optional standardized ASIC input directory used to rebuild all-valid scoring rows. "
+            "Defaults to the Chapter 1 run config input_dir."
+        ),
+    )
+    parser.add_argument(
+        "--standardized-input-format",
+        choices=("csv", "parquet"),
+        help=(
+            "Format of the standardized ASIC input directory used for all-valid scoring. "
+            "Defaults to the Chapter 1 run config input_format."
+        ),
+    )
+    parser.add_argument(
+        "--run-config",
+        type=Path,
+        help=(
+            "Optional Chapter 1 run config used to resolve the default standardized input "
+            "directory for all-valid scoring."
+        ),
+    )
     return parser
 
 
@@ -550,6 +668,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         feature_set_definition_path=args.feature_set_definition,
         output_dir=args.output_dir,
         horizons=args.horizons,
+        preprocessing_root=args.preprocessing_root,
+        standardized_input_dir=args.standardized_input_dir,
+        standardized_input_format=args.standardized_input_format,
+        run_config_path=args.run_config,
     )
 
     print("Selected feature columns:")
@@ -575,7 +697,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print(
             f"horizon {horizon_result.horizon_h}h -> {horizon_result.artifacts.predictions_path.parent} "
-            f"(warnings: {warnings_text}; metric notes: {metric_notes_text})"
+            f"(warnings: {warnings_text}; metric notes: {metric_notes_text}; "
+            f"all-valid: {horizon_result.artifacts.all_valid_predictions_path.name})"
         )
     return 0
 

@@ -4,7 +4,7 @@
 # Submit this script from inside hpc-1-mortality-decomposition/ with:
 # sbatch run_asic_hard_case_comparison.sh
 # Prerequisites: preprocessing + logistic baseline + hard-case definition.
-# This writes the ASIC Issue 3.2 fatal-case comparison package.
+# This writes the ASIC fatal-case comparison package plus the early-vs-late fatal timing appendix.
 #SBATCH --job-name=chapter1_asic_hard_case_comparison
 #SBATCH --time=02:00:00
 #SBATCH --cpus-per-task=2
@@ -58,7 +58,7 @@ if [ -n "${asic_input_root}" ]; then
     cmd+=(--asic-input-root "${asic_input_root}")
 fi
 
-echo "[$(date)] Starting Chapter 1 ASIC Issue 3.2 hard-case comparison job"
+echo "[$(date)] Starting Chapter 1 ASIC hard-case comparison job (with early-vs-late timing appendix)"
 echo "HOSTNAME: $(hostname)"
 echo "PROJECT_ROOT: ${project_root}"
 echo "MODEL_READY_PATH: ${model_ready_path}"
@@ -70,4 +70,4 @@ fi
 
 "${cmd[@]}"
 
-echo "[$(date)] Chapter 1 ASIC Issue 3.2 hard-case comparison job finished"
+echo "[$(date)] Chapter 1 ASIC hard-case comparison job finished"

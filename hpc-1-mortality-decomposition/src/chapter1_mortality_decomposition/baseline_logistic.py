@@ -17,6 +17,11 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
+from chapter1_mortality_decomposition.model_ready import build_chapter1_model_ready_dataset
+from chapter1_mortality_decomposition.run_config import (
+    DEFAULT_CHAPTER1_RUN_CONFIG_PATH,
+    load_chapter1_run_config,
+)
 from chapter1_mortality_decomposition.utils import (
     ensure_directory,
     read_dataframe,
@@ -56,11 +61,33 @@ IDENTIFIER_COLUMNS = [
     "label_value",
 ]
 REQUIRED_MODEL_READY_COLUMNS = set(IDENTIFIER_COLUMNS)
+ALL_VALID_PREDICTION_COLUMNS = [
+    "instance_id",
+    "stay_id_global",
+    "hospital_id",
+    "block_index",
+    "block_start_h",
+    "block_end_h",
+    "prediction_time_h",
+    "horizon_h",
+    "split",
+    "label_value",
+    "is_labelable",
+    "unlabeled_reason",
+    "predicted_probability",
+    "model_name",
+]
+PRIMARY_PROXY_LABEL_BASENAME = "chapter1_proxy_horizon_labels"
+PRIMARY_STAY_SPLIT_BASENAME = "chapter1_stay_split_assignments"
+ALL_VALID_PREDICTIONS_FILENAME = "all_valid_predictions.csv"
+ALL_VALID_PREDICTION_QC_FILENAME = "all_valid_prediction_qc.csv"
 
 
 @dataclass(frozen=True)
 class LogisticBaselineArtifacts:
     predictions_path: Path
+    all_valid_predictions_path: Path
+    all_valid_prediction_qc_path: Path
     metrics_path: Path
     metadata_path: Path
     selected_features_path: Path
@@ -118,6 +145,248 @@ def _write_pickle(obj: object, path: Path) -> Path:
     with path.open("wb") as handle:
         pickle.dump(obj, handle)
     return path
+
+
+def _artifact_format_from_path(path: Path) -> str:
+    return "parquet" if path.suffix.lower() == ".parquet" else "csv"
+
+
+def _resolve_preprocessing_artifact_root(
+    input_dataset_path: Path,
+    preprocessing_root: Path | None,
+) -> Path:
+    if preprocessing_root is not None:
+        return Path(preprocessing_root)
+
+    input_path = Path(input_dataset_path)
+    if input_path.parent.name == "model_ready":
+        return input_path.parent.parent
+
+    raise ValueError(
+        "Could not infer the Chapter 1 preprocessing artifact root from the baseline input "
+        f"dataset path {input_path}. Pass preprocessing_root explicitly."
+    )
+
+
+def _resolve_standardized_input_settings(
+    *,
+    standardized_input_dir: Path | None,
+    standardized_input_format: str | None,
+    run_config_path: Path | None,
+) -> tuple[Path, str]:
+    if standardized_input_dir is not None:
+        return Path(standardized_input_dir), str(standardized_input_format or "csv")
+
+    resolved_run_config_path = (
+        Path(run_config_path) if run_config_path is not None else DEFAULT_CHAPTER1_RUN_CONFIG_PATH
+    )
+    run_config = load_chapter1_run_config(resolved_run_config_path)
+    return run_config.input_dir, str(standardized_input_format or run_config.input_format)
+
+
+def _load_all_valid_scoring_inputs(
+    *,
+    input_dir: Path,
+    input_format: str,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    extension = "parquet" if str(input_format).strip().lower() == "parquet" else "csv"
+    blocked_dynamic_features_path = input_dir / "blocked" / f"asic_8h_blocked_dynamic_features.{extension}"
+    mech_vent_episode_level_path = (
+        input_dir / "qc" / f"mech_vent_ge_24h_episode_level.{extension}"
+    )
+    missing_paths = [
+        str(path)
+        for path in (blocked_dynamic_features_path, mech_vent_episode_level_path)
+        if not path.exists()
+    ]
+    if missing_paths:
+        raise FileNotFoundError(
+            "Missing standardized ASIC inputs required for all-valid Chapter 1 scoring: "
+            + ", ".join(missing_paths)
+        )
+
+    return (
+        read_dataframe(blocked_dynamic_features_path),
+        read_dataframe(mech_vent_episode_level_path),
+    )
+
+
+def build_primary_all_valid_scoring_dataset(
+    *,
+    input_dataset_path: Path,
+    feature_set_definition: pd.DataFrame,
+    preprocessing_root: Path | None = None,
+    standardized_input_dir: Path | None = None,
+    standardized_input_format: str | None = None,
+    run_config_path: Path | None = None,
+) -> pd.DataFrame:
+    input_path = Path(input_dataset_path)
+    artifact_root = _resolve_preprocessing_artifact_root(input_path, preprocessing_root)
+    artifact_format = _artifact_format_from_path(input_path)
+    labels_path = artifact_root / "labels" / f"{PRIMARY_PROXY_LABEL_BASENAME}.{artifact_format}"
+    stay_splits_path = artifact_root / "splits" / f"{PRIMARY_STAY_SPLIT_BASENAME}.{artifact_format}"
+
+    missing_paths = [
+        str(path)
+        for path in (labels_path, stay_splits_path)
+        if not path.exists()
+    ]
+    if missing_paths:
+        raise FileNotFoundError(
+            "Missing Chapter 1 preprocessing artifacts required for all-valid scoring: "
+            + ", ".join(missing_paths)
+        )
+
+    standardized_dir, standardized_format = _resolve_standardized_input_settings(
+        standardized_input_dir=standardized_input_dir,
+        standardized_input_format=standardized_input_format,
+        run_config_path=run_config_path,
+    )
+    blocked_dynamic_features, mech_vent_episode_level = _load_all_valid_scoring_inputs(
+        input_dir=standardized_dir,
+        input_format=standardized_format,
+    )
+
+    proxy_labels = read_dataframe(labels_path)
+    stay_split_assignments = read_dataframe(stay_splits_path)
+    primary_feature_set_definition = feature_set_definition[
+        feature_set_definition["feature_set_name"].astype("string").eq(PRIMARY_FEATURE_SET_NAME)
+    ].reset_index(drop=True)
+    if primary_feature_set_definition.empty:
+        raise ValueError(
+            "No primary feature-set rows were found while building the all-valid scoring dataset."
+        )
+
+    all_valid_model_ready = build_chapter1_model_ready_dataset(
+        usable_labels=proxy_labels,
+        blocked_dynamic_features=blocked_dynamic_features,
+        feature_set_definition=primary_feature_set_definition,
+        feature_set_name=PRIMARY_FEATURE_SET_NAME,
+        mech_vent_episode_level=mech_vent_episode_level,
+        stay_split_assignments=stay_split_assignments,
+    ).table
+    validate_expected_split_labels(all_valid_model_ready, dataset_name="all_valid_scoring_dataset")
+    return all_valid_model_ready
+
+
+def build_all_valid_prediction_frame(
+    scoring_df: pd.DataFrame,
+    predicted_probability: np.ndarray,
+    *,
+    model_name: str,
+) -> pd.DataFrame:
+    if scoring_df.shape[0] != int(len(predicted_probability)):
+        raise ValueError(
+            "All-valid prediction export received mismatched row and prediction counts: "
+            f"{scoring_df.shape[0]} rows vs {len(predicted_probability)} predictions."
+        )
+
+    output = scoring_df.loc[
+        :,
+        [
+            column
+            for column in (
+                "instance_id",
+                "stay_id_global",
+                "hospital_id",
+                "block_index",
+                "block_start_h",
+                "block_end_h",
+                "prediction_time_h",
+                "horizon_h",
+                "split",
+                "label_value",
+                "unlabeled_reason",
+            )
+            if column in scoring_df.columns
+        ],
+    ].copy()
+    if "split" not in output.columns:
+        output["split"] = pd.Series(pd.NA, index=output.index, dtype="string")
+    else:
+        output["split"] = output["split"].astype("string")
+    if "label_value" not in output.columns:
+        output["label_value"] = pd.Series(pd.NA, index=output.index, dtype="Int64")
+    else:
+        output["label_value"] = pd.to_numeric(output["label_value"], errors="coerce").astype("Int64")
+    if "unlabeled_reason" not in output.columns:
+        output["unlabeled_reason"] = pd.Series(pd.NA, index=output.index, dtype="string")
+    else:
+        output["unlabeled_reason"] = output["unlabeled_reason"].astype("string")
+
+    if "proxy_horizon_labelable" in scoring_df.columns:
+        output["is_labelable"] = scoring_df["proxy_horizon_labelable"].astype("boolean")
+    elif "label_available" in scoring_df.columns:
+        output["is_labelable"] = scoring_df["label_available"].astype("boolean")
+    else:
+        output["is_labelable"] = output["label_value"].notna().astype("boolean")
+
+    output["predicted_probability"] = np.asarray(predicted_probability, dtype=float)
+    output["model_name"] = model_name
+    duplicate_count = int(output["instance_id"].astype("string").duplicated().sum())
+    if duplicate_count:
+        raise ValueError(
+            "All-valid prediction export should contain unique instance_id values, found "
+            f"{duplicate_count} duplicates."
+        )
+    return output.loc[:, ALL_VALID_PREDICTION_COLUMNS].copy()
+
+
+def build_all_valid_prediction_qc(
+    *,
+    evaluation_predictions: pd.DataFrame,
+    all_valid_predictions: pd.DataFrame,
+    model_name: str,
+    horizon_h: int,
+) -> pd.DataFrame:
+    evaluation_ids = evaluation_predictions["instance_id"].astype("string")
+    all_valid_ids = all_valid_predictions["instance_id"].astype("string")
+    duplicate_all_valid_count = int(all_valid_ids.duplicated().sum())
+    if duplicate_all_valid_count:
+        raise ValueError(
+            "All-valid prediction QC expected unique instance_id values, found "
+            f"{duplicate_all_valid_count} duplicates."
+        )
+
+    evaluation_id_set = set(evaluation_ids.tolist())
+    all_valid_id_set = set(all_valid_ids.tolist())
+    missing_evaluation_ids = sorted(evaluation_id_set - all_valid_id_set)
+    if all_valid_predictions.shape[0] < evaluation_predictions.shape[0]:
+        raise RuntimeError(
+            "All-valid prediction export must contain at least as many rows as the evaluation "
+            f"prediction export for horizon {horizon_h}h."
+        )
+    if missing_evaluation_ids:
+        raise RuntimeError(
+            "Evaluation predictions were not preserved in all_valid_predictions.csv for "
+            f"horizon {horizon_h}h; missing instance_id values: {missing_evaluation_ids[:10]}"
+        )
+
+    labelable_mask = all_valid_predictions["is_labelable"].astype("boolean").fillna(False)
+    labelable_count = int(labelable_mask.sum())
+    return pd.DataFrame(
+        [
+            {
+                "model_name": model_name,
+                "horizon_h": int(horizon_h),
+                "evaluation_prediction_count": int(evaluation_predictions.shape[0]),
+                "all_valid_prediction_count": int(all_valid_predictions.shape[0]),
+                "all_valid_labelable_count": labelable_count,
+                "all_valid_unlabeled_count": int(all_valid_predictions.shape[0] - labelable_count),
+                "all_valid_labelable_fraction": (
+                    float(labelable_count / all_valid_predictions.shape[0])
+                    if all_valid_predictions.shape[0]
+                    else np.nan
+                ),
+                "evaluation_subset_of_all_valid": True,
+                "evaluation_count_equals_all_valid_labelable_count": (
+                    int(evaluation_predictions.shape[0]) == labelable_count
+                ),
+                "missing_evaluation_instance_count": 0,
+                "duplicate_all_valid_instance_count": duplicate_all_valid_count,
+            }
+        ]
+    )
 
 
 def _normalize_horizons(
@@ -454,6 +723,7 @@ def _horizon_output_dir(root_output_dir: Path, horizon_h: int) -> Path:
 def run_horizon_logistic_regression(
     horizon_dataset: pd.DataFrame,
     *,
+    all_valid_horizon_dataset: pd.DataFrame,
     feature_columns: Sequence[str],
     input_dataset_path: Path,
     feature_set_definition_path: Path,
@@ -465,12 +735,33 @@ def run_horizon_logistic_regression(
         "horizon_dataset",
     )
     validate_expected_split_labels(horizon_dataset, dataset_name="horizon_dataset")
+    require_columns(
+        all_valid_horizon_dataset,
+        {
+            "instance_id",
+            "stay_id_global",
+            "hospital_id",
+            "block_index",
+            "prediction_time_h",
+            "horizon_h",
+            "split",
+        },
+        "all_valid_horizon_dataset",
+    )
+    validate_expected_split_labels(
+        all_valid_horizon_dataset,
+        dataset_name="all_valid_horizon_dataset",
+    )
 
     horizon_value = int(pd.to_numeric(horizon_dataset["horizon_h"], errors="coerce").dropna().iloc[0])
     horizon_path = _horizon_output_dir(output_dir, horizon_value)
     ensure_directory(horizon_path)
 
     ordered_dataset = horizon_dataset.sort_values(
+        ["split", "hospital_id", "stay_id_global", "block_index", "prediction_time_h", "instance_id"],
+        kind="stable",
+    ).reset_index(drop=True)
+    ordered_all_valid_dataset = all_valid_horizon_dataset.sort_values(
         ["split", "hospital_id", "stay_id_global", "block_index", "prediction_time_h", "instance_id"],
         kind="stable",
     ).reset_index(drop=True)
@@ -540,6 +831,23 @@ def run_horizon_logistic_regression(
             f"input horizon dataset for horizon {horizon_value}h: expected "
             f"{ordered_dataset.shape[0]}, wrote {predictions.shape[0]}."
         )
+    if fitted_pipeline is None:
+        all_valid_predicted_probability = np.full(ordered_all_valid_dataset.shape[0], np.nan, dtype=float)
+    else:
+        all_valid_features = _build_numeric_feature_frame(ordered_all_valid_dataset, feature_columns)
+        transformed_all_valid_features = preprocessing.transform(all_valid_features)
+        all_valid_predicted_probability = model.predict_proba(transformed_all_valid_features)[:, 1]
+    all_valid_predictions = build_all_valid_prediction_frame(
+        ordered_all_valid_dataset,
+        all_valid_predicted_probability,
+        model_name=MODEL_NAME,
+    )
+    all_valid_prediction_qc = build_all_valid_prediction_qc(
+        evaluation_predictions=predictions,
+        all_valid_predictions=all_valid_predictions,
+        model_name=MODEL_NAME,
+        horizon_h=horizon_value,
+    )
     metrics = pd.concat(metrics_frames, ignore_index=True)[
         [
             "horizon_h",
@@ -573,6 +881,16 @@ def run_horizon_logistic_regression(
         horizon_path / "predictions.csv",
         output_format="csv",
     )
+    all_valid_predictions_path = write_dataframe(
+        all_valid_predictions,
+        horizon_path / ALL_VALID_PREDICTIONS_FILENAME,
+        output_format="csv",
+    )
+    all_valid_prediction_qc_path = write_dataframe(
+        all_valid_prediction_qc,
+        horizon_path / ALL_VALID_PREDICTION_QC_FILENAME,
+        output_format="csv",
+    )
     metrics_path = write_dataframe(
         metrics,
         horizon_path / "metrics.csv",
@@ -587,6 +905,18 @@ def run_horizon_logistic_regression(
         "feature_set_definition_path": str(feature_set_definition_path.resolve()),
         "selected_feature_columns": list(feature_columns),
         "selected_feature_count": len(feature_columns),
+        "prediction_exports": {
+            "predictions.csv": (
+                "Evaluation-only predictions on horizon-labelable rows used for formal metrics."
+            ),
+            ALL_VALID_PREDICTIONS_FILENAME: (
+                "Predictions for all scorable valid instances at this horizon, including unlabeled "
+                "rows, for descriptive trajectory analysis only."
+            ),
+            "formal_metrics_note": (
+                "metrics.csv must continue to be interpreted on the labeled evaluation subset only."
+            ),
+        },
         "preprocessing": {
             "median_imputation": "fit_on_training_split_only",
             "scaling": "standard_scaler_fit_on_training_split_only",
@@ -628,6 +958,8 @@ def run_horizon_logistic_regression(
         warnings=tuple(warnings_for_horizon),
         artifacts=LogisticBaselineArtifacts(
             predictions_path=predictions_path,
+            all_valid_predictions_path=all_valid_predictions_path,
+            all_valid_prediction_qc_path=all_valid_prediction_qc_path,
             metrics_path=metrics_path,
             metadata_path=metadata_path,
             selected_features_path=selected_features_path,
@@ -644,6 +976,10 @@ def run_asic_primary_logistic_regression(
     feature_set_definition_path: Path = DEFAULT_FEATURE_SET_DEFINITION_PATH,
     output_dir: Path = DEFAULT_LOGISTIC_BASELINE_OUTPUT_DIR,
     horizons: Sequence[int] | None = None,
+    preprocessing_root: Path | None = None,
+    standardized_input_dir: Path | None = None,
+    standardized_input_format: str | None = None,
+    run_config_path: Path | None = None,
 ) -> LogisticBaselineRunResult:
     model_ready = read_dataframe(Path(input_dataset_path))
     feature_set_definition = read_dataframe(Path(feature_set_definition_path))
@@ -658,6 +994,14 @@ def run_asic_primary_logistic_regression(
         feature_set_definition,
     )
     selected_horizons = _normalize_horizons(model_ready, horizons)
+    all_valid_scoring_dataset = build_primary_all_valid_scoring_dataset(
+        input_dataset_path=Path(input_dataset_path),
+        feature_set_definition=feature_set_definition,
+        preprocessing_root=preprocessing_root,
+        standardized_input_dir=standardized_input_dir,
+        standardized_input_format=standardized_input_format,
+        run_config_path=run_config_path,
+    )
 
     horizon_results: list[HorizonLogisticBaselineResult] = []
     summary_rows: list[dict[str, object]] = []
@@ -665,8 +1009,12 @@ def run_asic_primary_logistic_regression(
         horizon_dataset = model_ready[
             pd.to_numeric(model_ready["horizon_h"], errors="coerce").eq(int(horizon_h))
         ].reset_index(drop=True)
+        all_valid_horizon_dataset = all_valid_scoring_dataset[
+            pd.to_numeric(all_valid_scoring_dataset["horizon_h"], errors="coerce").eq(int(horizon_h))
+        ].reset_index(drop=True)
         horizon_result = run_horizon_logistic_regression(
             horizon_dataset,
+            all_valid_horizon_dataset=all_valid_horizon_dataset,
             feature_columns=feature_columns,
             input_dataset_path=Path(input_dataset_path),
             feature_set_definition_path=Path(feature_set_definition_path),
@@ -780,6 +1128,38 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         help="Optional subset of horizons to process.",
     )
+    parser.add_argument(
+        "--preprocessing-root",
+        type=Path,
+        help=(
+            "Optional root directory containing the Chapter 1 preprocessing artifacts "
+            "(instances/, labels/, splits/). If omitted, it is inferred from --input-dataset."
+        ),
+    )
+    parser.add_argument(
+        "--standardized-input-dir",
+        type=Path,
+        help=(
+            "Optional standardized ASIC input directory used to rebuild all-valid scoring rows. "
+            "Defaults to the Chapter 1 run config input_dir."
+        ),
+    )
+    parser.add_argument(
+        "--standardized-input-format",
+        choices=("csv", "parquet"),
+        help=(
+            "Format of the standardized ASIC input directory used for all-valid scoring. "
+            "Defaults to the Chapter 1 run config input_format."
+        ),
+    )
+    parser.add_argument(
+        "--run-config",
+        type=Path,
+        help=(
+            "Optional Chapter 1 run config used to resolve the default standardized input "
+            "directory for all-valid scoring."
+        ),
+    )
     return parser
 
 
@@ -792,6 +1172,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         feature_set_definition_path=args.feature_set_definition,
         output_dir=args.output_dir,
         horizons=args.horizons,
+        preprocessing_root=args.preprocessing_root,
+        standardized_input_dir=args.standardized_input_dir,
+        standardized_input_format=args.standardized_input_format,
+        run_config_path=args.run_config,
     )
 
     print("Selected feature columns:")
@@ -817,7 +1201,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         print(
             f"horizon {horizon_result.horizon_h}h -> {horizon_result.artifacts.predictions_path.parent} "
-            f"(warnings: {warnings_text}; metric notes: {metric_notes_text})"
+            f"(warnings: {warnings_text}; metric notes: {metric_notes_text}; "
+            f"all-valid: {horizon_result.artifacts.all_valid_predictions_path.name})"
         )
     return 0
 

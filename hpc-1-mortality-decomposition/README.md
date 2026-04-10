@@ -783,6 +783,7 @@ The bundle includes:
 - `notebooks/ch1_xgboost_recalibration_review.ipynb`
 - `notebooks/ch1_asic_hard_case_review.ipynb`
 - `notebooks/ch1_asic_hard_case_comparison.ipynb`
+- `notebooks/ch1_cohort_characterization.ipynb`
 - `notebooks/ch1_asic_temporal_aggregation_preview_16h.ipynb`
 
 These notebooks read the written `artifacts/chapter1` outputs. They are mainly

@@ -50,7 +50,7 @@ if [ -n "$ASIC_INPUT_ROOT" ]; then
   cmd+=(--asic-input-root "$ASIC_INPUT_ROOT")
 fi
 
-echo "[$(date)] Starting Chapter 1 ASIC Issue 3.2 hard-case comparison job"
+echo "[$(date)] Starting Chapter 1 ASIC hard-case comparison job (with early-vs-late timing appendix)"
 echo "HOSTNAME: $(hostname)"
 echo "PROJECT_DIR: $PROJECT_DIR"
 echo "MODEL_READY_PATH: $MODEL_READY_PATH"
@@ -62,4 +62,4 @@ fi
 
 "${cmd[@]}"
 
-echo "[$(date)] Chapter 1 ASIC Issue 3.2 hard-case comparison job finished"
+echo "[$(date)] Chapter 1 ASIC hard-case comparison job finished"
