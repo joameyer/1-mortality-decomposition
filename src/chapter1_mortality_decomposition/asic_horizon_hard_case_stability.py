@@ -27,6 +27,11 @@ except ImportError as exc:  # pragma: no cover - environment dependency branch
 else:  # pragma: no cover - trivial assignment
     MATPLOTLIB_IMPORT_ERROR = None
 
+from chapter1_mortality_decomposition.artifacts import (
+    RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+    resolve_chapter1_result_subdir,
+)
 from chapter1_mortality_decomposition.utils import (
     ensure_directory,
     normalize_boolean_codes,
@@ -53,6 +58,13 @@ DEFAULT_OUTPUT_DIR = (
     / "asic"
     / "horizon_dependence"
     / "overlap"
+)
+HARD_CASE_RELATIVE_ROOT = (
+    Path("evaluation")
+    / "asic"
+    / "hard_cases"
+    / "primary_medians"
+    / "logistic_regression"
 )
 DEFAULT_HORIZONS = (8, 16, 24, 48, 72)
 REQUIRED_STAY_LEVEL_COLUMNS = {
@@ -82,6 +94,7 @@ class HorizonHardCaseStabilityArtifacts:
 @dataclass(frozen=True)
 class HorizonHardCaseStabilityRunResult:
     hard_case_dir: Path
+    hard_case_dir_resolution: dict[str, object]
     output_dir: Path
     horizons: tuple[int, ...]
     harmonized_stay_level: pd.DataFrame
@@ -131,6 +144,22 @@ def _normalize_horizons(horizons: Sequence[int] | None) -> tuple[int, ...]:
     if unsupported:
         raise ValueError(f"Unsupported horizons requested: {unsupported}")
     return values
+
+
+def _resolve_default_hard_case_dir(
+    *,
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_fallback: bool = True,
+    repo_root: Path | None = None,
+) -> tuple[Path, dict[str, object]]:
+    resolved = resolve_chapter1_result_subdir(
+        HARD_CASE_RELATIVE_ROOT,
+        preferred_kind=preferred_result_kind,
+        repo_root=repo_root,
+        require_exists=True,
+        allow_fallback=allow_fallback,
+    )
+    return resolved.path, resolved.resolution
 
 
 def _horizon_label(horizon_h: int) -> str:
@@ -690,16 +719,31 @@ def _build_overlap_note(
 
 def run_asic_horizon_hard_case_stability(
     *,
-    hard_case_dir: Path = DEFAULT_HARD_CASE_DIR,
+    hard_case_dir: Path | None = None,
     output_dir: Path = DEFAULT_OUTPUT_DIR,
     horizons: Sequence[int] | None = None,
     output_format: str = "csv",
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_input_root_fallback: bool = True,
 ) -> HorizonHardCaseStabilityRunResult:
     if output_format != "csv":
         raise ValueError(f"Unsupported output format: {output_format}")
 
     normalized_horizons = _normalize_horizons(horizons)
-    resolved_hard_case_dir = Path(hard_case_dir)
+    if hard_case_dir is None:
+        resolved_hard_case_dir, hard_case_dir_resolution = _resolve_default_hard_case_dir(
+            preferred_result_kind=preferred_result_kind,
+            allow_fallback=allow_input_root_fallback,
+        )
+    else:
+        resolved_hard_case_dir = Path(hard_case_dir)
+        hard_case_dir_resolution = {
+            "resolution_strategy": "explicit_input_root",
+            "preferred_result_kind": preferred_result_kind,
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [str(resolved_hard_case_dir)],
+        }
     resolved_output_dir = Path(output_dir)
 
     harmonized_stay_level, stay_level_path, manifest = _load_stay_level_artifact(
@@ -781,6 +825,7 @@ def run_asic_horizon_hard_case_stability(
     manifest_path = _write_json(
         {
             "timestamp_utc": _utc_timestamp(),
+            "hard_case_dir_resolution": hard_case_dir_resolution,
             "hard_case_dir": str(resolved_hard_case_dir.resolve()),
             "hard_case_rule": manifest.get("hard_case_rule"),
             "stay_level_artifact": str(stay_level_path.resolve()),
@@ -808,6 +853,7 @@ def run_asic_horizon_hard_case_stability(
 
     return HorizonHardCaseStabilityRunResult(
         hard_case_dir=resolved_hard_case_dir,
+        hard_case_dir_resolution=hard_case_dir_resolution,
         output_dir=resolved_output_dir,
         horizons=normalized_horizons,
         harmonized_stay_level=harmonized_stay_level,
@@ -842,8 +888,30 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--hard-case-dir",
         type=Path,
-        default=DEFAULT_HARD_CASE_DIR,
-        help="Directory containing the saved logistic hard-case stay-level artifact and manifest.",
+        help=(
+            "Directory containing the saved logistic hard-case stay-level artifact and manifest. "
+            "If omitted, the stability package searches the preferred Chapter 1 result root first."
+        ),
+    )
+    parser.add_argument(
+        "--preferred-result-kind",
+        choices=[
+            RESULT_ROOT_KIND_CLUSTER_EXPORT,
+            RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+        ],
+        default=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+        help=(
+            "Preferred Chapter 1 result tier to search when --hard-case-dir is omitted. "
+            "cluster_export looks under cluster-results first; synthetic_local prefers artifacts/chapter1."
+        ),
+    )
+    parser.add_argument(
+        "--no-input-root-fallback",
+        action="store_true",
+        help=(
+            "When resolving the default hard-case directory, do not fall back to the other "
+            "result tier if the preferred tier is missing required saved artifacts."
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -875,9 +943,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         output_dir=args.output_dir,
         horizons=args.horizons,
         output_format=args.output_format,
+        preferred_result_kind=args.preferred_result_kind,
+        allow_input_root_fallback=not args.no_input_root_fallback,
     )
 
     print(f"Hard-case directory: {result.hard_case_dir}")
+    print(
+        "Hard-case directory resolution: "
+        f"{result.hard_case_dir_resolution['resolution_strategy']}"
+        + (
+            f" ({result.hard_case_dir_resolution['selected_result_kind']})"
+            if result.hard_case_dir_resolution["selected_result_kind"] is not None
+            else ""
+        )
+    )
     print(f"Output directory: {result.output_dir}")
     print(f"Package 3 ready: {'yes' if result.package3_ready else 'no'}")
     for row in result.pairwise_overlap.itertuples(index=False):

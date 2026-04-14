@@ -10,6 +10,11 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
+from chapter1_mortality_decomposition.artifacts import (
+    RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+    resolve_chapter1_result_subdir,
+)
 from chapter1_mortality_decomposition.baseline_evaluation import (
     DEFAULT_BASELINE_ARTIFACT_ROOT,
     DEFAULT_HORIZONS,
@@ -22,6 +27,7 @@ from chapter1_mortality_decomposition.utils import require_columns, write_datafr
 
 MODEL_NAME = "logistic_regression"
 HARD_CASE_RULE = "asic_logistic_last_eligible_nonfatal_q75_v1"
+BASELINE_ARTIFACT_RELATIVE_ROOT = Path("baselines") / "asic" / "primary_medians"
 DEFAULT_HARD_CASE_OUTPUT_ROOT = (
     Path("artifacts")
     / "chapter1"
@@ -57,6 +63,7 @@ class HardCaseArtifacts:
 @dataclass(frozen=True)
 class HardCaseRunResult:
     input_root: Path
+    input_root_resolution: dict[str, object]
     output_dir: Path
     horizons_processed: tuple[int, ...]
     hard_case_rule: str
@@ -105,6 +112,22 @@ def _normalize_input_root(input_root: Path, *, model_name: str = MODEL_NAME) -> 
         f"Could not locate {model_name!r} baseline artifacts from input root {root}. "
         f"Expected either {root / model_name} or horizon_*h directories under {root}."
     )
+
+
+def _resolve_default_hard_case_input_root(
+    *,
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_fallback: bool = True,
+    repo_root: Path | None = None,
+) -> tuple[Path, dict[str, object]]:
+    resolved = resolve_chapter1_result_subdir(
+        BASELINE_ARTIFACT_RELATIVE_ROOT,
+        preferred_kind=preferred_result_kind,
+        repo_root=repo_root,
+        require_exists=True,
+        allow_fallback=allow_fallback,
+    )
+    return resolved.path, resolved.resolution
 
 
 def _require_no_missing_selection_keys(predictions: pd.DataFrame, *, source_name: str) -> None:
@@ -371,12 +394,29 @@ def build_hard_case_tables_from_prediction_frames(
 
 def run_asic_logistic_hard_case_definition(
     *,
-    input_root: Path = DEFAULT_BASELINE_ARTIFACT_ROOT,
+    input_root: Path | None = None,
     output_dir: Path = DEFAULT_HARD_CASE_OUTPUT_DIR,
     horizons: Sequence[int] | None = None,
     output_format: str = "csv",
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_input_root_fallback: bool = True,
 ) -> HardCaseRunResult:
-    baseline_root = _normalize_input_root(Path(input_root))
+    if input_root is None:
+        input_root, input_root_resolution = _resolve_default_hard_case_input_root(
+            preferred_result_kind=preferred_result_kind,
+            allow_fallback=allow_input_root_fallback,
+        )
+    else:
+        input_root = Path(input_root)
+        input_root_resolution = {
+            "resolution_strategy": "explicit_input_root",
+            "preferred_result_kind": preferred_result_kind,
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [str(input_root)],
+        }
+
+    baseline_root = _normalize_input_root(input_root)
     artifacts = _discover_prediction_artifacts(
         baseline_root,
         models=[MODEL_NAME],
@@ -424,6 +464,7 @@ def run_asic_logistic_hard_case_definition(
             "model_name": MODEL_NAME,
             "hard_case_rule": HARD_CASE_RULE,
             "input_root": str(baseline_root.resolve()),
+            "input_root_resolution": input_root_resolution,
             "output_dir": str(Path(output_dir).resolve()),
             "horizons_processed": horizons_processed,
             "small_hard_case_count_threshold": SMALL_HARD_CASE_COUNT_THRESHOLD,
@@ -437,6 +478,7 @@ def run_asic_logistic_hard_case_definition(
 
     return HardCaseRunResult(
         input_root=baseline_root,
+        input_root_resolution=input_root_resolution,
         output_dir=Path(output_dir),
         horizons_processed=tuple(horizons_processed),
         hard_case_rule=HARD_CASE_RULE,
@@ -460,10 +502,30 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--input-root",
         type=Path,
-        default=DEFAULT_BASELINE_ARTIFACT_ROOT,
         help=(
             "Root baseline artifact directory containing model subdirectories, or the "
-            "logistic_regression model directory itself."
+            "logistic_regression model directory itself. If omitted, the hard-case package "
+            "searches the preferred Chapter 1 result root first."
+        ),
+    )
+    parser.add_argument(
+        "--preferred-result-kind",
+        choices=[
+            RESULT_ROOT_KIND_CLUSTER_EXPORT,
+            RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+        ],
+        default=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+        help=(
+            "Preferred Chapter 1 result tier to search when --input-root is omitted. "
+            "cluster_export looks under cluster-results first; synthetic_local prefers artifacts/chapter1."
+        ),
+    )
+    parser.add_argument(
+        "--no-input-root-fallback",
+        action="store_true",
+        help=(
+            "When resolving the default input root, do not fall back to the other result tier "
+            "if the preferred tier is missing saved baseline predictions."
         ),
     )
     parser.add_argument(
@@ -496,8 +558,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         output_dir=args.output_dir,
         horizons=args.horizons,
         output_format=args.output_format,
+        preferred_result_kind=args.preferred_result_kind,
+        allow_input_root_fallback=not args.no_input_root_fallback,
     )
 
+    print(f"Input root: {result.input_root}")
+    print(
+        "Input root resolution: "
+        f"{result.input_root_resolution['resolution_strategy']}"
+        + (
+            f" ({result.input_root_resolution['selected_result_kind']})"
+            if result.input_root_resolution["selected_result_kind"] is not None
+            else ""
+        )
+    )
     print(f"Hard-case rule: {result.hard_case_rule}")
     print(f"Stay-level artifact: {result.artifacts.stay_level_path}")
     print(f"Horizon summary artifact: {result.artifacts.horizon_summary_path}")

@@ -1,0 +1,183 @@
+{
+  "consumed_prediction_artifacts": [
+    {
+      "horizon_h": 8,
+      "model_name": "logistic_regression",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression/horizon_8h/predictions.csv"
+    },
+    {
+      "horizon_h": 8,
+      "model_name": "xgboost",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost/horizon_8h/predictions.csv"
+    },
+    {
+      "horizon_h": 16,
+      "model_name": "logistic_regression",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression/horizon_16h/predictions.csv"
+    },
+    {
+      "horizon_h": 16,
+      "model_name": "xgboost",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost/horizon_16h/predictions.csv"
+    },
+    {
+      "horizon_h": 24,
+      "model_name": "logistic_regression",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression/horizon_24h/predictions.csv"
+    },
+    {
+      "horizon_h": 24,
+      "model_name": "xgboost",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost/horizon_24h/predictions.csv"
+    },
+    {
+      "horizon_h": 48,
+      "model_name": "logistic_regression",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression/horizon_48h/predictions.csv"
+    },
+    {
+      "horizon_h": 48,
+      "model_name": "xgboost",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost/horizon_48h/predictions.csv"
+    },
+    {
+      "horizon_h": 72,
+      "model_name": "logistic_regression",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression/horizon_72h/predictions.csv"
+    },
+    {
+      "horizon_h": 72,
+      "model_name": "xgboost",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost/horizon_72h/predictions.csv"
+    }
+  ],
+  "fit_split": "validation",
+  "horizon_artifacts": [
+    {
+      "comparison_metrics_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_8h/comparison_metrics.csv",
+      "horizon_h": 8,
+      "metadata_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_8h/metadata.json",
+      "method_metrics_paths": {
+        "isotonic": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_8h/isotonic_metrics_by_split.csv",
+        "platt": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_8h/platt_metrics_by_split.csv"
+      },
+      "method_prediction_paths": {
+        "isotonic": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_8h/isotonic_predictions.csv",
+        "platt": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_8h/platt_predictions.csv"
+      },
+      "method_statuses": {
+        "isotonic": "fit",
+        "platt": "fit"
+      },
+      "output_dir": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_8h",
+      "probability_distribution_plot_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_8h/test_probability_distribution.png",
+      "reliability_plot_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_8h/test_reliability_comparison.png",
+      "reliability_summary_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_8h/test_reliability_binned_summary.csv"
+    },
+    {
+      "comparison_metrics_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_16h/comparison_metrics.csv",
+      "horizon_h": 16,
+      "metadata_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_16h/metadata.json",
+      "method_metrics_paths": {
+        "isotonic": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_16h/isotonic_metrics_by_split.csv",
+        "platt": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_16h/platt_metrics_by_split.csv"
+      },
+      "method_prediction_paths": {
+        "isotonic": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_16h/isotonic_predictions.csv",
+        "platt": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_16h/platt_predictions.csv"
+      },
+      "method_statuses": {
+        "isotonic": "fit",
+        "platt": "fit"
+      },
+      "output_dir": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_16h",
+      "probability_distribution_plot_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_16h/test_probability_distribution.png",
+      "reliability_plot_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_16h/test_reliability_comparison.png",
+      "reliability_summary_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_16h/test_reliability_binned_summary.csv"
+    },
+    {
+      "comparison_metrics_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_24h/comparison_metrics.csv",
+      "horizon_h": 24,
+      "metadata_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_24h/metadata.json",
+      "method_metrics_paths": {
+        "isotonic": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_24h/isotonic_metrics_by_split.csv",
+        "platt": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_24h/platt_metrics_by_split.csv"
+      },
+      "method_prediction_paths": {
+        "isotonic": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_24h/isotonic_predictions.csv",
+        "platt": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_24h/platt_predictions.csv"
+      },
+      "method_statuses": {
+        "isotonic": "fit",
+        "platt": "fit"
+      },
+      "output_dir": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_24h",
+      "probability_distribution_plot_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_24h/test_probability_distribution.png",
+      "reliability_plot_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_24h/test_reliability_comparison.png",
+      "reliability_summary_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_24h/test_reliability_binned_summary.csv"
+    },
+    {
+      "comparison_metrics_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_48h/comparison_metrics.csv",
+      "horizon_h": 48,
+      "metadata_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_48h/metadata.json",
+      "method_metrics_paths": {
+        "isotonic": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_48h/isotonic_metrics_by_split.csv",
+        "platt": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_48h/platt_metrics_by_split.csv"
+      },
+      "method_prediction_paths": {
+        "isotonic": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_48h/isotonic_predictions.csv",
+        "platt": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_48h/platt_predictions.csv"
+      },
+      "method_statuses": {
+        "isotonic": "fit",
+        "platt": "fit"
+      },
+      "output_dir": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_48h",
+      "probability_distribution_plot_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_48h/test_probability_distribution.png",
+      "reliability_plot_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_48h/test_reliability_comparison.png",
+      "reliability_summary_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_48h/test_reliability_binned_summary.csv"
+    },
+    {
+      "comparison_metrics_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_72h/comparison_metrics.csv",
+      "horizon_h": 72,
+      "metadata_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_72h/metadata.json",
+      "method_metrics_paths": {
+        "isotonic": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_72h/isotonic_metrics_by_split.csv",
+        "platt": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_72h/platt_metrics_by_split.csv"
+      },
+      "method_prediction_paths": {
+        "isotonic": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_72h/isotonic_predictions.csv",
+        "platt": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_72h/platt_predictions.csv"
+      },
+      "method_statuses": {
+        "isotonic": "fit",
+        "platt": "fit"
+      },
+      "output_dir": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_72h",
+      "probability_distribution_plot_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_72h/test_probability_distribution.png",
+      "reliability_plot_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_72h/test_reliability_comparison.png",
+      "reliability_summary_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/horizon_72h/test_reliability_binned_summary.csv"
+    }
+  ],
+  "horizons_processed": [
+    8,
+    16,
+    24,
+    48,
+    72
+  ],
+  "input_root": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians",
+  "output_dir": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost",
+  "output_files": {
+    "combined_comparison_metrics": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/combined_comparison_metrics.csv",
+    "combined_test_reliability_binned_summary": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/combined_test_reliability_binned_summary.csv",
+    "interpretation_note": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/interpretation_note.md",
+    "summary_figure": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/recalibration/asic/primary_medians/xgboost/test_horizon_calibration_summary.png"
+  },
+  "primary_evaluation_split": "test",
+  "recalibration_methods": [
+    "platt",
+    "isotonic"
+  ],
+  "timestamp_utc": "2026-04-02T08:16:59+00:00"
+}

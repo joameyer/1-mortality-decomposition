@@ -8,7 +8,6 @@ from unittest import TestCase
 
 import pandas as pd
 
-
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 
@@ -24,6 +23,106 @@ from chapter1_mortality_decomposition.asic_hard_case_comparison import (  # noqa
 
 
 class ASICHardCaseComparisonTests(TestCase):
+    def test_run_asic_hard_case_comparison_can_use_saved_comparison_dataset_only(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            comparison_dataset_path = tmp_path / "stay_level_comparison_dataset.csv"
+            pd.DataFrame(
+                [
+                    {
+                        "stay_id_global": "s1",
+                        "instance_id": "s1__b0__h24",
+                        "hard_case_flag": True,
+                        "hard_case_group": LOW_PREDICTED_FATAL_GROUP,
+                        "age_group": "<70",
+                        "sex": "M",
+                        "disease_group": "respiratory / pulmonary",
+                        "prediction_time_h": 1,
+                        "icu_end_time_proxy_hours": 24.0,
+                        "hospital_id": "H2",
+                        "pf_ratio_last": 10.0,
+                        "map_last": 50.0,
+                        "creatinine_last": 1.0,
+                        "peep_last": 8.0,
+                    },
+                    {
+                        "stay_id_global": "s2",
+                        "instance_id": "s2__b1__h24",
+                        "hard_case_flag": True,
+                        "hard_case_group": LOW_PREDICTED_FATAL_GROUP,
+                        "age_group": "70-79",
+                        "sex": "M",
+                        "disease_group": "surgical / postoperative / trauma-related",
+                        "prediction_time_h": 3,
+                        "icu_end_time_proxy_hours": 36.0,
+                        "hospital_id": "H2",
+                        "pf_ratio_last": 30.0,
+                        "map_last": 70.0,
+                        "creatinine_last": 3.0,
+                        "peep_last": 10.0,
+                    },
+                    {
+                        "stay_id_global": "s3",
+                        "instance_id": "s3__b0__h24",
+                        "hard_case_flag": False,
+                        "hard_case_group": OTHER_FATAL_GROUP,
+                        "age_group": "70-79",
+                        "sex": "F",
+                        "disease_group": "cardiovascular",
+                        "prediction_time_h": 2,
+                        "icu_end_time_proxy_hours": 60.0,
+                        "hospital_id": "H1",
+                        "pf_ratio_last": 20.0,
+                        "map_last": 60.0,
+                        "creatinine_last": 2.0,
+                        "peep_last": 9.0,
+                    },
+                    {
+                        "stay_id_global": "s4",
+                        "instance_id": "s4__b1__h24",
+                        "hard_case_flag": False,
+                        "hard_case_group": OTHER_FATAL_GROUP,
+                        "age_group": "80-130",
+                        "sex": "M",
+                        "disease_group": "infection / sepsis non-pulmonary",
+                        "prediction_time_h": 4,
+                        "icu_end_time_proxy_hours": 72.0,
+                        "hospital_id": "H1",
+                        "pf_ratio_last": 40.0,
+                        "map_last": 80.0,
+                        "creatinine_last": 4.0,
+                        "peep_last": 11.0,
+                    },
+                ]
+            ).to_csv(comparison_dataset_path, index=False)
+
+            result = run_asic_hard_case_comparison(
+                comparison_dataset_path=comparison_dataset_path,
+                output_dir=tmp_path / "asic_hard_case_comparison_output",
+            )
+
+            self.assertEqual(result.comparison_dataset.shape[0], 4)
+            self.assertEqual(result.comparison_dataset_source_mode, "saved_comparison_dataset")
+            self.assertEqual(
+                result.comparison_dataset_source_resolution["resolution_strategy"],
+                "explicit_input_path",
+            )
+            self.assertEqual(
+                result.comparison_dataset_source_path,
+                comparison_dataset_path.resolve(),
+            )
+
+            manifest = json.loads(result.artifacts.manifest_path.read_text())
+            self.assertEqual(manifest["comparison_dataset_source_mode"], "saved_comparison_dataset")
+            self.assertEqual(
+                manifest["comparison_dataset_source_path"],
+                str(comparison_dataset_path.resolve()),
+            )
+            self.assertEqual(
+                manifest["source_paths"]["comparison_dataset_path"],
+                str(comparison_dataset_path.resolve()),
+            )
+
     def test_run_asic_hard_case_comparison_writes_package(self) -> None:
         with TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
@@ -205,6 +304,10 @@ class ASICHardCaseComparisonTests(TestCase):
                 output_dir=tmp_path / "asic_hard_case_comparison_output",
             )
 
+            self.assertEqual(
+                result.comparison_dataset_source_mode,
+                "rebuilt_from_restricted_inputs",
+            )
             self.assertEqual(result.comparison_dataset.shape[0], 4)
             self.assertEqual(
                 result.comparison_dataset["hard_case_group"].value_counts().to_dict(),

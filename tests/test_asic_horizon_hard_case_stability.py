@@ -7,12 +7,74 @@ from unittest import TestCase
 
 import pandas as pd
 
+from chapter1_mortality_decomposition.artifacts import (
+    RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+)
 from chapter1_mortality_decomposition.asic_horizon_hard_case_stability import (
+    _resolve_default_hard_case_dir,
     run_asic_horizon_hard_case_stability,
 )
 
 
 class AsicHorizonHardCaseStabilityTests(TestCase):
+    def test_default_hard_case_dir_resolution_prefers_cluster_export_outputs(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            cluster_root = (
+                tmp_path
+                / "cluster-results"
+                / "chapter1_true_results"
+                / "evaluation"
+                / "asic"
+                / "hard_cases"
+                / "primary_medians"
+                / "logistic_regression"
+            )
+            synthetic_root = (
+                tmp_path
+                / "artifacts"
+                / "chapter1"
+                / "evaluation"
+                / "asic"
+                / "hard_cases"
+                / "primary_medians"
+                / "logistic_regression"
+            )
+            cluster_root.mkdir(parents=True)
+            synthetic_root.mkdir(parents=True)
+
+            resolved_root, resolution = _resolve_default_hard_case_dir(
+                preferred_result_kind=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+                repo_root=tmp_path,
+            )
+
+            self.assertEqual(resolved_root, cluster_root.resolve())
+            self.assertEqual(resolution["selected_result_kind"], RESULT_ROOT_KIND_CLUSTER_EXPORT)
+
+    def test_default_hard_case_dir_resolution_falls_back_to_synthetic_outputs(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            synthetic_root = (
+                tmp_path
+                / "artifacts"
+                / "chapter1"
+                / "evaluation"
+                / "asic"
+                / "hard_cases"
+                / "primary_medians"
+                / "logistic_regression"
+            )
+            synthetic_root.mkdir(parents=True)
+
+            resolved_root, resolution = _resolve_default_hard_case_dir(
+                preferred_result_kind=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+                repo_root=tmp_path,
+            )
+
+            self.assertEqual(resolved_root, synthetic_root.resolve())
+            self.assertEqual(resolution["selected_result_kind"], RESULT_ROOT_KIND_SYNTHETIC_LOCAL)
+
     def test_run_writes_overlap_and_persistence_outputs(self) -> None:
         horizons = [8, 16, 24, 48, 72]
 
@@ -59,6 +121,10 @@ class AsicHorizonHardCaseStabilityTests(TestCase):
             )
 
             self.assertTrue(result.package3_ready)
+            self.assertEqual(
+                result.hard_case_dir_resolution["resolution_strategy"],
+                "explicit_input_root",
+            )
             self.assertTrue(result.artifacts.pairwise_denominators_path.exists())
             self.assertTrue(result.artifacts.pairwise_overlap_path.exists())
             self.assertTrue(result.artifacts.directional_overlap_path.exists())

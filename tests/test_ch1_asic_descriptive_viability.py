@@ -204,14 +204,185 @@ class Sprint3AsicViabilityReviewTests(TestCase):
 
             evidence_text = evidence_pack_path.read_text()
             self.assertIn("## Hard-case definition summary", evidence_text)
+            self.assertIn("## Review mode", evidence_text)
             self.assertIn("asic_logistic_last_eligible_nonfatal_q75_v1", evidence_text)
             self.assertIn("346", evidence_text)
             self.assertIn("synthetic", evidence_text.lower())
+            self.assertIn("synthetic local fallback", evidence_text)
+            self.assertIn("aggregate-only", evidence_text)
 
             memo_text = memo_path.read_text()
             self.assertIn("## Decomposition decision", memo_text)
             self.assertIn("GO, but secondary only", memo_text)
             self.assertIn("MIMIC", memo_text)
+            self.assertIn("aggregate-only", memo_text)
 
             self.assertTrue(context.synthetic_local_outputs)
             self.assertIn("treatment-limitation", "\n".join(context.open_evidence_gaps).lower())
+
+    def test_generate_prefers_cluster_results_and_works_without_comparison_detail_bundle(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+
+            hard_case_dir = (
+                repo_root
+                / "cluster-results"
+                / "chapter1_true_results"
+                / "evaluation"
+                / "asic"
+                / "hard_cases"
+                / "primary_medians"
+                / "logistic_regression"
+            )
+            comparison_dir = hard_case_dir / "asic_hard_case_comparison"
+            variable_audit_dir = hard_case_dir / "asic_hard_case_comparison_variable_audit"
+            foundation_dir = (
+                repo_root
+                / "cluster-results"
+                / "chapter1_true_results"
+                / "evaluation"
+                / "asic"
+                / "horizon_dependence"
+                / "foundation"
+            )
+            overlap_dir = foundation_dir.parent / "overlap"
+            final_dir = foundation_dir.parent / "final"
+
+            for directory in (
+                hard_case_dir,
+                comparison_dir,
+                variable_audit_dir,
+                foundation_dir,
+                overlap_dir,
+                final_dir,
+            ):
+                directory.mkdir(parents=True, exist_ok=True)
+
+            (hard_case_dir / "run_manifest.json").write_text(
+                json.dumps(
+                    {
+                        "hard_case_rule": "asic_logistic_last_eligible_nonfatal_q75_v1",
+                    },
+                    indent=2,
+                )
+            )
+            pd.DataFrame(
+                [
+                    {
+                        "horizon_h": 24,
+                        "n_nonfatal_last_points": 4696,
+                        "n_fatal_last_points": 1682,
+                        "nonfatal_q75_threshold": 0.014598,
+                        "n_hard_cases": 346,
+                        "pct_fatal_hard_cases": 0.206,
+                    }
+                ]
+            ).to_csv(hard_case_dir / "horizon_hard_case_summary.csv", index=False)
+            pd.DataFrame(
+                [
+                    {
+                        "stay_id_global": "s1",
+                        "hospital_id": "H1",
+                        "horizon_h": 24,
+                        "label_value": 1,
+                        "hard_case_flag": True,
+                    }
+                ]
+            ).to_csv(hard_case_dir / "stay_level_hard_case_flags.csv", index=False)
+
+            pd.DataFrame(
+                [
+                    {
+                        "variable": "hospital_id",
+                        "variable_label": "Hospital",
+                        "low_predicted_fatal_stays": "H1: 200/346 (58%)",
+                        "other_fatal_stays": "H1: 400/1336 (30%)",
+                        "effect_size_type": "max absolute level-specific standardized difference",
+                        "effect_size_basis": "H1",
+                        "standardized_difference": 2.1,
+                        "absolute_standardized_difference": 2.1,
+                    }
+                ]
+            ).to_csv(comparison_dir / "comparison_table.csv", index=False)
+            (comparison_dir / "summary.md").write_text(
+                "# ASIC 24h Fatal-Stay Hard-Case Comparison\n\n"
+                "## Cohort\n"
+                "- Fatal 24h stay-level comparison dataset: `1682` stays.\n"
+                "- Low-predicted fatal stays: `346`. Other fatal stays: `1336`.\n"
+                "- Hard-case anchor: `asic_logistic_last_eligible_nonfatal_q75_v1` from the saved stay-level hard-case artifact.\n"
+            )
+            (comparison_dir / "effect_size_figure.png").write_bytes(b"png")
+
+            (variable_audit_dir / "asic_hard_case_comparison_variable_audit_memo.md").write_text(
+                "# Variable audit\n\n"
+                "- Overall judgement: `ISSUE 3.2 VARIABLE PACKAGE NOT YET READY`.\n"
+                "- Blocking variable family: `age`.\n"
+            )
+            pd.DataFrame(
+                [
+                    {
+                        "variable_family": "age",
+                        "status": "NOT READY",
+                    }
+                ]
+            ).to_csv(
+                variable_audit_dir / "asic_hard_case_comparison_variable_audit_table.csv",
+                index=False,
+            )
+
+            pd.DataFrame(
+                [
+                    {
+                        "horizon": "24h",
+                        "nonfatal_last_n": 4696,
+                        "fatal_last_n": 1682,
+                        "nonfatal_q75_threshold": 0.014598,
+                        "hard_case_n": 346,
+                        "hard_case_share_among_fatal": 0.206,
+                    }
+                ]
+            ).to_csv(foundation_dir / "horizon_summary.csv", index=False)
+            pd.DataFrame(
+                [
+                    {
+                        "horizon_a": "24h",
+                        "horizon_b": "48h",
+                        "matched_fatal_n": 1600,
+                        "hard_n_horizon_a": 346,
+                        "hard_n_horizon_b": 352,
+                        "intersection_n": 200,
+                        "union_n": 498,
+                        "jaccard_index": 0.402,
+                    }
+                ]
+            ).to_csv(overlap_dir / "pairwise_overlap.csv", index=False)
+            (final_dir / "run_manifest.json").write_text(
+                json.dumps({"interpretation_label": "change form"}, indent=2)
+            )
+            (final_dir / "horizon_interpretation_memo.md").write_text(
+                "# Horizon memo\n\n- Hard-case share is present across horizons.\n"
+            )
+            (final_dir / "mortality_risk_horizon_comparison.png").write_bytes(b"png")
+
+            notebook_path = repo_root / "notebooks" / "ch1_asic_descriptive_viability_review.ipynb"
+            evidence_pack_path = repo_root / "reports" / "ch1_asic_descriptive_viability_evidence_pack.md"
+            memo_path = repo_root / "reports" / "ch1_asic_descriptive_viability_memo_draft.md"
+
+            context = generate_ch1_asic_descriptive_viability(
+                repo_root=repo_root,
+                notebook_path=notebook_path,
+                evidence_pack_path=evidence_pack_path,
+                memo_path=memo_path,
+            )
+
+            self.assertFalse(context.synthetic_local_outputs)
+            self.assertEqual(context.target_horizon_label, "24h")
+            self.assertEqual(context.comparison_group_counts["low-predicted fatal stays"], 346)
+            self.assertEqual(context.comparison_group_counts["other fatal stays"], 1336)
+            self.assertIn(
+                "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/comparison_table.csv",
+                evidence_pack_path.read_text(),
+            )
+            self.assertIn("cluster export", evidence_pack_path.read_text())
+            self.assertIn("aggregate-only", evidence_pack_path.read_text())
+            self.assertIn("approved local aggregate bundle", memo_path.read_text())

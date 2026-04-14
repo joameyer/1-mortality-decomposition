@@ -6,12 +6,70 @@ from unittest import TestCase
 
 import pandas as pd
 
+from chapter1_mortality_decomposition.artifacts import (
+    RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+)
 from chapter1_mortality_decomposition.hard_case_agreement import (
+    _resolve_default_logistic_input_root,
+    _resolve_default_xgb_recalibration_root,
     run_asic_hard_case_agreement_sensitivity,
 )
 
 
 class HardCaseAgreementTests(TestCase):
+    def test_default_logistic_input_root_resolution_prefers_cluster_export_predictions(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            cluster_root = (
+                tmp_path
+                / "cluster-results"
+                / "chapter1_true_results"
+                / "baselines"
+                / "asic"
+                / "primary_medians"
+            )
+            synthetic_root = (
+                tmp_path
+                / "artifacts"
+                / "chapter1"
+                / "baselines"
+                / "asic"
+                / "primary_medians"
+            )
+            cluster_root.mkdir(parents=True)
+            synthetic_root.mkdir(parents=True)
+
+            resolved_root, resolution = _resolve_default_logistic_input_root(
+                preferred_result_kind=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+                repo_root=tmp_path,
+            )
+
+            self.assertEqual(resolved_root, cluster_root.resolve())
+            self.assertEqual(resolution["selected_result_kind"], RESULT_ROOT_KIND_CLUSTER_EXPORT)
+
+    def test_default_recalibration_root_resolution_falls_back_to_synthetic_predictions(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            synthetic_root = (
+                tmp_path
+                / "artifacts"
+                / "chapter1"
+                / "recalibration"
+                / "asic"
+                / "primary_medians"
+                / "xgboost"
+            )
+            synthetic_root.mkdir(parents=True)
+
+            resolved_root, resolution = _resolve_default_xgb_recalibration_root(
+                preferred_result_kind=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+                repo_root=tmp_path,
+            )
+
+            self.assertEqual(resolved_root, synthetic_root.resolve())
+            self.assertEqual(resolution["selected_result_kind"], RESULT_ROOT_KIND_SYNTHETIC_LOCAL)
+
     def test_run_asic_hard_case_agreement_writes_outputs_and_reports_unmatched_fatal_stays(self) -> None:
         logistic_prediction_rows = [
             {

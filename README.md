@@ -93,6 +93,16 @@ The canonical implementation lives in [`src/chapter1_mortality_decomposition`](/
 - [`pipeline.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/pipeline.py): end-to-end orchestration
 - [`cli.py`](/Users/joanameyer/repository/1-mortality-decomposition/src/chapter1_mortality_decomposition/cli.py): runnable entrypoint
 
+## Artifact Boundary
+
+This repo now treats local synthetic outputs and exported true results as two distinct artifact tiers.
+
+- [`artifacts/chapter1`](/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1): local development outputs, usually produced from synthetic or smoke-test data. These are for testing, debugging, and schema checks only and are not the scientific source of truth.
+- [`cluster-results/chapter1_true_results`](/Users/joanameyer/repository/1-mortality-decomposition/cluster-results/chapter1_true_results): approved derived artifacts exported from the HPC cluster. When present, these are the authoritative local inputs for scientific review, reports, and presentation work.
+- [`hpc-1-mortality-decomposition`](/Users/joanameyer/repository/1-mortality-decomposition/hpc-1-mortality-decomposition): the cluster upload bundle for protected-data stages that must run against the full ASIC data.
+
+Protected patient-level computation belongs on the cluster. Local review workflows should prefer `cluster-results/chapter1_true_results` over `artifacts/chapter1` whenever both are available.
+
 ## Feature Sets
 
 The Chapter 1 feature sets are defined once in [`config/ch1_feature_sets.json`](/Users/joanameyer/repository/1-mortality-decomposition/config/ch1_feature_sets.json):
@@ -140,7 +150,7 @@ Chapter 1 now includes a canonical stay-level split path driven by the retained 
 
 Because ASIC lacks patient identifiers, this remains operationally a stay-level split after readmission-based proxy first-stay filtering. Small hospital-specific strata may prevent exact `70/15/15` and exact within-hospital outcome balance, so the repo writes explicit split-balance summaries rather than assuming perfect stratification.
 
-## Run The Pipeline
+## Run The Synthetic Local Pipeline
 
 Run all commands from the repository root.
 
@@ -277,6 +287,13 @@ This writes evaluation outputs under:
 
 - [`primary_medians`](/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians)
 
+If `--input-root` is omitted, the evaluator now resolves saved prediction artifacts by preferring:
+
+- `cluster-results/chapter1_true_results/baselines/asic/primary_medians`
+- then `artifacts/chapter1/baselines/asic/primary_medians`
+
+Use `--preferred-result-kind synthetic_local` to invert that preference, or `--no-input-root-fallback` to require the preferred result tier.
+
 The evaluation notebook is:
 
 ```bash
@@ -284,6 +301,16 @@ jupyter notebook notebooks/ch1_asic_baseline_evaluation_review.ipynb
 ```
 
 This notebook reads saved evaluation artifacts only. It does not retrain models.
+
+For the aggregate-only local review of the hard-case comparison package, use:
+
+```bash
+jupyter notebook notebooks/ch1_asic_hard_case_comparison_local_review.ipynb
+```
+
+That notebook reads only the approved aggregate bundle under `cluster-results/` or `artifacts/chapter1/`.
+The older `notebooks/ch1_asic_hard_case_comparison.ipynb` remains a cluster-side or explicitly approved
+row-level review notebook because it expects the restricted stay-level comparison dataset.
 
 ### 6. Recommended end-to-end command sequence
 
@@ -303,6 +330,7 @@ On the local smoke-test sample, the frozen `test` split may contain zero events.
 - The baseline training scripts still run normally.
 - The evaluation package will record `NaN` for metrics that require both classes.
 - The evaluation package will fall back to the first binary-evaluable reporting split, which is often `validation` on the local sample.
+- These local artifacts remain implementation-test outputs only. For scientific interpretation, prefer exported cluster artifacts under `cluster-results/chapter1_true_results`.
 
 ## Outputs
 

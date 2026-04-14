@@ -1,0 +1,85 @@
+{
+  "consumed_prediction_artifacts": [
+    {
+      "horizon_h": 8,
+      "model_name": "logistic_regression",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression/horizon_8h/predictions.csv"
+    },
+    {
+      "horizon_h": 16,
+      "model_name": "logistic_regression",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression/horizon_16h/predictions.csv"
+    },
+    {
+      "horizon_h": 24,
+      "model_name": "logistic_regression",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression/horizon_24h/predictions.csv"
+    },
+    {
+      "horizon_h": 48,
+      "model_name": "logistic_regression",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression/horizon_48h/predictions.csv"
+    },
+    {
+      "horizon_h": 72,
+      "model_name": "logistic_regression",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression/horizon_72h/predictions.csv"
+    },
+    {
+      "horizon_h": 8,
+      "model_name": "xgboost",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost/horizon_8h/predictions.csv"
+    },
+    {
+      "horizon_h": 16,
+      "model_name": "xgboost",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost/horizon_16h/predictions.csv"
+    },
+    {
+      "horizon_h": 24,
+      "model_name": "xgboost",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost/horizon_24h/predictions.csv"
+    },
+    {
+      "horizon_h": 48,
+      "model_name": "xgboost",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost/horizon_48h/predictions.csv"
+    },
+    {
+      "horizon_h": 72,
+      "model_name": "xgboost",
+      "predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost/horizon_72h/predictions.csv"
+    }
+  ],
+  "horizons": [
+    8,
+    16,
+    24,
+    48,
+    72
+  ],
+  "input_root": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians",
+  "models": [
+    "logistic_regression",
+    "xgboost"
+  ],
+  "output_dir": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians",
+  "output_files": {
+    "combined_metrics": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians/combined_metrics.csv",
+    "combined_risk_binned_summary": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians/combined_risk_binned_summary.csv",
+    "interpretation_note": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians/interpretation_note.md",
+    "reporting_split_summary": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians/reporting_split_summary.csv"
+  },
+  "primary_horizon": 24,
+  "risk_binning_strategy": {
+    "overall_bin_count": 10,
+    "reporting_split_order": [
+      "test",
+      "validation",
+      "train"
+    ],
+    "site_bin_count": 5,
+    "type": "ranked_quantile_bins"
+  },
+  "timestamp_utc": "2026-04-01T12:32:27+00:00"
+}

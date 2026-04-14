@@ -31,6 +31,11 @@ from chapter1_mortality_decomposition.baseline_logistic import (
     IDENTIFIER_COLUMNS,
     compute_binary_classification_metrics,
 )
+from chapter1_mortality_decomposition.artifacts import (
+    RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+    resolve_chapter1_result_subdir,
+)
 from chapter1_mortality_decomposition.utils import (
     ensure_directory,
     read_dataframe,
@@ -40,6 +45,7 @@ from chapter1_mortality_decomposition.utils import (
 )
 
 
+BASELINE_ARTIFACT_RELATIVE_ROOT = Path("baselines") / "asic" / "primary_medians"
 DEFAULT_BASELINE_ARTIFACT_ROOT = (
     Path("artifacts") / "chapter1" / "baselines" / "asic" / "primary_medians"
 )
@@ -85,6 +91,7 @@ class PredictionArtifact:
 @dataclass(frozen=True)
 class EvaluationRunResult:
     input_root: Path
+    input_root_resolution: dict[str, object]
     output_dir: Path
     combined_metrics_path: Path
     combined_risk_binned_summary_path: Path
@@ -159,6 +166,21 @@ def _normalize_models(
             f"Available under {input_root}: {available_models}"
         )
     return selected_models
+
+def _resolve_default_baseline_input_root(
+    *,
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_fallback: bool = True,
+    repo_root: Path | None = None,
+) -> tuple[Path, dict[str, object]]:
+    resolved = resolve_chapter1_result_subdir(
+        BASELINE_ARTIFACT_RELATIVE_ROOT,
+        preferred_kind=preferred_result_kind,
+        repo_root=repo_root,
+        require_exists=True,
+        allow_fallback=allow_fallback,
+    )
+    return resolved.path, resolved.resolution
 
 
 def _discover_prediction_artifacts(
@@ -942,16 +964,32 @@ def _build_interpretation_note(
 
 def run_asic_baseline_evaluation(
     *,
-    input_root: Path = DEFAULT_BASELINE_ARTIFACT_ROOT,
+    input_root: Path | None = None,
     output_dir: Path = DEFAULT_EVALUATION_OUTPUT_DIR,
     models: Sequence[str] | None = None,
     horizons: Sequence[int] | None = None,
     primary_horizon: int = PRIMARY_HORIZON,
     risk_bin_count: int = DEFAULT_RISK_BIN_COUNT,
     site_risk_bin_count: int = DEFAULT_SITE_RISK_BIN_COUNT,
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_input_root_fallback: bool = True,
 ) -> EvaluationRunResult:
     _require_matplotlib()
-    input_root = Path(input_root)
+    if input_root is None:
+        input_root, input_root_resolution = _resolve_default_baseline_input_root(
+            preferred_result_kind=preferred_result_kind,
+            allow_fallback=allow_input_root_fallback,
+        )
+    else:
+        input_root = Path(input_root)
+        input_root_resolution = {
+            "resolution_strategy": "explicit_input_root",
+            "preferred_result_kind": preferred_result_kind,
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [str(input_root)],
+        }
+
     output_dir = Path(output_dir)
     selected_models = _normalize_models(input_root, models)
     prediction_artifacts = _discover_prediction_artifacts(input_root, selected_models, horizons)
@@ -1264,6 +1302,7 @@ def run_asic_baseline_evaluation(
         {
             "timestamp_utc": _utc_timestamp(),
             "input_root": str(input_root.resolve()),
+            "input_root_resolution": input_root_resolution,
             "output_dir": str(output_dir.resolve()),
             "models": list(selected_models),
             "horizons": sorted(int(value) for value in reporting_split_summary["horizon_h"].unique().tolist()),
@@ -1287,6 +1326,7 @@ def run_asic_baseline_evaluation(
 
     return EvaluationRunResult(
         input_root=input_root,
+        input_root_resolution=input_root_resolution,
         output_dir=output_dir,
         combined_metrics_path=combined_metrics_path,
         combined_risk_binned_summary_path=combined_risk_binned_summary_path,
@@ -1306,14 +1346,36 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--input-root",
         type=Path,
-        default=DEFAULT_BASELINE_ARTIFACT_ROOT,
-        help="Root directory containing saved baseline prediction artifacts.",
+        help=(
+            "Root directory containing saved baseline prediction artifacts. If omitted, "
+            "the evaluator searches the preferred Chapter 1 result root first."
+        ),
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=DEFAULT_EVALUATION_OUTPUT_DIR,
         help="Root directory for evaluation metrics, figures, and notes.",
+    )
+    parser.add_argument(
+        "--preferred-result-kind",
+        choices=[
+            RESULT_ROOT_KIND_CLUSTER_EXPORT,
+            RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+        ],
+        default=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+        help=(
+            "Preferred Chapter 1 result tier to search when --input-root is omitted. "
+            "cluster_export looks under cluster-results first; synthetic_local prefers artifacts/chapter1."
+        ),
+    )
+    parser.add_argument(
+        "--no-input-root-fallback",
+        action="store_true",
+        help=(
+            "When resolving the default input root, do not fall back to the other result tier "
+            "if the preferred tier is missing baseline prediction artifacts."
+        ),
     )
     parser.add_argument(
         "--models",
@@ -1345,10 +1407,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         models=args.models,
         horizons=args.horizons,
         primary_horizon=args.primary_horizon,
+        preferred_result_kind=args.preferred_result_kind,
+        allow_input_root_fallback=not args.no_input_root_fallback,
     )
 
     reporting_summary = pd.read_csv(result.reporting_split_summary_path)
     print(f"Evaluation output directory: {result.output_dir}")
+    print(f"Resolved input root: {result.input_root}")
+    print(
+        "Input root resolution: "
+        f"{result.input_root_resolution['resolution_strategy']}"
+        + (
+            f" ({result.input_root_resolution['selected_result_kind']})"
+            if result.input_root_resolution["selected_result_kind"] is not None
+            else ""
+        )
+    )
     print(f"Combined metrics: {result.combined_metrics_path}")
     print(f"Combined risk-binned summary: {result.combined_risk_binned_summary_path}")
     print(f"Interpretation note: {result.interpretation_note_path}")

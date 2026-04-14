@@ -8,6 +8,11 @@ from typing import Sequence
 
 import pandas as pd
 
+from chapter1_mortality_decomposition.artifacts import (
+    RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+    resolve_chapter1_result_subdir,
+)
 from chapter1_mortality_decomposition.utils import (
     normalize_boolean_codes,
     read_dataframe,
@@ -33,6 +38,13 @@ DEFAULT_OUTPUT_DIR = (
     / "asic"
     / "horizon_dependence"
     / "foundation"
+)
+HARD_CASE_RELATIVE_ROOT = (
+    Path("evaluation")
+    / "asic"
+    / "hard_cases"
+    / "primary_medians"
+    / "logistic_regression"
 )
 DEFAULT_HORIZONS = (8, 16, 24, 48, 72)
 REQUIRED_STAY_LEVEL_COLUMNS = {
@@ -114,6 +126,7 @@ class HorizonFoundationArtifacts:
 @dataclass(frozen=True)
 class HorizonFoundationRunResult:
     hard_case_dir: Path
+    hard_case_dir_resolution: dict[str, object]
     output_dir: Path
     horizons: tuple[int, ...]
     artifacts: HorizonFoundationArtifacts
@@ -160,6 +173,22 @@ def _format_float(value: float | int | str, digits: int = 6) -> str:
     if isinstance(value, str):
         return value
     return f"{float(value):.{digits}f}"
+
+
+def _resolve_default_hard_case_dir(
+    *,
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_fallback: bool = True,
+    repo_root: Path | None = None,
+) -> tuple[Path, dict[str, object]]:
+    resolved = resolve_chapter1_result_subdir(
+        HARD_CASE_RELATIVE_ROOT,
+        preferred_kind=preferred_result_kind,
+        repo_root=repo_root,
+        require_exists=True,
+        allow_fallback=allow_fallback,
+    )
+    return resolved.path, resolved.resolution
 
 
 def _markdown_table(rows: list[dict[str, object]], columns: Sequence[str]) -> str:
@@ -801,13 +830,28 @@ def _build_foundation_note(
 
 def run_asic_horizon_dependence_foundation(
     *,
-    hard_case_dir: Path = DEFAULT_HARD_CASE_DIR,
+    hard_case_dir: Path | None = None,
     output_dir: Path = DEFAULT_OUTPUT_DIR,
     horizons: Sequence[int] | None = None,
     output_format: str = "csv",
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_input_root_fallback: bool = True,
 ) -> HorizonFoundationRunResult:
     normalized_horizons = _normalize_horizons(horizons)
-    resolved_hard_case_dir = Path(hard_case_dir)
+    if hard_case_dir is None:
+        resolved_hard_case_dir, hard_case_dir_resolution = _resolve_default_hard_case_dir(
+            preferred_result_kind=preferred_result_kind,
+            allow_fallback=allow_input_root_fallback,
+        )
+    else:
+        resolved_hard_case_dir = Path(hard_case_dir)
+        hard_case_dir_resolution = {
+            "resolution_strategy": "explicit_input_root",
+            "preferred_result_kind": preferred_result_kind,
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [str(resolved_hard_case_dir)],
+        }
     manifest, stay_level_path, saved_summary_path, prediction_paths = _load_manifest_inputs(
         resolved_hard_case_dir,
         normalized_horizons,
@@ -863,6 +907,7 @@ def run_asic_horizon_dependence_foundation(
 
     return HorizonFoundationRunResult(
         hard_case_dir=resolved_hard_case_dir,
+        hard_case_dir_resolution=hard_case_dir_resolution,
         output_dir=resolved_output_dir,
         horizons=normalized_horizons,
         artifacts=HorizonFoundationArtifacts(
@@ -888,8 +933,30 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--hard-case-dir",
         type=Path,
-        default=DEFAULT_HARD_CASE_DIR,
-        help="Directory containing the saved logistic hard-case artifact set and run_manifest.json.",
+        help=(
+            "Directory containing the saved logistic hard-case artifact set and run_manifest.json. "
+            "If omitted, the foundation package searches the preferred Chapter 1 result root first."
+        ),
+    )
+    parser.add_argument(
+        "--preferred-result-kind",
+        choices=[
+            RESULT_ROOT_KIND_CLUSTER_EXPORT,
+            RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+        ],
+        default=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+        help=(
+            "Preferred Chapter 1 result tier to search when --hard-case-dir is omitted. "
+            "cluster_export looks under cluster-results first; synthetic_local prefers artifacts/chapter1."
+        ),
+    )
+    parser.add_argument(
+        "--no-input-root-fallback",
+        action="store_true",
+        help=(
+            "When resolving the default hard-case directory, do not fall back to the other "
+            "result tier if the preferred tier is missing required saved artifacts."
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -921,9 +988,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         output_dir=args.output_dir,
         horizons=args.horizons,
         output_format=args.output_format,
+        preferred_result_kind=args.preferred_result_kind,
+        allow_input_root_fallback=not args.no_input_root_fallback,
     )
 
     print(f"Hard-case directory: {result.hard_case_dir}")
+    print(
+        "Hard-case directory resolution: "
+        f"{result.hard_case_dir_resolution['resolution_strategy']}"
+        + (
+            f" ({result.hard_case_dir_resolution['selected_result_kind']})"
+            if result.hard_case_dir_resolution["selected_result_kind"] is not None
+            else ""
+        )
+    )
     print(f"Output directory: {result.output_dir}")
     print(
         "Cross-horizon stay matching ready: "

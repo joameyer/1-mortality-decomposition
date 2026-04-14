@@ -1,0 +1,20 @@
+{
+  "figure_paths": {
+    "mortality_vs_risk_plot": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians/logistic_regression/horizon_8h/mortality_vs_risk_plot.png",
+    "reliability_plot": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians/logistic_regression/horizon_8h/reliability_plot.png"
+  },
+  "horizon_h": 8,
+  "metrics_output_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians/logistic_regression/horizon_8h/metrics_by_split.csv",
+  "model_name": "logistic_regression",
+  "risk_binned_summary_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians/logistic_regression/horizon_8h/risk_binned_summary.csv",
+  "risk_binning_strategy": {
+    "bin_count": 10,
+    "description": "Predicted probabilities are ranked with method='first' and then divided into up to 10 quantile bins per selected reporting split.",
+    "type": "ranked_quantile_bins"
+  },
+  "selected_reporting_split": "validation",
+  "selected_split_evaluable": true,
+  "selection_reason": "first_binary_evaluable_split_in_priority_order",
+  "source_predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/logistic_regression/horizon_8h/predictions.csv",
+  "timestamp_utc": "2026-04-01T12:32:23+00:00"
+}

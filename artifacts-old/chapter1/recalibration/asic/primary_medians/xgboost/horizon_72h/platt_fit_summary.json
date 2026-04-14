@@ -1,0 +1,11 @@
+{
+  "fit_event_count": 18,
+  "fit_non_event_count": 218,
+  "fit_sample_count": 236,
+  "fit_split": "validation",
+  "intercept": -1.596063223686988,
+  "method_name": "platt",
+  "notes": [],
+  "slope": 0.4227444163183265,
+  "status": "fit"
+}

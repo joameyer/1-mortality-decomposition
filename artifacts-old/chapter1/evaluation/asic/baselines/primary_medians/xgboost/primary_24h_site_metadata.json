@@ -1,0 +1,13 @@
+{
+  "model_name": "xgboost",
+  "primary_horizon_h": 24,
+  "selected_reporting_split": "validation",
+  "site_risk_binned_summary_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians/xgboost/primary_24h_site_risk_binned_summary.csv",
+  "site_risk_binning_strategy": {
+    "bin_count": 5,
+    "type": "ranked_quantile_bins"
+  },
+  "site_summary_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians/xgboost/primary_24h_site_summary.csv",
+  "source_predictions_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/baselines/asic/primary_medians/xgboost/horizon_24h/predictions.csv",
+  "timestamp_utc": "2026-04-01T12:32:25+00:00"
+}

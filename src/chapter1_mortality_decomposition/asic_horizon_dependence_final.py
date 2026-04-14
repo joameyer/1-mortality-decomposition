@@ -29,6 +29,11 @@ except ImportError as exc:  # pragma: no cover - environment dependency branch
 else:  # pragma: no cover - trivial assignment
     MATPLOTLIB_IMPORT_ERROR = None
 
+from chapter1_mortality_decomposition.artifacts import (
+    RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+    resolve_chapter1_result_subdir,
+)
 from chapter1_mortality_decomposition.utils import (
     ensure_directory,
     normalize_boolean_codes,
@@ -71,6 +76,25 @@ DEFAULT_OUTPUT_DIR = (
     / "asic"
     / "horizon_dependence"
     / "final"
+)
+HARD_CASE_RELATIVE_ROOT = (
+    Path("evaluation")
+    / "asic"
+    / "hard_cases"
+    / "primary_medians"
+    / "logistic_regression"
+)
+FOUNDATION_ARTIFACT_RELATIVE_ROOT = (
+    Path("evaluation")
+    / "asic"
+    / "horizon_dependence"
+    / "foundation"
+)
+OVERLAP_ARTIFACT_RELATIVE_ROOT = (
+    Path("evaluation")
+    / "asic"
+    / "horizon_dependence"
+    / "overlap"
 )
 DEFAULT_HORIZONS = (8, 16, 24, 48, 72)
 DEFAULT_BIN_COUNT = 6
@@ -140,8 +164,11 @@ class HorizonFinalArtifacts:
 @dataclass(frozen=True)
 class HorizonFinalRunResult:
     hard_case_dir: Path
+    hard_case_dir_resolution: dict[str, object]
     foundation_dir: Path
+    foundation_dir_resolution: dict[str, object]
     overlap_dir: Path
+    overlap_dir_resolution: dict[str, object]
     output_dir: Path
     horizons: tuple[int, ...]
     horizon_summary: pd.DataFrame
@@ -188,6 +215,54 @@ def _normalize_horizons(horizons: Sequence[int] | None) -> tuple[int, ...]:
     if unsupported:
         raise ValueError(f"Unsupported horizons requested: {unsupported}")
     return values
+
+
+def _resolve_default_hard_case_dir(
+    *,
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_fallback: bool = True,
+    repo_root: Path | None = None,
+) -> tuple[Path, dict[str, object]]:
+    resolved = resolve_chapter1_result_subdir(
+        HARD_CASE_RELATIVE_ROOT,
+        preferred_kind=preferred_result_kind,
+        repo_root=repo_root,
+        require_exists=True,
+        allow_fallback=allow_fallback,
+    )
+    return resolved.path, resolved.resolution
+
+
+def _resolve_default_foundation_dir(
+    *,
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_fallback: bool = True,
+    repo_root: Path | None = None,
+) -> tuple[Path, dict[str, object]]:
+    resolved = resolve_chapter1_result_subdir(
+        FOUNDATION_ARTIFACT_RELATIVE_ROOT,
+        preferred_kind=preferred_result_kind,
+        repo_root=repo_root,
+        require_exists=True,
+        allow_fallback=allow_fallback,
+    )
+    return resolved.path, resolved.resolution
+
+
+def _resolve_default_overlap_dir(
+    *,
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_fallback: bool = True,
+    repo_root: Path | None = None,
+) -> tuple[Path, dict[str, object]]:
+    resolved = resolve_chapter1_result_subdir(
+        OVERLAP_ARTIFACT_RELATIVE_ROOT,
+        preferred_kind=preferred_result_kind,
+        repo_root=repo_root,
+        require_exists=True,
+        allow_fallback=allow_fallback,
+    )
+    return resolved.path, resolved.resolution
 
 
 def _horizon_label(horizon_h: int) -> str:
@@ -520,6 +595,8 @@ def _build_binned_summary(
             .reset_index()
         )
         grouped["bin_index"] = grouped["bin_index"].astype(int)
+        grouped["sample_count"] = pd.to_numeric(grouped["sample_count"], errors="coerce").astype(int)
+        grouped["fatal_count"] = pd.to_numeric(grouped["fatal_count"], errors="coerce").astype(int)
         grouped["nonfatal_count"] = grouped["sample_count"] - grouped["fatal_count"]
         grouped["observed_mortality"] = grouped["fatal_count"] / grouped["sample_count"]
         grouped["sample_fraction_of_horizon"] = grouped["sample_count"] / int(horizon_df.shape[0])
@@ -1006,21 +1083,65 @@ def _build_final_summary_note(
 
 def run_asic_horizon_dependence_final(
     *,
-    hard_case_dir: Path = DEFAULT_HARD_CASE_DIR,
-    foundation_dir: Path = DEFAULT_FOUNDATION_DIR,
-    overlap_dir: Path = DEFAULT_OVERLAP_DIR,
+    hard_case_dir: Path | None = None,
+    foundation_dir: Path | None = None,
+    overlap_dir: Path | None = None,
     output_dir: Path = DEFAULT_OUTPUT_DIR,
     horizons: Sequence[int] | None = None,
     bin_count: int = DEFAULT_BIN_COUNT,
     output_format: str = "csv",
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_input_root_fallback: bool = True,
 ) -> HorizonFinalRunResult:
     if output_format != "csv":
         raise ValueError(f"Unsupported output format: {output_format}")
 
     normalized_horizons = _normalize_horizons(horizons)
-    resolved_hard_case_dir = Path(hard_case_dir)
-    resolved_foundation_dir = Path(foundation_dir)
-    resolved_overlap_dir = Path(overlap_dir)
+    if hard_case_dir is None:
+        resolved_hard_case_dir, hard_case_dir_resolution = _resolve_default_hard_case_dir(
+            preferred_result_kind=preferred_result_kind,
+            allow_fallback=allow_input_root_fallback,
+        )
+    else:
+        resolved_hard_case_dir = Path(hard_case_dir)
+        hard_case_dir_resolution = {
+            "resolution_strategy": "explicit_input_root",
+            "preferred_result_kind": preferred_result_kind,
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [str(resolved_hard_case_dir)],
+        }
+
+    if foundation_dir is None:
+        resolved_foundation_dir, foundation_dir_resolution = _resolve_default_foundation_dir(
+            preferred_result_kind=preferred_result_kind,
+            allow_fallback=allow_input_root_fallback,
+        )
+    else:
+        resolved_foundation_dir = Path(foundation_dir)
+        foundation_dir_resolution = {
+            "resolution_strategy": "explicit_input_root",
+            "preferred_result_kind": preferred_result_kind,
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [str(resolved_foundation_dir)],
+        }
+
+    if overlap_dir is None:
+        resolved_overlap_dir, overlap_dir_resolution = _resolve_default_overlap_dir(
+            preferred_result_kind=preferred_result_kind,
+            allow_fallback=allow_input_root_fallback,
+        )
+    else:
+        resolved_overlap_dir = Path(overlap_dir)
+        overlap_dir_resolution = {
+            "resolution_strategy": "explicit_input_root",
+            "preferred_result_kind": preferred_result_kind,
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [str(resolved_overlap_dir)],
+        }
+
     resolved_output_dir = Path(output_dir)
 
     stay_level, stay_level_path = _load_stay_level(resolved_hard_case_dir, horizons=normalized_horizons)
@@ -1084,8 +1205,11 @@ def run_asic_horizon_dependence_final(
     manifest_path = _write_json(
         {
             "timestamp_utc": _utc_timestamp(),
+            "hard_case_dir_resolution": hard_case_dir_resolution,
             "hard_case_dir": str(resolved_hard_case_dir.resolve()),
+            "foundation_dir_resolution": foundation_dir_resolution,
             "foundation_dir": str(resolved_foundation_dir.resolve()),
+            "overlap_dir_resolution": overlap_dir_resolution,
             "overlap_dir": str(resolved_overlap_dir.resolve()),
             "output_dir": str(resolved_output_dir.resolve()),
             "horizons": list(normalized_horizons),
@@ -1105,8 +1229,11 @@ def run_asic_horizon_dependence_final(
 
     return HorizonFinalRunResult(
         hard_case_dir=resolved_hard_case_dir,
+        hard_case_dir_resolution=hard_case_dir_resolution,
         foundation_dir=resolved_foundation_dir,
+        foundation_dir_resolution=foundation_dir_resolution,
         overlap_dir=resolved_overlap_dir,
+        overlap_dir_resolution=overlap_dir_resolution,
         output_dir=resolved_output_dir,
         horizons=normalized_horizons,
         horizon_summary=horizon_summary,
@@ -1133,20 +1260,46 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--hard-case-dir",
         type=Path,
-        default=DEFAULT_HARD_CASE_DIR,
-        help="Directory containing the saved logistic stay-level hard-case artifact and manifest.",
+        help=(
+            "Directory containing the saved logistic stay-level hard-case artifact and manifest. "
+            "If omitted, the final package searches the preferred Chapter 1 result root first."
+        ),
     )
     parser.add_argument(
         "--foundation-dir",
         type=Path,
-        default=DEFAULT_FOUNDATION_DIR,
-        help="Directory containing Package 1 horizon summary outputs.",
+        help=(
+            "Directory containing Package 1 horizon summary outputs. If omitted, the final "
+            "package searches the preferred Chapter 1 result root first."
+        ),
     )
     parser.add_argument(
         "--overlap-dir",
         type=Path,
-        default=DEFAULT_OVERLAP_DIR,
-        help="Directory containing Package 2 overlap outputs.",
+        help=(
+            "Directory containing Package 2 overlap outputs. If omitted, the final package "
+            "searches the preferred Chapter 1 result root first."
+        ),
+    )
+    parser.add_argument(
+        "--preferred-result-kind",
+        choices=[
+            RESULT_ROOT_KIND_CLUSTER_EXPORT,
+            RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+        ],
+        default=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+        help=(
+            "Preferred Chapter 1 result tier to search when input directories are omitted. "
+            "cluster_export looks under cluster-results first; synthetic_local prefers artifacts/chapter1."
+        ),
+    )
+    parser.add_argument(
+        "--no-input-root-fallback",
+        action="store_true",
+        help=(
+            "When resolving default input directories, do not fall back to the other result "
+            "tier if the preferred tier is missing required saved artifacts."
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -1187,11 +1340,40 @@ def main(argv: Sequence[str] | None = None) -> int:
         horizons=args.horizons,
         bin_count=args.bin_count,
         output_format=args.output_format,
+        preferred_result_kind=args.preferred_result_kind,
+        allow_input_root_fallback=not args.no_input_root_fallback,
     )
 
     print(f"Hard-case directory: {result.hard_case_dir}")
+    print(
+        "Hard-case directory resolution: "
+        f"{result.hard_case_dir_resolution['resolution_strategy']}"
+        + (
+            f" ({result.hard_case_dir_resolution['selected_result_kind']})"
+            if result.hard_case_dir_resolution["selected_result_kind"] is not None
+            else ""
+        )
+    )
     print(f"Foundation directory: {result.foundation_dir}")
+    print(
+        "Foundation directory resolution: "
+        f"{result.foundation_dir_resolution['resolution_strategy']}"
+        + (
+            f" ({result.foundation_dir_resolution['selected_result_kind']})"
+            if result.foundation_dir_resolution["selected_result_kind"] is not None
+            else ""
+        )
+    )
     print(f"Overlap directory: {result.overlap_dir}")
+    print(
+        "Overlap directory resolution: "
+        f"{result.overlap_dir_resolution['resolution_strategy']}"
+        + (
+            f" ({result.overlap_dir_resolution['selected_result_kind']})"
+            if result.overlap_dir_resolution["selected_result_kind"] is not None
+            else ""
+        )
+    )
     print(f"Output directory: {result.output_dir}")
     print(f"Interpretation label: {result.interpretation_label}")
     if result.consistency_issues:

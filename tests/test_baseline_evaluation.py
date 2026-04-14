@@ -6,10 +6,68 @@ from unittest import TestCase
 
 import pandas as pd
 
-from chapter1_mortality_decomposition.baseline_evaluation import run_asic_baseline_evaluation
+from chapter1_mortality_decomposition.artifacts import (
+    RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+)
+from chapter1_mortality_decomposition.baseline_evaluation import (
+    _resolve_default_baseline_input_root,
+    run_asic_baseline_evaluation,
+)
 
 
 class BaselineEvaluationTests(TestCase):
+    def test_default_input_root_resolution_prefers_cluster_export_predictions(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            cluster_root = (
+                tmp_path
+                / "cluster-results"
+                / "chapter1_true_results"
+                / "baselines"
+                / "asic"
+                / "primary_medians"
+            )
+            synthetic_root = (
+                tmp_path
+                / "artifacts"
+                / "chapter1"
+                / "baselines"
+                / "asic"
+                / "primary_medians"
+            )
+            cluster_root.mkdir(parents=True)
+            synthetic_root.mkdir(parents=True)
+
+            resolved_root, resolution = _resolve_default_baseline_input_root(
+                preferred_result_kind=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+                repo_root=tmp_path,
+            )
+
+            self.assertEqual(resolved_root, cluster_root.resolve())
+            self.assertEqual(resolution["selected_result_kind"], RESULT_ROOT_KIND_CLUSTER_EXPORT)
+
+    def test_default_input_root_resolution_falls_back_to_synthetic_predictions(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            synthetic_root = (
+                tmp_path
+                / "artifacts"
+                / "chapter1"
+                / "baselines"
+                / "asic"
+                / "primary_medians"
+            )
+            synthetic_root.mkdir(parents=True)
+
+            resolved_root, resolution = _resolve_default_baseline_input_root(
+                preferred_result_kind=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+                repo_root=tmp_path,
+            )
+
+            self.assertEqual(resolved_root, synthetic_root.resolve())
+            self.assertEqual(resolution["selected_result_kind"], RESULT_ROOT_KIND_SYNTHETIC_LOCAL)
+
     def test_run_asic_baseline_evaluation_writes_outputs_and_falls_back_from_degenerate_test(self) -> None:
         prediction_rows = [
             {

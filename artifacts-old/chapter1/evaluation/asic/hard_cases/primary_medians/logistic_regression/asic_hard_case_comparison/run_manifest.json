@@ -1,0 +1,144 @@
+{
+  "comparison_variables": [
+    "age_group",
+    "sex",
+    "disease_group",
+    "prediction_time_h",
+    "hospital_id",
+    "pf_ratio_last",
+    "map_last",
+    "creatinine_last",
+    "peep_last"
+  ],
+  "effect_size_definitions": {
+    "categorical": "level-specific standardized difference in proportions; the core table and figure report the level with the largest absolute standardized difference for each variable",
+    "continuous": "standardized mean difference using the difference in means divided by the pooled within-group SD across available values"
+  },
+  "group_counts": {
+    "low-predicted fatal stays": 4,
+    "other fatal stays": 6,
+    "total_fatal_stays": 10
+  },
+  "hard_case_rule": "asic_logistic_last_eligible_nonfatal_q75_v1",
+  "issue_id": "phase1_chapter1_sprint3_issue_3_2",
+  "join_logic": [
+    {
+      "anchor": "saved stay-level hard-case artifact",
+      "filter": "horizon_h == 24 and label_value == 1",
+      "path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/stay_level_hard_case_flags.csv",
+      "selected_columns": [
+        "instance_id",
+        "stay_id_global",
+        "hospital_id",
+        "block_index",
+        "prediction_time_h",
+        "horizon_h",
+        "label_value",
+        "hard_case_flag",
+        "hard_case_rule"
+      ]
+    },
+    {
+      "join_keys": [
+        "instance_id",
+        "stay_id_global",
+        "hospital_id",
+        "block_index",
+        "prediction_time_h",
+        "horizon_h",
+        "label_value"
+      ],
+      "join_type": "left",
+      "path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/model_ready/chapter1_primary_model_ready_dataset.csv",
+      "selected_columns": [
+        "instance_id",
+        "stay_id_global",
+        "hospital_id",
+        "block_index",
+        "prediction_time_h",
+        "horizon_h",
+        "label_value",
+        "icu_end_time_proxy_hours",
+        "pf_ratio_last",
+        "map_last",
+        "creatinine_last",
+        "peep_last"
+      ],
+      "validation": "one_to_one"
+    },
+    {
+      "derived_columns": [
+        "disease_group = derive_icd10_disease_group(icd10_codes).final_group"
+      ],
+      "join_keys": [
+        "stay_id_global",
+        "hospital_id"
+      ],
+      "join_type": "left",
+      "path": "/Users/joanameyer/repository/icu-data-platform/artifacts/asic_harmonized/static/harmonized.csv",
+      "selected_columns": [
+        "stay_id_global",
+        "hospital_id",
+        "age_group",
+        "sex",
+        "icd10_codes"
+      ],
+      "validation": "one_to_one"
+    }
+  ],
+  "output_paths": {
+    "comparison_dataset": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/stay_level_comparison_dataset.csv",
+    "comparison_table": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/comparison_table.csv",
+    "effect_size_plot_data": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/effect_size_plot_data.csv",
+    "figure": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/effect_size_figure.png",
+    "standardized_difference_details": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/standardized_difference_details.csv",
+    "summary_markdown": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/summary.md"
+  },
+  "secondary_outputs": {
+    "early_vs_late_fatal_timing_split": {
+      "absolute_difference_pp": 44.44444444444444,
+      "comparison_performed": false,
+      "comparison_variables": [
+        "age_group",
+        "disease_group",
+        "hospital_id",
+        "prediction_time_h",
+        "icu_end_time_proxy_hours",
+        "creatinine_last",
+        "peep_last"
+      ],
+      "group_counts": {
+        "early ICU death (<=48h)": 1,
+        "late ICU death (>48h)": 9
+      },
+      "low_predicted_fatal_counts": {
+        "early ICU death (<=48h)": 0,
+        "late ICU death (>48h)": 4
+      },
+      "low_predicted_fatal_shares": {
+        "early ICU death (<=48h)": 0.0,
+        "late ICU death (>48h)": 0.4444444444444444
+      },
+      "output_paths": {
+        "figure": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/early_vs_late_death_split/early_vs_late_low_pred_share.png",
+        "interpretation_note": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/early_vs_late_death_split/early_vs_late_interpretation_note.md",
+        "summary_table": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/early_vs_late_death_split/early_vs_late_fatal_timing_summary.csv"
+      },
+      "sparse_stop_rule": ">=10 fatal stays per timing group and >=5 stays in each timing x hard-case cell",
+      "timing_groups": [
+        "early ICU death (<=48h)",
+        "late ICU death (>48h)"
+      ],
+      "timing_split_hours": 48.0,
+      "timing_variable": "icu_end_time_proxy_hours"
+    }
+  },
+  "source_paths": {
+    "asic_input_root": "/Users/joanameyer/repository/icu-data-platform/artifacts/asic_harmonized",
+    "hard_case_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/stay_level_hard_case_flags.csv",
+    "model_ready_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/model_ready/chapter1_primary_model_ready_dataset.csv",
+    "static_path": "/Users/joanameyer/repository/icu-data-platform/artifacts/asic_harmonized/static/harmonized.csv"
+  },
+  "target_horizon_h": 24,
+  "timestamp_utc": "2026-04-09T11:11:19+00:00"
+}

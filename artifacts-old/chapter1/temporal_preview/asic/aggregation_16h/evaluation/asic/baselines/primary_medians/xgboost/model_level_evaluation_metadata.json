@@ -1,0 +1,6 @@
+{
+  "horizon_comparison_metrics_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/temporal_preview/asic/aggregation_16h/evaluation/asic/baselines/primary_medians/xgboost/horizon_comparison_metrics.csv",
+  "horizon_risk_structure_grid_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/temporal_preview/asic/aggregation_16h/evaluation/asic/baselines/primary_medians/xgboost/horizon_risk_structure_grid.png",
+  "model_name": "xgboost",
+  "timestamp_utc": "2026-04-02T09:10:17+00:00"
+}

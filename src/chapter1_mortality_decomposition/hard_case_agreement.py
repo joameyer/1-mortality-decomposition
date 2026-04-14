@@ -10,6 +10,11 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
+from chapter1_mortality_decomposition.artifacts import (
+    RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+    resolve_chapter1_result_subdir,
+)
 from chapter1_mortality_decomposition.baseline_evaluation import (
     DEFAULT_BASELINE_ARTIFACT_ROOT,
     DEFAULT_HORIZONS,
@@ -34,6 +39,10 @@ from chapter1_mortality_decomposition.xgboost_recalibration import (
 DEFAULT_XGB_RECALIBRATION_METHOD = "platt"
 XGB_RECALIBRATION_METHODS = ("platt", "isotonic")
 SOURCE_XGBOOST_MODEL_NAME = "xgboost"
+BASELINE_ARTIFACT_RELATIVE_ROOT = Path("baselines") / "asic" / "primary_medians"
+RECALIBRATION_ARTIFACT_RELATIVE_ROOT = (
+    Path("recalibration") / "asic" / "primary_medians" / "xgboost"
+)
 AGREEMENT_JOIN_KEYS = ["stay_id_global", "horizon_h"]
 AGREEMENT_RULE = "asic_hard_case_cross_model_agreement_v1"
 XGB_RECAL_HARD_CASE_RULE_TEMPLATE = "asic_{model_name}_last_eligible_nonfatal_q75_v1"
@@ -60,7 +69,9 @@ class HardCaseAgreementArtifacts:
 @dataclass(frozen=True)
 class HardCaseAgreementRunResult:
     logistic_input_root: Path
+    logistic_input_root_resolution: dict[str, object]
     xgb_recalibration_root: Path
+    xgb_recalibration_root_resolution: dict[str, object]
     output_dir: Path
     horizons_processed: tuple[int, ...]
     logistic_model_name: str
@@ -112,6 +123,38 @@ def _normalize_xgb_recalibration_root(recalibration_root: Path) -> Path:
         f"Could not locate saved XGBoost recalibration artifacts from {root}. "
         f"Expected either {root} as the xgboost recalibration directory or {candidate}."
     )
+
+
+def _resolve_default_logistic_input_root(
+    *,
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_fallback: bool = True,
+    repo_root: Path | None = None,
+) -> tuple[Path, dict[str, object]]:
+    resolved = resolve_chapter1_result_subdir(
+        BASELINE_ARTIFACT_RELATIVE_ROOT,
+        preferred_kind=preferred_result_kind,
+        repo_root=repo_root,
+        require_exists=True,
+        allow_fallback=allow_fallback,
+    )
+    return resolved.path, resolved.resolution
+
+
+def _resolve_default_xgb_recalibration_root(
+    *,
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_fallback: bool = True,
+    repo_root: Path | None = None,
+) -> tuple[Path, dict[str, object]]:
+    resolved = resolve_chapter1_result_subdir(
+        RECALIBRATION_ARTIFACT_RELATIVE_ROOT,
+        preferred_kind=preferred_result_kind,
+        repo_root=repo_root,
+        require_exists=True,
+        allow_fallback=allow_fallback,
+    )
+    return resolved.path, resolved.resolution
 
 
 def _load_logistic_prediction_frames(
@@ -600,18 +643,50 @@ def build_hard_case_agreement_tables(
 
 def run_asic_hard_case_agreement_sensitivity(
     *,
-    logistic_input_root: Path = DEFAULT_BASELINE_ARTIFACT_ROOT,
-    xgb_recalibration_root: Path = DEFAULT_RECALIBRATION_OUTPUT_DIR,
+    logistic_input_root: Path | None = None,
+    xgb_recalibration_root: Path | None = None,
     xgb_recalibration_method: str = DEFAULT_XGB_RECALIBRATION_METHOD,
     output_dir: Path | None = None,
     horizons: Sequence[int] | None = None,
     output_format: str = "csv",
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_input_root_fallback: bool = True,
 ) -> HardCaseAgreementRunResult:
     if xgb_recalibration_method not in XGB_RECALIBRATION_METHODS:
         raise ValueError(
             f"Unsupported XGBoost recalibration method: {xgb_recalibration_method}. "
             f"Expected one of {list(XGB_RECALIBRATION_METHODS)}."
         )
+
+    if logistic_input_root is None:
+        logistic_input_root, logistic_input_root_resolution = _resolve_default_logistic_input_root(
+            preferred_result_kind=preferred_result_kind,
+            allow_fallback=allow_input_root_fallback,
+        )
+    else:
+        logistic_input_root = Path(logistic_input_root)
+        logistic_input_root_resolution = {
+            "resolution_strategy": "explicit_input_root",
+            "preferred_result_kind": preferred_result_kind,
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [str(logistic_input_root)],
+        }
+
+    if xgb_recalibration_root is None:
+        xgb_recalibration_root, xgb_recalibration_root_resolution = _resolve_default_xgb_recalibration_root(
+            preferred_result_kind=preferred_result_kind,
+            allow_fallback=allow_input_root_fallback,
+        )
+    else:
+        xgb_recalibration_root = Path(xgb_recalibration_root)
+        xgb_recalibration_root_resolution = {
+            "resolution_strategy": "explicit_input_root",
+            "preferred_result_kind": preferred_result_kind,
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [str(xgb_recalibration_root)],
+        }
 
     logistic_frames, logistic_sources, logistic_horizons = _load_logistic_prediction_frames(
         logistic_input_root,
@@ -688,12 +763,14 @@ def run_asic_hard_case_agreement_sensitivity(
             "xgb_recal_model_name": xgb_recal_model_name,
             "xgb_recalibration_method": xgb_recalibration_method,
             "xgb_recal_hard_case_rule": xgb_recal_hard_case_rule,
+            "logistic_input_root_resolution": logistic_input_root_resolution,
             "logistic_input_root": str(
                 _normalize_hard_case_input_root(
                     Path(logistic_input_root),
                     model_name=LOGISTIC_MODEL_NAME,
                 ).resolve()
             ),
+            "xgb_recalibration_root_resolution": xgb_recalibration_root_resolution,
             "xgb_recalibration_root": str(_normalize_xgb_recalibration_root(Path(xgb_recalibration_root)).resolve()),
             "output_dir": str(resolved_output_dir.resolve()),
             "horizons_processed": list(logistic_horizons),
@@ -716,7 +793,9 @@ def run_asic_hard_case_agreement_sensitivity(
             Path(logistic_input_root),
             model_name=LOGISTIC_MODEL_NAME,
         ),
+        logistic_input_root_resolution=logistic_input_root_resolution,
         xgb_recalibration_root=_normalize_xgb_recalibration_root(Path(xgb_recalibration_root)),
+        xgb_recalibration_root_resolution=xgb_recalibration_root_resolution,
         output_dir=resolved_output_dir,
         horizons_processed=logistic_horizons,
         logistic_model_name=LOGISTIC_MODEL_NAME,
@@ -742,17 +821,39 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--logistic-input-root",
         type=Path,
-        default=DEFAULT_BASELINE_ARTIFACT_ROOT,
         help=(
             "Root baseline artifact directory containing model subdirectories, or the "
-            "logistic_regression model directory itself."
+            "logistic_regression model directory itself. If omitted, the agreement package "
+            "searches the preferred Chapter 1 result root first."
         ),
     )
     parser.add_argument(
         "--xgb-recalibration-root",
         type=Path,
-        default=DEFAULT_RECALIBRATION_OUTPUT_DIR,
-        help="Directory containing saved XGBoost recalibration artifacts.",
+        help=(
+            "Directory containing saved XGBoost recalibration artifacts. If omitted, the "
+            "agreement package searches the preferred Chapter 1 result root first."
+        ),
+    )
+    parser.add_argument(
+        "--preferred-result-kind",
+        choices=[
+            RESULT_ROOT_KIND_CLUSTER_EXPORT,
+            RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+        ],
+        default=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+        help=(
+            "Preferred Chapter 1 result tier to search when input roots are omitted. "
+            "cluster_export looks under cluster-results first; synthetic_local prefers artifacts/chapter1."
+        ),
+    )
+    parser.add_argument(
+        "--no-input-root-fallback",
+        action="store_true",
+        help=(
+            "When resolving default input roots, do not fall back to the other result tier "
+            "if the preferred tier is missing required saved artifacts."
+        ),
     )
     parser.add_argument(
         "--xgb-recalibration-method",
@@ -791,8 +892,30 @@ def main(argv: Sequence[str] | None = None) -> int:
         output_dir=args.output_dir,
         horizons=args.horizons,
         output_format=args.output_format,
+        preferred_result_kind=args.preferred_result_kind,
+        allow_input_root_fallback=not args.no_input_root_fallback,
     )
 
+    print(f"Logistic input root: {result.logistic_input_root}")
+    print(
+        "Logistic input root resolution: "
+        f"{result.logistic_input_root_resolution['resolution_strategy']}"
+        + (
+            f" ({result.logistic_input_root_resolution['selected_result_kind']})"
+            if result.logistic_input_root_resolution["selected_result_kind"] is not None
+            else ""
+        )
+    )
+    print(f"XGBoost recalibration root: {result.xgb_recalibration_root}")
+    print(
+        "XGBoost recalibration root resolution: "
+        f"{result.xgb_recalibration_root_resolution['resolution_strategy']}"
+        + (
+            f" ({result.xgb_recalibration_root_resolution['selected_result_kind']})"
+            if result.xgb_recalibration_root_resolution["selected_result_kind"] is not None
+            else ""
+        )
+    )
     print(f"Stay-level agreement artifact: {result.artifacts.stay_level_path}")
     print(f"Horizon summary artifact: {result.artifacts.horizon_summary_path}")
     print(f"Run manifest: {result.artifacts.manifest_path}")

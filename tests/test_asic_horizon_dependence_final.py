@@ -7,15 +7,89 @@ from unittest import TestCase
 
 import pandas as pd
 
+from chapter1_mortality_decomposition.artifacts import (
+    RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+)
 from chapter1_mortality_decomposition.asic_horizon_dependence_final import (
     BUBBLE_AREA_MAX,
     BUBBLE_AREA_MIN,
+    _resolve_default_foundation_dir,
+    _resolve_default_hard_case_dir,
+    _resolve_default_overlap_dir,
     _compute_bubble_areas,
     run_asic_horizon_dependence_final,
 )
 
 
 class AsicHorizonDependenceFinalTests(TestCase):
+    def test_default_hard_case_dir_resolution_prefers_cluster_export_outputs(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            cluster_root = (
+                tmp_path
+                / "cluster-results"
+                / "chapter1_true_results"
+                / "evaluation"
+                / "asic"
+                / "hard_cases"
+                / "primary_medians"
+                / "logistic_regression"
+            )
+            cluster_root.mkdir(parents=True)
+
+            resolved_root, resolution = _resolve_default_hard_case_dir(
+                preferred_result_kind=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+                repo_root=tmp_path,
+            )
+
+            self.assertEqual(resolved_root, cluster_root.resolve())
+            self.assertEqual(resolution["selected_result_kind"], RESULT_ROOT_KIND_CLUSTER_EXPORT)
+
+    def test_default_foundation_dir_resolution_falls_back_to_synthetic_outputs(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            synthetic_root = (
+                tmp_path
+                / "artifacts"
+                / "chapter1"
+                / "evaluation"
+                / "asic"
+                / "horizon_dependence"
+                / "foundation"
+            )
+            synthetic_root.mkdir(parents=True)
+
+            resolved_root, resolution = _resolve_default_foundation_dir(
+                preferred_result_kind=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+                repo_root=tmp_path,
+            )
+
+            self.assertEqual(resolved_root, synthetic_root.resolve())
+            self.assertEqual(resolution["selected_result_kind"], RESULT_ROOT_KIND_SYNTHETIC_LOCAL)
+
+    def test_default_overlap_dir_resolution_falls_back_to_synthetic_outputs(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            synthetic_root = (
+                tmp_path
+                / "artifacts"
+                / "chapter1"
+                / "evaluation"
+                / "asic"
+                / "horizon_dependence"
+                / "overlap"
+            )
+            synthetic_root.mkdir(parents=True)
+
+            resolved_root, resolution = _resolve_default_overlap_dir(
+                preferred_result_kind=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+                repo_root=tmp_path,
+            )
+
+            self.assertEqual(resolved_root, synthetic_root.resolve())
+            self.assertEqual(resolution["selected_result_kind"], RESULT_ROOT_KIND_SYNTHETIC_LOCAL)
+
     def test_compute_bubble_areas_stays_bounded_and_monotone(self) -> None:
         sample_fractions = pd.Series([0.00, 0.01, 0.05, 0.20, 0.75], dtype=float)
 
@@ -185,6 +259,18 @@ class AsicHorizonDependenceFinalTests(TestCase):
             )
 
             self.assertEqual(result.consistency_issues, ())
+            self.assertEqual(
+                result.hard_case_dir_resolution["resolution_strategy"],
+                "explicit_input_root",
+            )
+            self.assertEqual(
+                result.foundation_dir_resolution["resolution_strategy"],
+                "explicit_input_root",
+            )
+            self.assertEqual(
+                result.overlap_dir_resolution["resolution_strategy"],
+                "explicit_input_root",
+            )
             self.assertTrue(result.artifacts.figure_path.exists())
             self.assertTrue(result.artifacts.interpretation_memo_path.exists())
             self.assertTrue(result.artifacts.final_summary_path.exists())

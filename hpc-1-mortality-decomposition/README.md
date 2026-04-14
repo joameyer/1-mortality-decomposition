@@ -52,6 +52,21 @@ It includes:
 
 It does not include full ASIC data.
 
+## Producer Boundary
+
+This bundle is the producer side of the protected-data workflow.
+
+- run protected-data preprocessing, model training, and other restricted computations here on the cluster
+- treat `artifacts/chapter1/` inside this bundle as the cluster-side working tree
+- export only approved derived artifacts back to the local repo
+
+The matching consumer side lives in the main local repo:
+
+- local synthetic/dev outputs: `artifacts/chapter1/`
+- authoritative local mirror of approved cluster exports: `cluster-results/chapter1_true_results/`
+
+Do not mirror restricted row-level inputs or blocked/model-ready patient-level datasets back into the local repo unless that export has been explicitly approved.
+
 ## Expected Cluster Layout
 
 Upload this folder under:
@@ -147,6 +162,8 @@ and writes Chapter 1 outputs to:
 ```text
 /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1
 ```
+
+Those cluster-side outputs are the source for any approved local result export. The local repo should consume mirrored exports under `cluster-results/chapter1_true_results/`, not the protected cluster working tree directly.
 
 ### 4. Run the ASIC logistic-regression baseline
 
@@ -409,6 +426,102 @@ By default this writes outputs under:
 ```text
 /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison
 ```
+
+To stage only the approved aggregate outputs for local mirroring, run:
+
+```bash
+cd /rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition
+python run_chapter1_stage_local_review_exports.py
+```
+
+This writes an export tree under:
+
+```text
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/export-staging/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison
+```
+
+The staging step copies only approved aggregate outputs such as tables, figures,
+plot-data helpers, and manifests. It does **not** stage
+`stay_level_comparison_dataset.csv` unless that row-level export has been
+explicitly approved.
+
+The exact default local-review contract for this package is documented in:
+
+- [`../docs/asic_hard_case_comparison_local_review_export_contract.md`](/Users/joanameyer/repository/1-mortality-decomposition/docs/asic_hard_case_comparison_local_review_export_contract.md)
+
+To stage the paired variable-audit bundle at the same time, add:
+
+```bash
+python run_chapter1_stage_local_review_exports.py --include-variable-audit
+```
+
+The exact default local-review contract for the paired variable-audit package is documented in:
+
+- [`../docs/asic_hard_case_comparison_variable_audit_local_review_export_contract.md`](/Users/joanameyer/repository/1-mortality-decomposition/docs/asic_hard_case_comparison_variable_audit_local_review_export_contract.md)
+
+After copying the staged tree back to the local repo, import the approved bundles into the
+authoritative local mirror with:
+
+```bash
+cd /Users/joanameyer/repository/1-mortality-decomposition
+python run_chapter1_import_staged_exports.py
+```
+
+This local import step reads each staged `export_manifest.json` and mirrors only the manifest-listed
+approved files into `cluster-results/chapter1_true_results/`.
+
+To stage the baseline evaluation and horizon-dependence bundles in the same export tree, add:
+
+```bash
+python run_chapter1_stage_local_review_exports.py \
+  --include-baseline-evaluation \
+  --include-horizon-dependence
+```
+
+That command stages the approved local-review bundles for:
+
+- `evaluation/asic/baselines/primary_medians/`
+- `evaluation/asic/horizon_dependence/foundation/`
+- `evaluation/asic/horizon_dependence/overlap/`
+- `evaluation/asic/horizon_dependence/final/`
+
+The older `run_chapter1_stage_asic_hard_case_comparison_exports.py` entry point still works, but
+`run_chapter1_stage_local_review_exports.py` is the clearer command for the broader cluster-to-local
+export workflow.
+
+To stage the remaining local-safe Chapter 1 review bundles as well, add:
+
+```bash
+python run_chapter1_stage_local_review_exports.py \
+  --include-foundational-summaries \
+  --include-baseline-evaluation \
+  --include-xgboost-recalibration \
+  --include-hard-case-agreement \
+  --include-horizon-dependence \
+  --include-sofa-feasibility \
+  --include-variable-audit \
+  --include-temporal-preview \
+  --include-icd10-validation
+```
+
+That broader command covers the current approved local-review bundles for:
+
+- `cohort/`
+- `splits/`
+- `model_ready/`
+- `carry_forward/`
+- `observation_process/`
+- `evaluation/asic/baselines/primary_medians/`
+- `recalibration/asic/primary_medians/xgboost/`
+- `evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/`
+- `evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison_variable_audit/`
+- `evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_sofa_feasibility_audit/`
+- `evaluation/asic/hard_cases/primary_medians/agreement/logistic_regression_vs_xgboost_platt/`
+- `evaluation/asic/horizon_dependence/foundation/`
+- `evaluation/asic/horizon_dependence/overlap/`
+- `evaluation/asic/horizon_dependence/final/`
+- `temporal_preview/asic/aggregation_16h/`
+- `evaluation/asic/icd10_disease_group_validation/`
 
 ### 17. Run the hard-case comparison variable audit
 

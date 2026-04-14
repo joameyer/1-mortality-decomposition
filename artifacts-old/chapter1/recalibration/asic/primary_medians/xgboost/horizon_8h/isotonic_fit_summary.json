@@ -1,0 +1,10 @@
+{
+  "fit_event_count": 2,
+  "fit_non_event_count": 242,
+  "fit_sample_count": 244,
+  "fit_split": "validation",
+  "method_name": "isotonic",
+  "notes": [],
+  "status": "fit",
+  "threshold_count": 6
+}

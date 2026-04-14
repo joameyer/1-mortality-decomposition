@@ -50,6 +50,7 @@ DEFAULT_MODEL_READY_PATH = (
     REPO_ROOT / "artifacts" / "chapter1" / "model_ready" / "chapter1_primary_model_ready_dataset.csv"
 )
 DEFAULT_OUTPUT_DIR = DEFAULT_HARD_CASE_OUTPUT_DIR / "asic_hard_case_comparison"
+COMPARISON_DATASET_FILENAME = "stay_level_comparison_dataset.csv"
 STATIC_RELATIVE_PATH = Path("static") / "harmonized.csv"
 
 ISSUE_ID = "phase1_chapter1_sprint3_issue_3_2"
@@ -176,6 +177,9 @@ class ASICHardCaseComparisonArtifacts:
 
 @dataclass(frozen=True)
 class ASICHardCaseComparisonRunResult:
+    comparison_dataset_source_mode: str
+    comparison_dataset_source_path: Path | None
+    comparison_dataset_source_resolution: dict[str, object]
     output_dir: Path
     artifacts: ASICHardCaseComparisonArtifacts
     comparison_dataset: pd.DataFrame
@@ -287,6 +291,66 @@ def _normalize_key_columns(frame: pd.DataFrame, *, key_columns: Sequence[str]) -
         elif column in NUMERIC_KEY_COLUMNS:
             normalized[column] = pd.to_numeric(normalized[column], errors="coerce")
     return normalized
+
+
+def _load_saved_comparison_dataset(
+    comparison_dataset_path: Path,
+) -> pd.DataFrame:
+    resolved_path = _resolve_existing_path(comparison_dataset_path)
+    comparison_dataset = read_dataframe(resolved_path)
+    require_columns(
+        comparison_dataset,
+        set(COMPARISON_DATASET_COLUMNS),
+        "saved stay-level hard-case comparison dataset",
+    )
+
+    normalized = comparison_dataset.loc[:, COMPARISON_DATASET_COLUMNS].copy()
+    for column in (
+        "stay_id_global",
+        "instance_id",
+        "hard_case_group",
+        "age_group",
+        "sex",
+        "disease_group",
+        "hospital_id",
+    ):
+        normalized[column] = normalized[column].astype("string")
+    normalized["hard_case_flag"] = normalize_boolean_codes(normalized["hard_case_flag"])
+    for column in (
+        "prediction_time_h",
+        "icu_end_time_proxy_hours",
+        "pf_ratio_last",
+        "map_last",
+        "creatinine_last",
+        "peep_last",
+    ):
+        normalized[column] = pd.to_numeric(normalized[column], errors="coerce")
+
+    if normalized["hard_case_flag"].isna().any():
+        raise ValueError(
+            f"Saved comparison dataset {resolved_path} contains missing hard_case_flag values."
+        )
+
+    expected_group = pd.Series(
+        np.where(
+            normalized["hard_case_flag"].astype(bool),
+            LOW_PREDICTED_FATAL_GROUP,
+            OTHER_FATAL_GROUP,
+        ),
+        index=normalized.index,
+        dtype="string",
+    )
+    if not normalized["hard_case_group"].eq(expected_group).all():
+        raise ValueError(
+            f"Saved comparison dataset {resolved_path} contains hard_case_group labels "
+            "that are inconsistent with hard_case_flag."
+        )
+
+    return normalized.sort_values(
+        ["hard_case_flag", "hospital_id", "stay_id_global"],
+        ascending=[False, True, True],
+        kind="stable",
+    ).reset_index(drop=True)
 
 
 def _filter_table_to_target(
@@ -1467,16 +1531,56 @@ def _plot_effect_sizes(effect_size_plot_data: pd.DataFrame, *, output_path: Path
 
 def run_asic_hard_case_comparison(
     *,
-    hard_case_path: Path = DEFAULT_HARD_CASE_PATH,
-    model_ready_path: Path = DEFAULT_MODEL_READY_PATH,
+    comparison_dataset_path: Path | None = None,
+    rebuild_comparison_dataset: bool = False,
+    hard_case_path: Path | None = None,
+    model_ready_path: Path | None = None,
     asic_input_root: Path | None = None,
     output_dir: Path = DEFAULT_OUTPUT_DIR,
 ) -> ASICHardCaseComparisonRunResult:
-    comparison_dataset, join_metadata = build_stay_level_comparison_dataset(
-        hard_case_path=hard_case_path,
-        model_ready_path=model_ready_path,
-        asic_input_root=asic_input_root,
-    )
+    if comparison_dataset_path is not None:
+        resolved_comparison_dataset_path = _resolve_existing_path(comparison_dataset_path)
+        comparison_dataset = _load_saved_comparison_dataset(resolved_comparison_dataset_path)
+        comparison_dataset_source_mode = "saved_comparison_dataset"
+        comparison_dataset_source_path: Path | None = resolved_comparison_dataset_path
+        comparison_dataset_source_resolution = {
+            "resolution_strategy": "explicit_input_path",
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [str(resolved_comparison_dataset_path)],
+        }
+        join_metadata = {
+            "source_paths": {
+                "comparison_dataset_path": resolved_comparison_dataset_path,
+            },
+            "join_logic": [
+                {
+                    "path": resolved_comparison_dataset_path,
+                    "selected_columns": COMPARISON_DATASET_COLUMNS,
+                    "dataset_mode": "saved_comparison_dataset",
+                    "validation": "required_columns_and_hard_case_group_consistency",
+                }
+            ],
+        }
+    else:
+        comparison_dataset, join_metadata = build_stay_level_comparison_dataset(
+            hard_case_path=hard_case_path or DEFAULT_HARD_CASE_PATH,
+            model_ready_path=model_ready_path or DEFAULT_MODEL_READY_PATH,
+            asic_input_root=asic_input_root,
+        )
+        comparison_dataset_source_mode = "rebuilt_from_restricted_inputs"
+        comparison_dataset_source_path = None
+        comparison_dataset_source_resolution = {
+            "resolution_strategy": "rebuilt_from_restricted_inputs",
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [
+                str(Path(join_metadata["source_paths"]["hard_case_path"]).resolve()),
+                str(Path(join_metadata["source_paths"]["model_ready_path"]).resolve()),
+                str(Path(join_metadata["source_paths"]["asic_input_root"]).resolve()),
+                str(Path(join_metadata["source_paths"]["static_path"]).resolve()),
+            ],
+        }
     comparison_table, effect_size_plot_data, standardized_difference_details = (
         build_comparison_outputs(comparison_dataset)
     )
@@ -1522,6 +1626,13 @@ def run_asic_hard_case_comparison(
         "issue_id": ISSUE_ID,
         "target_horizon_h": TARGET_HORIZON_H,
         "hard_case_rule": HARD_CASE_RULE,
+        "comparison_dataset_source_mode": comparison_dataset_source_mode,
+        "comparison_dataset_source_path": (
+            str(Path(comparison_dataset_source_path).resolve())
+            if comparison_dataset_source_path is not None
+            else None
+        ),
+        "comparison_dataset_source_resolution": comparison_dataset_source_resolution,
         "comparison_variables": [
             "age_group",
             "sex",
@@ -1608,6 +1719,9 @@ def run_asic_hard_case_comparison(
     manifest_path = _write_json(manifest_payload, resolved_output_dir / "run_manifest.json")
 
     return ASICHardCaseComparisonRunResult(
+        comparison_dataset_source_mode=comparison_dataset_source_mode,
+        comparison_dataset_source_path=comparison_dataset_source_path,
+        comparison_dataset_source_resolution=comparison_dataset_source_resolution,
         output_dir=resolved_output_dir,
         artifacts=ASICHardCaseComparisonArtifacts(
             comparison_dataset_path=comparison_dataset_path,
@@ -1634,21 +1748,44 @@ def build_parser() -> argparse.ArgumentParser:
         )
     )
     parser.add_argument(
+        "--comparison-dataset-path",
+        type=Path,
+        help=(
+            "Explicit saved comparison dataset path. Use this only for approved cluster-side or "
+            "otherwise explicitly permitted row-level review."
+        ),
+    )
+    parser.add_argument(
+        "--rebuild-comparison-dataset",
+        action="store_true",
+        help=(
+            "Rebuild the stay-level comparison dataset from restricted hard-case, model-ready, "
+            "and static inputs instead of loading an explicitly provided saved comparison dataset."
+        ),
+    )
+    parser.add_argument(
         "--hard-case-path",
         type=Path,
-        default=DEFAULT_HARD_CASE_PATH,
-        help="Saved stay-level logistic hard-case artifact path.",
+        help=(
+            "Saved stay-level logistic hard-case artifact path. Only used when rebuilding the "
+            "comparison dataset."
+        ),
     )
     parser.add_argument(
         "--model-ready-path",
         type=Path,
-        default=DEFAULT_MODEL_READY_PATH,
-        help="Chapter 1 primary model-ready dataset path.",
+        help=(
+            "Chapter 1 primary model-ready dataset path. Only used when rebuilding the "
+            "comparison dataset."
+        ),
     )
     parser.add_argument(
         "--asic-input-root",
         type=Path,
-        help="Optional override for the standardized ASIC harmonized artifact root.",
+        help=(
+            "Optional override for the standardized ASIC harmonized artifact root. Only used "
+            "when rebuilding the comparison dataset."
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -1664,6 +1801,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     result = run_asic_hard_case_comparison(
+        comparison_dataset_path=args.comparison_dataset_path,
+        rebuild_comparison_dataset=args.rebuild_comparison_dataset,
         hard_case_path=args.hard_case_path,
         model_ready_path=args.model_ready_path,
         asic_input_root=args.asic_input_root,
@@ -1671,6 +1810,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     print(f"Output directory: {result.output_dir}")
+    print(
+        "Comparison dataset source: "
+        f"{result.comparison_dataset_source_resolution['resolution_strategy']}"
+        + (
+            f" ({result.comparison_dataset_source_resolution['selected_result_kind']})"
+            if result.comparison_dataset_source_resolution["selected_result_kind"] is not None
+            else ""
+        )
+    )
+    if result.comparison_dataset_source_path is not None:
+        print(f"Comparison dataset input path: {result.comparison_dataset_source_path}")
     print(f"Comparison dataset: {result.artifacts.comparison_dataset_path}")
     print(f"Comparison table: {result.artifacts.comparison_table_path}")
     print(f"Effect-size plot data: {result.artifacts.effect_size_plot_data_path}")
