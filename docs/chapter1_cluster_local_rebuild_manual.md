@@ -37,7 +37,7 @@ Set these locally before you start:
 ```bash
 export LOCAL_REPO="/Users/joanameyer/repository/1-mortality-decomposition"
 export LOCAL_HPC_BUNDLE="$LOCAL_REPO/hpc-1-mortality-decomposition"
-export CLUSTER_HOST="<your-cluster-login-host>"
+export CLUSTER_HOST="am861154@login23-1.hpc.itc.rwth-aachen.de"
 export CLUSTER_PROJECT_DIR="/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition"
 ```
 
@@ -90,6 +90,7 @@ rsync -av \
   --exclude '__pycache__' \
   --exclude 'artifacts' \
   --exclude 'artifacts-old' \
+  --exclude 'notebooks-old' \
   --exclude 'logs' \
   --exclude 'export-staging' \
   "$LOCAL_HPC_BUNDLE"/ \
@@ -247,7 +248,9 @@ cd "$CLUSTER_PROJECT_DIR"
 source .venv/bin/activate
 python run_chapter1_stage_local_review_exports.py \
   --include-foundational-summaries \
+  --include-baseline-predictions \
   --include-baseline-evaluation \
+  --include-hard-case-definition \
   --include-xgboost-recalibration \
   --include-hard-case-agreement \
   --include-horizon-dependence \
@@ -258,7 +261,9 @@ python run_chapter1_stage_local_review_exports.py \
 ```
 
 Important note:
-
+- If you are overwriting over an existing staged local-review bundles use '--overwrite'
+- `notebooks/ch1_asic_hard_case_review.ipynb` also needs the hard-case definition package itself, so include `--include-hard-case-definition`
+- `notebooks/ch1_risk_trajectory_shapes.ipynb` needs the raw baseline prediction exports, so include `--include-baseline-predictions`
 - the default hard-case comparison aggregate bundle is staged automatically
 - the staging helper mirrors only the approved local-review outputs
 - restricted row-level tables are intentionally excluded from the default local mirror

@@ -83,10 +83,11 @@ This imports only the files listed by each staged `export_manifest.json`, plus t
 itself. It does not blindly mirror every extra file that happens to be present in the staging
 tree.
 
-This same import step can mirror approved bundles for hard-case comparison, the paired variable
-audit, baseline evaluation, XGBoost recalibration, hard-case agreement, the horizon-dependence
-packages, temporal preview, and the foundational cohort/splits/model-ready/carry-forward/
-observation-process summaries, plus SOFA feasibility and ICD-10 validation review bundles, as long
-as they were staged with the corresponding HPC export command first.
+This same import step can mirror approved bundles for baseline predictions, hard-case definition,
+hard-case comparison, the paired variable audit, baseline evaluation, XGBoost recalibration,
+hard-case agreement, the horizon-dependence packages, temporal preview, and the foundational
+cohort/splits/model-ready/carry-forward/observation-process summaries, plus SOFA feasibility and
+ICD-10 validation review bundles, as long as they were staged with the corresponding HPC export
+command first.
 
 Use `--overwrite` only when you intentionally want to replace an already mirrored local bundle.

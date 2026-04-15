@@ -19,6 +19,48 @@ MODULE_SPEC.loader.exec_module(RESULT_EXPORTS)
 
 
 class ResultExportsTests(TestCase):
+    def test_stage_baseline_prediction_exports_copies_prediction_bundle_and_excludes_model_pickles(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            source_dir = (
+                tmp_path
+                / "artifacts"
+                / "chapter1"
+                / RESULT_EXPORTS.BASELINE_PREDICTION_RELATIVE_ROOT
+            )
+            stage_root = tmp_path / "export-staging" / "chapter1_true_results"
+            source_dir.mkdir(parents=True)
+
+            for relative_path in RESULT_EXPORTS.APPROVED_BASELINE_PREDICTION_EXPORTS:
+                destination = source_dir / relative_path
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_text(f"{relative_path}\n")
+
+            excluded_paths = []
+            for relative_path in RESULT_EXPORTS.EXCLUDED_BASELINE_PREDICTION_EXPORTS:
+                destination = source_dir / relative_path
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_text(f"excluded {relative_path}\n")
+                excluded_paths.append(destination.resolve())
+
+            result = RESULT_EXPORTS.stage_baseline_prediction_exports(
+                source_dir=source_dir,
+                stage_root=stage_root,
+            )
+
+            staged_dir = stage_root / RESULT_EXPORTS.BASELINE_PREDICTION_RELATIVE_ROOT
+            for relative_path in RESULT_EXPORTS.APPROVED_BASELINE_PREDICTION_EXPORTS:
+                self.assertTrue((staged_dir / relative_path).exists(), relative_path)
+            for relative_path in RESULT_EXPORTS.EXCLUDED_BASELINE_PREDICTION_EXPORTS:
+                self.assertFalse((staged_dir / relative_path).exists(), relative_path)
+
+            self.assertEqual(result.excluded_paths, tuple(excluded_paths))
+            manifest = json.loads(result.manifest_path.read_text())
+            self.assertEqual(
+                manifest["export_name"],
+                "baseline_prediction_local_review_bundle",
+            )
+
     def test_stage_baseline_evaluation_exports_copies_required_bundle(self) -> None:
         with TemporaryDirectory() as tmp_dir:
             tmp_path = Path(tmp_dir)
@@ -164,6 +206,39 @@ class ResultExportsTests(TestCase):
             self.assertEqual(
                 manifest["export_name"],
                 "xgboost_recalibration_local_review_bundle",
+            )
+
+    def test_stage_hard_case_definition_exports_copies_review_bundle(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            source_dir = (
+                tmp_path
+                / "artifacts"
+                / "chapter1"
+                / RESULT_EXPORTS.HARD_CASE_DEFINITION_RELATIVE_ROOT
+            )
+            stage_root = tmp_path / "export-staging" / "chapter1_true_results"
+            source_dir.mkdir(parents=True)
+
+            for relative_path in RESULT_EXPORTS.APPROVED_HARD_CASE_DEFINITION_EXPORTS:
+                destination = source_dir / relative_path
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_text(f"{relative_path}\n")
+
+            result = RESULT_EXPORTS.stage_hard_case_definition_exports(
+                source_dir=source_dir,
+                stage_root=stage_root,
+            )
+
+            staged_dir = stage_root / RESULT_EXPORTS.HARD_CASE_DEFINITION_RELATIVE_ROOT
+            for relative_path in RESULT_EXPORTS.APPROVED_HARD_CASE_DEFINITION_EXPORTS:
+                self.assertTrue((staged_dir / relative_path).exists(), relative_path)
+
+            self.assertEqual(result.excluded_paths, ())
+            manifest = json.loads(result.manifest_path.read_text())
+            self.assertEqual(
+                manifest["export_name"],
+                "hard_case_definition_local_review_bundle",
             )
 
     def test_stage_hard_case_agreement_exports_excludes_stay_level_table(self) -> None:

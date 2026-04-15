@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest import TestCase
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -14,6 +16,7 @@ from chapter1_mortality_decomposition.temporal_preview import (
     DEFAULT_PREVIEW_OUTPUT_ROOT,
     _build_comparison_package,
     _notebook_payload,
+    run_asic_temporal_aggregation_preview,
 )
 
 
@@ -292,3 +295,314 @@ class TemporalComparisonPackageTests(TestCase):
         self.assertIn("REPO_ROOT = find_project_root", source)
         self.assertIn('"repo_relative"', source)
         self.assertNotIn(str(repo_root), source)
+
+
+class TemporalPreviewRunWiringTests(TestCase):
+    def test_temporal_preview_writes_proxy_labels_and_passes_preprocessing_root_to_baselines(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            output_root = tmp_path / "temporal_preview_output"
+            standardized_input_dir = tmp_path / "standardized_inputs"
+            frozen_chapter1_dir = tmp_path / "frozen_chapter1"
+            eight_hour_evaluation_root = tmp_path / "evaluation_8h"
+            notebook_path = output_root / "comparison" / "preview_review.ipynb"
+
+            (frozen_chapter1_dir / "splits").mkdir(parents=True, exist_ok=True)
+            pd.DataFrame([{"stay_id_global": "stay_a", "split": "train"}]).to_csv(
+                frozen_chapter1_dir / "splits" / "chapter1_stay_split_assignments.csv",
+                index=False,
+            )
+
+            config = SimpleNamespace(
+                input_dir=standardized_input_dir,
+                input_format="csv",
+                min_required_core_groups=3,
+                split_random_seed=13,
+                feature_set_config_path=tmp_path / "feature_set_config.json",
+            )
+
+            cohort_result = SimpleNamespace(
+                table=pd.DataFrame(
+                    [
+                        {
+                            "stay_id_global": "stay_a",
+                            "hospital_id": "H1",
+                            "icu_mortality": 1,
+                        }
+                    ]
+                ),
+                retained_stays=pd.DataFrame([{"stay_id_global": "stay_a"}]),
+            )
+            valid_instances_result = SimpleNamespace(
+                valid_instances=pd.DataFrame(
+                    [
+                        {
+                            "stay_id_global": "stay_a",
+                            "hospital_id": "H1",
+                            "instance_id": "stay_a__24h__1",
+                            "block_index": 1,
+                            "prediction_time_h": 16,
+                            "future_window_end_h": 40,
+                            "horizon_h": 24,
+                            "icu_end_time_proxy_hours": 30,
+                        }
+                    ]
+                ),
+                counts_by_horizon=pd.DataFrame(
+                    [{"horizon_h": 24, "instance_count": 1}]
+                ),
+            )
+            labels_result = SimpleNamespace(
+                labels=pd.DataFrame(
+                    [
+                        {
+                            "stay_id_global": "stay_a",
+                            "hospital_id": "H1",
+                            "instance_id": "stay_a__24h__1",
+                            "block_index": 1,
+                            "prediction_time_h": 16,
+                            "future_window_end_h": 40,
+                            "horizon_h": 24,
+                            "icu_end_time_proxy_hours": 30,
+                            "label_name": "proxy_within_horizon_icu_mortality",
+                            "label_definition_id": "proxy_within_horizon_icu_mortality_v1",
+                            "label_definition_status": "approved_proxy",
+                            "event_time_proxy_h": 30,
+                            "proxy_horizon_labelable": True,
+                            "label_value": 1,
+                            "label_available": True,
+                            "unlabeled_reason": pd.NA,
+                            "label_semantics": "test",
+                        }
+                    ]
+                ),
+                usable_labels=pd.DataFrame(
+                    [
+                        {
+                            "stay_id_global": "stay_a",
+                            "hospital_id": "H1",
+                            "instance_id": "stay_a__24h__1",
+                            "block_index": 1,
+                            "prediction_time_h": 16,
+                            "future_window_end_h": 40,
+                            "horizon_h": 24,
+                            "icu_end_time_proxy_hours": 30,
+                            "label_name": "proxy_within_horizon_icu_mortality",
+                            "label_definition_id": "proxy_within_horizon_icu_mortality_v1",
+                            "label_definition_status": "approved_proxy",
+                            "event_time_proxy_h": 30,
+                            "proxy_horizon_labelable": True,
+                            "label_value": 1,
+                            "label_available": True,
+                            "unlabeled_reason": pd.NA,
+                            "label_semantics": "test",
+                        }
+                    ]
+                ),
+                summary_by_horizon=pd.DataFrame(
+                    [
+                        {
+                            "horizon_h": 24,
+                            "total_valid_prediction_instances": 1,
+                            "labelable_instances": 1,
+                            "positive_labels": 1,
+                            "negative_labels": 0,
+                            "unlabeled_instances": 0,
+                        }
+                    ]
+                ),
+            )
+            block_artifacts = SimpleNamespace(
+                stay_block_counts=pd.DataFrame(
+                    [
+                        {
+                            "stay_id_global": "stay_a",
+                            "hospital_id": "H1",
+                            "completed_block_count": 1,
+                        }
+                    ]
+                ),
+                block_index=pd.DataFrame(
+                    [
+                        {
+                            "stay_id_global": "stay_a",
+                            "hospital_id": "H1",
+                            "block_index": 1,
+                            "prediction_time_h": 16,
+                        }
+                    ]
+                ),
+                blocked_dynamic_features=pd.DataFrame(
+                    [
+                        {
+                            "stay_id_global": "stay_a",
+                            "hospital_id": "H1",
+                            "block_index": 1,
+                            "prediction_time_h": 16,
+                            "heart_rate_mean": 80.0,
+                        }
+                    ]
+                ),
+            )
+            feature_set_definition = pd.DataFrame(
+                [{"feature_set_name": "primary", "feature_name": "heart_rate_mean"}]
+            )
+            model_ready_result = SimpleNamespace(
+                table=pd.DataFrame(
+                    [
+                        {
+                            "stay_id_global": "stay_a",
+                            "hospital_id": "H1",
+                            "horizon_h": 24,
+                            "split": "train",
+                            "label_value": 1,
+                            "heart_rate_mean": 80.0,
+                        }
+                    ]
+                ),
+                readiness_summary=pd.DataFrame([{"summary": "ok"}]),
+                feature_availability_by_horizon=pd.DataFrame([{"horizon_h": 24, "feature_count": 1}]),
+                split_summary=pd.DataFrame([{"split": "train", "sample_count": 1}]),
+                split_verification_summary=pd.DataFrame([{"check": "ok"}]),
+                locf_feature_summary=pd.DataFrame([{"feature_name": "heart_rate_mean"}]),
+                ventilator_locf_summary=pd.DataFrame([{"summary": "ok"}]),
+                missingness_by_hospital_and_family=pd.DataFrame([{"hospital_id": "H1"}]),
+                carry_forward_verification_summary=pd.DataFrame([{"check": "ok"}]),
+            )
+
+            def write_dataframe_stub(frame: pd.DataFrame, path: Path, output_format: str = "csv") -> Path:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                frame.to_csv(path, index=False)
+                return path
+
+            def write_text_stub(text: str, path: Path) -> Path:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(text)
+                return path
+
+            def write_json_stub(payload: object, path: Path) -> Path:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("{}\n")
+                return path
+
+            def write_block_artifacts_stub(*args, **kwargs) -> dict[str, Path]:
+                blocked_dir = kwargs["output_dir"]
+                blocked_dir.mkdir(parents=True, exist_ok=True)
+                blocked_path = blocked_dir / "asic_16h_blocked_dynamic_features.csv"
+                block_artifacts.blocked_dynamic_features.to_csv(blocked_path, index=False)
+                return {
+                    "blocked_dynamic_features": blocked_path,
+                    "stay_block_counts": blocked_dir / "asic_16h_stay_block_counts.csv",
+                    "block_index": blocked_dir / "asic_16h_block_index.csv",
+                }
+
+            with (
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview.load_chapter1_run_config",
+                    return_value=config,
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview._load_standardized_asic_inputs",
+                    return_value={
+                        "dynamic_harmonized": pd.DataFrame([{"stay_id_global": "stay_a"}]),
+                        "static_harmonized": pd.DataFrame([{"stay_id_global": "stay_a"}]),
+                        "reference_stay_block_counts": pd.DataFrame([{"stay_id_global": "stay_a"}]),
+                        "mech_vent_stay_level_qc": pd.DataFrame([{"stay_id_global": "stay_a"}]),
+                        "mech_vent_episode_level": pd.DataFrame([{"stay_id_global": "stay_a"}]),
+                    },
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview.build_asic_temporal_block_artifacts",
+                    return_value=block_artifacts,
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview.write_asic_temporal_block_artifacts",
+                    side_effect=write_block_artifacts_stub,
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview.build_chapter1_cohort",
+                    return_value=cohort_result,
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview.build_chapter1_valid_instances",
+                    return_value=valid_instances_result,
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview.build_chapter1_proxy_horizon_labels",
+                    return_value=labels_result,
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview._build_chapter1_cohort_summary",
+                    return_value=pd.DataFrame([{"summary": "ok"}]),
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview._build_chapter1_verification_summary",
+                    return_value=pd.DataFrame([{"summary": "ok"}]),
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview._build_frozen_split_alignment_summary",
+                    return_value=(
+                        pd.DataFrame([{"summary": "ok"}]),
+                        pd.DataFrame([{"stay_id_global": "stay_a", "split": "train"}]),
+                    ),
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview.build_chapter1_feature_set_definition",
+                    return_value=(feature_set_definition, pd.DataFrame([{"summary": "ok"}])),
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview.build_chapter1_model_ready_dataset",
+                    return_value=model_ready_result,
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview.write_dataframe",
+                    side_effect=write_dataframe_stub,
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview.write_text",
+                    side_effect=write_text_stub,
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview._write_json",
+                    side_effect=write_json_stub,
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview.run_asic_primary_logistic_regression",
+                    return_value=SimpleNamespace(),
+                ) as logistic_mock,
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview.run_asic_primary_xgboost",
+                    return_value=SimpleNamespace(),
+                ) as xgboost_mock,
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview.run_asic_baseline_evaluation",
+                    return_value=None,
+                ),
+                patch(
+                    "chapter1_mortality_decomposition.temporal_preview._build_comparison_package",
+                    return_value=SimpleNamespace(
+                        comparison_table_path=output_root / "comparison" / "aggregation_comparison_metrics.csv",
+                        note_path=output_root / "comparison" / "preview_note.md",
+                        notebook_path=notebook_path,
+                        figure_paths=(),
+                    ),
+                ),
+            ):
+                run_asic_temporal_aggregation_preview(
+                    output_root=output_root,
+                    frozen_chapter1_dir=frozen_chapter1_dir,
+                    eight_hour_evaluation_root=eight_hour_evaluation_root,
+                    run_config_path=tmp_path / "ch1_run_config.json",
+                )
+
+            preprocessing_root = output_root / "preprocessing"
+            proxy_labels_path = preprocessing_root / "labels" / "chapter1_proxy_horizon_labels.csv"
+            self.assertTrue(proxy_labels_path.exists())
+            self.assertEqual(
+                logistic_mock.call_args.kwargs["preprocessing_root"],
+                preprocessing_root,
+            )
+            self.assertEqual(
+                xgboost_mock.call_args.kwargs["preprocessing_root"],
+                preprocessing_root,
+            )

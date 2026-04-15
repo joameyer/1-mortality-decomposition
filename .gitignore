@@ -16,6 +16,8 @@ data/raw/
 data/interim/
 data/processed/
 artifacts/
+cluster-results/
+export-staging/
 outputs/
 *.parquet
 *.feather

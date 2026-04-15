@@ -11,6 +11,12 @@ from typing import Sequence
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_EXPORT_STAGE_ROOT = PROJECT_ROOT / "export-staging" / "chapter1_true_results"
+BASELINE_PREDICTION_RELATIVE_ROOT = (
+    Path("baselines") / "asic" / "primary_medians"
+)
+DEFAULT_BASELINE_PREDICTION_SOURCE_DIR = (
+    PROJECT_ROOT / "artifacts" / "chapter1" / BASELINE_PREDICTION_RELATIVE_ROOT
+)
 BASELINE_EVALUATION_RELATIVE_ROOT = (
     Path("evaluation") / "asic" / "baselines" / "primary_medians"
 )
@@ -22,6 +28,16 @@ XGBOOST_RECALIBRATION_RELATIVE_ROOT = (
 )
 DEFAULT_XGBOOST_RECALIBRATION_SOURCE_DIR = (
     PROJECT_ROOT / "artifacts" / "chapter1" / XGBOOST_RECALIBRATION_RELATIVE_ROOT
+)
+HARD_CASE_DEFINITION_RELATIVE_ROOT = (
+    Path("evaluation")
+    / "asic"
+    / "hard_cases"
+    / "primary_medians"
+    / "logistic_regression"
+)
+DEFAULT_HARD_CASE_DEFINITION_SOURCE_DIR = (
+    PROJECT_ROOT / "artifacts" / "chapter1" / HARD_CASE_DEFINITION_RELATIVE_ROOT
 )
 ASIC_HARD_CASE_COMPARISON_RELATIVE_ROOT = (
     Path("evaluation")
@@ -116,6 +132,43 @@ DEFAULT_BASELINE_MODELS = ("logistic_regression", "xgboost")
 DEFAULT_BASELINE_HORIZONS = (8, 16, 24, 48, 72)
 DEFAULT_RECALIBRATION_HORIZONS = (8, 16, 24, 48, 72)
 
+APPROVED_BASELINE_PREDICTION_EXPORTS = (
+    *tuple(
+        Path(model_name) / relative_name
+        for model_name in DEFAULT_BASELINE_MODELS
+        for relative_name in (
+            "horizon_run_summary.csv",
+            "run_manifest.json",
+        )
+    ),
+    *tuple(
+        Path(model_name) / f"horizon_{horizon_h}h" / relative_name
+        for model_name in DEFAULT_BASELINE_MODELS
+        for horizon_h in DEFAULT_BASELINE_HORIZONS
+        for relative_name in (
+            "predictions.csv",
+            "all_valid_predictions.csv",
+            "all_valid_prediction_qc.csv",
+            "metrics.csv",
+            "metadata.json",
+            "selected_feature_columns.json",
+        )
+    ),
+)
+EXCLUDED_BASELINE_PREDICTION_EXPORTS = tuple(
+    Path(model_name) / f"horizon_{horizon_h}h" / relative_name
+    for model_name in DEFAULT_BASELINE_MODELS
+    for horizon_h in DEFAULT_BASELINE_HORIZONS
+    for relative_name in (
+        "preprocessing.pkl",
+        "pipeline.pkl",
+        "preprocessing_unavailable.json",
+        "model_unavailable.json",
+        "pipeline_unavailable.json",
+        "logistic_regression_model.pkl",
+        "xgboost_model.pkl",
+    )
+)
 APPROVED_BASELINE_EVALUATION_EXPORTS = (
     Path("combined_metrics.csv"),
     Path("reporting_split_summary.csv"),
@@ -185,6 +238,12 @@ EXCLUDED_XGBOOST_RECALIBRATION_EXPORTS = tuple(
         "xgboost_raw_metrics_by_split.csv",
     )
 )
+APPROVED_HARD_CASE_DEFINITION_EXPORTS = (
+    Path("stay_level_hard_case_flags.csv"),
+    Path("horizon_hard_case_summary.csv"),
+    Path("run_manifest.json"),
+)
+EXCLUDED_HARD_CASE_DEFINITION_EXPORTS: tuple[Path, ...] = ()
 APPROVED_ASIC_HARD_CASE_COMPARISON_EXPORTS = (
     Path("comparison_table.csv"),
     Path("effect_size_plot_data.csv"),
@@ -470,6 +529,49 @@ def stage_xgboost_recalibration_exports(
         notes=(
             "This staging step mirrors the approved recalibration review outputs plus the canonical recalibrated prediction exports needed by local hard-case agreement analysis.",
             "Raw prediction variants and auxiliary combined prediction tables are excluded from the default local-review bundle.",
+        ),
+    )
+
+
+def stage_baseline_prediction_exports(
+    *,
+    source_dir: Path = DEFAULT_BASELINE_PREDICTION_SOURCE_DIR,
+    stage_root: Path = DEFAULT_EXPORT_STAGE_ROOT,
+    overwrite: bool = False,
+) -> ExportStageResult:
+    return _stage_export_bundle(
+        export_name="baseline_prediction_local_review_bundle",
+        relative_root=BASELINE_PREDICTION_RELATIVE_ROOT,
+        source_dir=source_dir,
+        stage_root=stage_root,
+        approved_exports=APPROVED_BASELINE_PREDICTION_EXPORTS,
+        excluded_exports=EXCLUDED_BASELINE_PREDICTION_EXPORTS,
+        overwrite=overwrite,
+        notes=(
+            "This staging step mirrors the approved baseline prediction exports used by local trajectory review and downstream artifact consumers.",
+            "The bundle includes evaluation-only predictions, all-valid predictions, prediction QC tables, and lightweight per-horizon metadata.",
+            "Model pickles and fitted pipeline artifacts are excluded from the default local-review bundle.",
+        ),
+    )
+
+
+def stage_hard_case_definition_exports(
+    *,
+    source_dir: Path = DEFAULT_HARD_CASE_DEFINITION_SOURCE_DIR,
+    stage_root: Path = DEFAULT_EXPORT_STAGE_ROOT,
+    overwrite: bool = False,
+) -> ExportStageResult:
+    return _stage_export_bundle(
+        export_name="hard_case_definition_local_review_bundle",
+        relative_root=HARD_CASE_DEFINITION_RELATIVE_ROOT,
+        source_dir=source_dir,
+        stage_root=stage_root,
+        approved_exports=APPROVED_HARD_CASE_DEFINITION_EXPORTS,
+        excluded_exports=EXCLUDED_HARD_CASE_DEFINITION_EXPORTS,
+        overwrite=overwrite,
+        notes=(
+            "This staging step mirrors the approved hard-case review package used by the local hard-case notebook and downstream local-safe summaries.",
+            "The bundle includes the stay-level hard-case flags, horizon summary, and producer run manifest.",
         ),
     )
 
@@ -816,6 +918,11 @@ def build_parser() -> argparse.ArgumentParser:
         )
     )
     parser.add_argument(
+        "--include-baseline-predictions",
+        action="store_true",
+        help="Also stage the baseline prediction local-review bundle.",
+    )
+    parser.add_argument(
         "--include-variable-audit",
         action="store_true",
         help=(
@@ -832,6 +939,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--include-baseline-evaluation",
         action="store_true",
         help="Also stage the baseline evaluation local-review bundle.",
+    )
+    parser.add_argument(
+        "--include-hard-case-definition",
+        action="store_true",
+        help="Also stage the hard-case definition local-review bundle.",
     )
     parser.add_argument(
         "--include-xgboost-recalibration",
@@ -900,10 +1012,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="Cluster-side baseline evaluation artifact directory to stage from.",
     )
     parser.add_argument(
+        "--baseline-prediction-source-dir",
+        type=Path,
+        default=DEFAULT_BASELINE_PREDICTION_SOURCE_DIR,
+        help="Cluster-side baseline prediction artifact directory to stage from.",
+    )
+    parser.add_argument(
         "--xgboost-recalibration-source-dir",
         type=Path,
         default=DEFAULT_XGBOOST_RECALIBRATION_SOURCE_DIR,
         help="Cluster-side XGBoost recalibration artifact directory to stage from.",
+    )
+    parser.add_argument(
+        "--hard-case-definition-source-dir",
+        type=Path,
+        default=DEFAULT_HARD_CASE_DEFINITION_SOURCE_DIR,
+        help="Cluster-side hard-case definition artifact directory to stage from.",
     )
     parser.add_argument(
         "--hard-case-agreement-source-dir",
@@ -1009,6 +1133,22 @@ def main(argv: Sequence[str] | None = None) -> int:
         results.append(
             stage_baseline_evaluation_exports(
                 source_dir=args.baseline_evaluation_source_dir,
+                stage_root=args.stage_root,
+                overwrite=args.overwrite,
+            )
+        )
+    if args.include_baseline_predictions:
+        results.append(
+            stage_baseline_prediction_exports(
+                source_dir=args.baseline_prediction_source_dir,
+                stage_root=args.stage_root,
+                overwrite=args.overwrite,
+            )
+        )
+    if args.include_hard_case_definition:
+        results.append(
+            stage_hard_case_definition_exports(
+                source_dir=args.hard_case_definition_source_dir,
                 stage_root=args.stage_root,
                 overwrite=args.overwrite,
             )

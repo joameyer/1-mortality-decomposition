@@ -494,7 +494,9 @@ To stage the remaining local-safe Chapter 1 review bundles as well, add:
 ```bash
 python run_chapter1_stage_local_review_exports.py \
   --include-foundational-summaries \
+  --include-baseline-predictions \
   --include-baseline-evaluation \
+  --include-hard-case-definition \
   --include-xgboost-recalibration \
   --include-hard-case-agreement \
   --include-horizon-dependence \
@@ -511,7 +513,9 @@ That broader command covers the current approved local-review bundles for:
 - `model_ready/`
 - `carry_forward/`
 - `observation_process/`
+- `baselines/asic/primary_medians/`
 - `evaluation/asic/baselines/primary_medians/`
+- `evaluation/asic/hard_cases/primary_medians/logistic_regression/`
 - `recalibration/asic/primary_medians/xgboost/`
 - `evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/`
 - `evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison_variable_audit/`

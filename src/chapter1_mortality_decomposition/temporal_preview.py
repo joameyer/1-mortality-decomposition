@@ -1176,6 +1176,11 @@ def run_asic_temporal_aggregation_preview(
             preprocessing_root / "labels" / f"chapter1_proxy_label_summary_by_horizon.{extension}",
             output_format=output_format,
         ),
+        "proxy_horizon_labels": write_dataframe(
+            labels.labels,
+            preprocessing_root / "labels" / f"chapter1_proxy_horizon_labels.{extension}",
+            output_format=output_format,
+        ),
         "usable_proxy_horizon_labels": write_dataframe(
             labels.usable_labels,
             preprocessing_root / "labels" / f"chapter1_usable_proxy_horizon_labels.{extension}",
@@ -1282,12 +1287,14 @@ def run_asic_temporal_aggregation_preview(
         feature_set_definition_path=preprocessing_paths["feature_set_definition"],
         output_dir=baseline_root / "logistic_regression",
         horizons=selected_horizons,
+        preprocessing_root=preprocessing_root,
     )
     xgboost_result = run_asic_primary_xgboost(
         input_dataset_path=preprocessing_paths["primary_model_ready_dataset"],
         feature_set_definition_path=preprocessing_paths["feature_set_definition"],
         output_dir=baseline_root / "xgboost",
         horizons=selected_horizons,
+        preprocessing_root=preprocessing_root,
     )
     _ = logistic_result, xgboost_result
 

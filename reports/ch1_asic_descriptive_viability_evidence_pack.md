@@ -22,7 +22,7 @@ This document compresses the existing ASIC Sprint 3 hard-case and horizon-depend
 
 ## Hard-case definition summary
 - Frozen rule located: `asic_logistic_last_eligible_nonfatal_q75_v1`.
-- `24h` fatal comparison slice located: `4` low-predicted fatal vs `6` other fatal stays (total `10`).
+- `24h` fatal comparison slice located: `346` low-predicted fatal vs `1336` other fatal stays (total `1682`).
 - Hard-case count / threshold source: `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/horizon_hard_case_summary.csv`.
 - Horizon-specific q75 thresholds and hard-case shares were extracted:
 
