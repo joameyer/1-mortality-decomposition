@@ -293,6 +293,10 @@ class TemporalComparisonPackageTests(TestCase):
         )
         source = "".join(payload["cells"][1]["source"])
         self.assertIn("REPO_ROOT = find_project_root", source)
+        self.assertIn("cluster_export_relative", source)
+        self.assertIn("resolve_optional_artifact_path", source)
+        self.assertIn("cluster-results/chapter1_true_results/evaluation/asic/baselines/primary_medians", source)
+        self.assertIn("cluster-results/chapter1_true_results/temporal_preview/asic/aggregation_16h/comparison/aggregation_comparison_metrics.csv", source)
         self.assertIn('"repo_relative"', source)
         self.assertNotIn(str(repo_root), source)
 

@@ -173,7 +173,6 @@ Refactor implication:
 - `notebooks/ch1_baseline_model_readiness_check.ipynb`
 - `notebooks/ch1_risk_trajectory_shapes.ipynb`
 - `notebooks/ch1_asic_hard_case_comparison.ipynb`
-- `notebooks/ch1_asic_temporal_aggregation_preview_16h.ipynb`
 
 Reason:
 

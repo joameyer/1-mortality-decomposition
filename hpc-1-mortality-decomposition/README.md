@@ -314,7 +314,7 @@ By default this writes the separate preview package under:
 and writes the compact comparison notebook to:
 
 ```text
-/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/notebooks/ch1_asic_temporal_aggregation_preview_16h.ipynb
+/rwthfs/rz/cluster/home/am861154/projects/hpc-1-mortality-decomposition/artifacts/chapter1/temporal_preview/asic/aggregation_16h/comparison/preview_review.ipynb
 ```
 
 ### 11. Run the ASIC horizon-dependence foundation package
@@ -691,7 +691,7 @@ python run_chapter1_temporal_preview.py \
   --output-root artifacts/chapter1/temporal_preview/asic/aggregation_16h \
   --frozen-chapter1-dir artifacts/chapter1 \
   --eight-hour-evaluation-root artifacts/chapter1/evaluation/asic/baselines/primary_medians \
-  --notebook-path notebooks/ch1_asic_temporal_aggregation_preview_16h.ipynb \
+  --notebook-path artifacts/chapter1/temporal_preview/asic/aggregation_16h/comparison/preview_review.ipynb \
   --block-hours 16 \
   --horizons 8 16 24 48 72
 ```
@@ -901,7 +901,6 @@ The bundle includes:
 - `notebooks/ch1_asic_hard_case_review.ipynb`
 - `notebooks/ch1_asic_hard_case_comparison.ipynb`
 - `notebooks/ch1_cohort_characterization.ipynb`
-- `notebooks/ch1_asic_temporal_aggregation_preview_16h.ipynb`
 
 These notebooks read the written `artifacts/chapter1` outputs. They are mainly
 for inspection and visualization after preprocessing, baseline training, and

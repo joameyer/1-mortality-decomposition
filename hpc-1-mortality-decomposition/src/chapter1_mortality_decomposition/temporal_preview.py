@@ -99,16 +99,24 @@ class TemporalAggregationPreviewRunResult:
 
 def _encode_notebook_artifact_path(path: Path) -> dict[str, str | None]:
     resolved_path = path.resolve()
+    cluster_export_relative_path: str | None = None
     try:
         repo_relative_path = resolved_path.relative_to(MODULE_REPO_ROOT).as_posix()
     except ValueError:
-        return {
-            "repo_relative": None,
-            "absolute_fallback": resolved_path.as_posix(),
-        }
+        repo_relative_path = None
+    else:
+        path_parts = Path(repo_relative_path).parts
+        chapter1_root_parts = ("artifacts", "chapter1")
+        if path_parts[: len(chapter1_root_parts)] == chapter1_root_parts:
+            cluster_export_relative_path = str(
+                Path("cluster-results")
+                / "chapter1_true_results"
+                / Path(*path_parts[len(chapter1_root_parts) :])
+            )
     return {
+        "cluster_export_relative": cluster_export_relative_path,
         "repo_relative": repo_relative_path,
-        "absolute_fallback": None,
+        "absolute_fallback": None if repo_relative_path is not None else resolved_path.as_posix(),
     }
 
 
@@ -821,24 +829,38 @@ def _notebook_payload(
                 f"PATH_SPECS = json.loads({json.dumps(path_specs)!r})\n",
                 "\n",
                 "\n",
-                "def resolve_artifact_path(path_spec: dict[str, str | None]) -> Path:\n",
+                "def resolve_optional_artifact_path(path_spec: dict[str, str | None]) -> Path | None:\n",
+                "    cluster_export_relative = path_spec.get('cluster_export_relative')\n",
+                "    if cluster_export_relative:\n",
+                "        cluster_export_path = REPO_ROOT / Path(cluster_export_relative)\n",
+                "        if cluster_export_path.exists():\n",
+                "            return cluster_export_path\n",
                 "    repo_relative = path_spec.get('repo_relative')\n",
                 "    if repo_relative:\n",
-                "        return REPO_ROOT / Path(repo_relative)\n",
+                "        repo_relative_path = REPO_ROOT / Path(repo_relative)\n",
+                "        if repo_relative_path.exists() or not cluster_export_relative:\n",
+                "            return repo_relative_path\n",
                 "    absolute_fallback = path_spec.get('absolute_fallback')\n",
                 "    if absolute_fallback:\n",
                 "        return Path(absolute_fallback)\n",
+                "    return None\n",
+                "\n",
+                "\n",
+                "def resolve_artifact_path(path_spec: dict[str, str | None]) -> Path:\n",
+                "    path = resolve_optional_artifact_path(path_spec)\n",
+                "    if path is not None:\n",
+                "        return path\n",
                 "    raise RuntimeError(f'Could not resolve notebook artifact path from spec: {path_spec}')\n",
                 "\n",
                 "\n",
-                "EIGHT_HOUR_EVAL_ROOT = resolve_artifact_path(PATH_SPECS['eight_hour_eval_root'])\n",
-                "SIXTEEN_HOUR_EVAL_ROOT = resolve_artifact_path(PATH_SPECS['sixteen_hour_eval_root'])\n",
+                "EIGHT_HOUR_EVAL_ROOT = resolve_optional_artifact_path(PATH_SPECS['eight_hour_eval_root'])\n",
+                "SIXTEEN_HOUR_EVAL_ROOT = resolve_optional_artifact_path(PATH_SPECS['sixteen_hour_eval_root'])\n",
                 "COMPARISON_TABLE_PATH = resolve_artifact_path(PATH_SPECS['comparison_table_path'])\n",
                 "NOTE_PATH = resolve_artifact_path(PATH_SPECS['note_path'])\n",
                 "FIGURE_PATHS = [resolve_artifact_path(path_spec) for path_spec in PATH_SPECS['figure_paths']]\n",
                 "\n",
                 "for path in [EIGHT_HOUR_EVAL_ROOT, SIXTEEN_HOUR_EVAL_ROOT, COMPARISON_TABLE_PATH, NOTE_PATH]:\n",
-                "    print(path, 'exists=', path.exists())\n",
+                "    print(path, 'exists=', False if path is None else path.exists())\n",
             ],
         },
         {
@@ -865,15 +887,19 @@ def _notebook_payload(
                 "    merged['aggregation'] = aggregation\n",
                 "    return merged[['model_name', 'horizon_h', 'aggregation', 'selected_split', 'sample_count', 'event_count', 'auroc', 'auprc', 'calibration_intercept', 'calibration_slope', 'brier_score']]\n",
                 "\n",
-                "comparison = pd.concat(\n",
-                "    [\n",
-                "        load_reporting_metrics(EIGHT_HOUR_EVAL_ROOT, '8h'),\n",
-                "        load_reporting_metrics(SIXTEEN_HOUR_EVAL_ROOT, '16h'),\n",
-                "    ],\n",
-                "    ignore_index=True,\n",
-                ")\n",
-                "comparison = comparison.sort_values(['model_name', 'horizon_h', 'aggregation']).reset_index(drop=True)\n",
-                "comparison\n",
+                "if EIGHT_HOUR_EVAL_ROOT is not None and SIXTEEN_HOUR_EVAL_ROOT is not None:\n",
+                "    comparison = pd.concat(\n",
+                "        [\n",
+                "            load_reporting_metrics(EIGHT_HOUR_EVAL_ROOT, '8h'),\n",
+                "            load_reporting_metrics(SIXTEEN_HOUR_EVAL_ROOT, '16h'),\n",
+                "        ],\n",
+                "        ignore_index=True,\n",
+                "    )\n",
+                "    comparison = comparison.sort_values(['model_name', 'horizon_h', 'aggregation']).reset_index(drop=True)\n",
+                "    comparison\n",
+                "else:\n",
+                "    print('Recomputed reporting-metric comparison skipped because one or both evaluation roots are not present in the local review bundle.')\n",
+                "    comparison = pd.DataFrame()\n",
             ],
         },
         {

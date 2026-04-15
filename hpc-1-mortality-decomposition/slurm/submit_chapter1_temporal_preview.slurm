@@ -16,7 +16,7 @@ OUTPUT_ROOT="${OUTPUT_ROOT:-${PROJECT_DIR}/artifacts/chapter1/temporal_preview/a
 OUTPUT_FORMAT="${OUTPUT_FORMAT:-csv}"
 FROZEN_CHAPTER1_DIR="${FROZEN_CHAPTER1_DIR:-${PROJECT_DIR}/artifacts/chapter1}"
 EIGHT_HOUR_EVALUATION_ROOT="${EIGHT_HOUR_EVALUATION_ROOT:-${PROJECT_DIR}/artifacts/chapter1/evaluation/asic/baselines/primary_medians}"
-NOTEBOOK_PATH="${NOTEBOOK_PATH:-${PROJECT_DIR}/notebooks/ch1_asic_temporal_aggregation_preview_16h.ipynb}"
+NOTEBOOK_PATH="${NOTEBOOK_PATH:-${OUTPUT_ROOT}/comparison/preview_review.ipynb}"
 BLOCK_HOURS="${BLOCK_HOURS:-16}"
 HORIZONS="${HORIZONS:-}"
 

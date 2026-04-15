@@ -1,6 +1,0 @@
-{
-  "horizon_comparison_metrics_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians/logistic_regression/horizon_comparison_metrics.csv",
-  "horizon_risk_structure_grid_path": "/Users/joanameyer/repository/1-mortality-decomposition/artifacts/chapter1/evaluation/asic/baselines/primary_medians/logistic_regression/horizon_risk_structure_grid.png",
-  "model_name": "logistic_regression",
-  "timestamp_utc": "2026-04-01T12:32:27+00:00"
-}
