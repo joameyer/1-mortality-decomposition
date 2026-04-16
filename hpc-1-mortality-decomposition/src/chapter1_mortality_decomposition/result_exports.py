@@ -107,6 +107,12 @@ TEMPORAL_PREVIEW_RELATIVE_ROOT = (
 DEFAULT_TEMPORAL_PREVIEW_SOURCE_DIR = (
     PROJECT_ROOT / "artifacts" / "chapter1" / TEMPORAL_PREVIEW_RELATIVE_ROOT
 )
+TEMPORAL_SENSITIVITY_RELATIVE_ROOT = (
+    Path("temporal_sensitivity") / "asic"
+)
+DEFAULT_TEMPORAL_SENSITIVITY_SOURCE_DIR = (
+    PROJECT_ROOT / "artifacts" / "chapter1" / TEMPORAL_SENSITIVITY_RELATIVE_ROOT
+)
 ICD10_DISEASE_GROUP_VALIDATION_RELATIVE_ROOT = (
     Path("evaluation") / "asic" / "icd10_disease_group_validation"
 )
@@ -312,6 +318,51 @@ APPROVED_TEMPORAL_PREVIEW_EXPORTS = (
     Path("comparison") / "xgboost_24h_mortality_vs_risk_8h_vs_16h.png",
 )
 EXCLUDED_TEMPORAL_PREVIEW_EXPORTS: tuple[Path, ...] = ()
+APPROVED_TEMPORAL_SENSITIVITY_EXPORTS = (
+    Path("comparison") / "preprocessing_count_comparison.csv",
+    Path("comparison") / "reporting_metric_summary.csv",
+    Path("comparison") / "selected_split_summary.csv",
+    Path("comparison") / "calibration_summary.csv",
+    Path("comparison") / "mortality_risk_structure_summary.csv",
+    Path("comparison") / "hard_case_prevalence_summary.csv",
+    Path("comparison") / "logistic_24h_hard_case_pairwise_denominators.csv",
+    Path("comparison") / "logistic_24h_hard_case_pairwise_overlap.csv",
+    Path("comparison") / "logistic_24h_hard_case_directional_overlap.csv",
+    Path("comparison") / "logistic_24h_hard_case_persistence.csv",
+    Path("comparison") / "logistic_24h_hard_case_persistence_distribution.csv",
+    Path("comparison") / "logistic_regression_24h_reliability_8h_vs_16h_vs_24h.png",
+    Path("comparison") / "logistic_regression_24h_mortality_vs_risk_8h_vs_16h_vs_24h.png",
+    Path("comparison") / "logistic_24h_hard_case_jaccard_heatmap.png",
+    Path("comparison") / "logistic_24h_hard_case_directional_overlap_heatmap.png",
+    Path("comparison") / "logistic_24h_hard_case_persistence_barplot.png",
+    Path("comparison") / "logistic_24h_hard_case_overlap_note.md",
+    Path("comparison") / "split_alignment_overview.csv",
+    Path("comparison") / "provenance_and_limitations.md",
+    Path("comparison") / "supersession_note.md",
+    Path("comparison") / "interpretation_memo_template.md",
+    Path("comparison") / "run_manifest.json",
+    Path("aggregation_16h") / "preprocessing" / "generation_note.md",
+    Path("aggregation_16h") / "preprocessing" / "generation_manifest.json",
+    Path("aggregation_16h") / "preprocessing" / "splits" / "chapter1_temporal_sensitivity_split_alignment_summary.csv",
+    Path("aggregation_16h")
+    / "evaluation"
+    / "asic"
+    / "hard_cases"
+    / "primary_medians"
+    / "logistic_regression"
+    / "horizon_hard_case_summary.csv",
+    Path("aggregation_24h") / "preprocessing" / "generation_note.md",
+    Path("aggregation_24h") / "preprocessing" / "generation_manifest.json",
+    Path("aggregation_24h") / "preprocessing" / "splits" / "chapter1_temporal_sensitivity_split_alignment_summary.csv",
+    Path("aggregation_24h")
+    / "evaluation"
+    / "asic"
+    / "hard_cases"
+    / "primary_medians"
+    / "logistic_regression"
+    / "horizon_hard_case_summary.csv",
+)
+EXCLUDED_TEMPORAL_SENSITIVITY_EXPORTS: tuple[Path, ...] = ()
 APPROVED_COHORT_EXPORTS = (
     Path("chapter1_notes.csv"),
     Path("chapter1_site_eligibility.csv"),
@@ -746,6 +797,26 @@ def stage_temporal_preview_exports(
     )
 
 
+def stage_temporal_sensitivity_exports(
+    *,
+    source_dir: Path = DEFAULT_TEMPORAL_SENSITIVITY_SOURCE_DIR,
+    stage_root: Path = DEFAULT_EXPORT_STAGE_ROOT,
+    overwrite: bool = False,
+) -> ExportStageResult:
+    return _stage_export_bundle(
+        export_name="temporal_sensitivity_local_review_bundle",
+        relative_root=TEMPORAL_SENSITIVITY_RELATIVE_ROOT,
+        source_dir=source_dir,
+        stage_root=stage_root,
+        approved_exports=APPROVED_TEMPORAL_SENSITIVITY_EXPORTS,
+        excluded_exports=EXCLUDED_TEMPORAL_SENSITIVITY_EXPORTS,
+        overwrite=overwrite,
+        notes=(
+            "This staging step mirrors the approved formal Chapter 1 temporal coarsening sensitivity package for local review.",
+        ),
+    )
+
+
 def stage_cohort_exports(
     *,
     source_dir: Path = DEFAULT_COHORT_SOURCE_DIR,
@@ -966,6 +1037,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Also stage the temporal preview local-review bundle.",
     )
     parser.add_argument(
+        "--include-temporal-sensitivity",
+        action="store_true",
+        help="Also stage the formal temporal sensitivity local-review bundle.",
+    )
+    parser.add_argument(
         "--include-foundational-summaries",
         action="store_true",
         help=(
@@ -1058,6 +1134,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=DEFAULT_TEMPORAL_PREVIEW_SOURCE_DIR,
         help="Cluster-side temporal preview artifact directory to stage from.",
+    )
+    parser.add_argument(
+        "--temporal-sensitivity-source-dir",
+        type=Path,
+        default=DEFAULT_TEMPORAL_SENSITIVITY_SOURCE_DIR,
+        help="Cluster-side temporal sensitivity artifact directory to stage from.",
     )
     parser.add_argument(
         "--cohort-source-dir",
@@ -1183,6 +1265,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         results.append(
             stage_temporal_preview_exports(
                 source_dir=args.temporal_preview_source_dir,
+                stage_root=args.stage_root,
+                overwrite=args.overwrite,
+            )
+        )
+    if args.include_temporal_sensitivity:
+        results.append(
+            stage_temporal_sensitivity_exports(
+                source_dir=args.temporal_sensitivity_source_dir,
                 stage_root=args.stage_root,
                 overwrite=args.overwrite,
             )

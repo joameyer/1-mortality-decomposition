@@ -148,6 +148,17 @@ Working rule:
 - Use the true ASIC cluster-result bundle as the authoritative empirical source for Chapter 1 interpretation.
 - Do not rely on small local synthetic artifacts for substantive Chapter 1 claims.
 
+## Cluster-Local Workflow Rule
+
+- For Chapter 1, any computation that requires protected patient-level inputs must run on the cluster.
+- Local scientific review should use approved exported artifacts under `cluster-results/chapter1_true_results/`.
+- New analysis code should be designed explicitly as one of:
+  - cluster-only producer
+  - local-safe consumer of approved cluster exports
+  - mixed workflow with an explicit export boundary
+- Generated analysis artifacts should live in the corresponding analysis artifact package, not in ad hoc top-level folders.
+- Top-level `reports/` should be reserved for curated synthesis outputs that are intentionally versioned in the repo.
+
 ## Guardrails and Decision Rules
 
 Methodological guardrails:

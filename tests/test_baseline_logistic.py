@@ -206,3 +206,99 @@ class LogisticBaselineTests(TestCase):
                     horizons=[24],
                     standardized_input_dir=standardized_input_dir,
                 )
+
+    def test_run_asic_primary_logistic_regression_prefers_preprocessing_blocked_inputs_for_all_valid_scoring(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            fixture = write_primary_baseline_fixture(tmp_path)
+            artifact_root = tmp_path / "chapter1"
+            input_path = fixture["input_dataset_path"]
+            feature_path = fixture["feature_set_definition_path"]
+            output_dir = fixture["output_dir"]
+            standardized_input_dir = fixture["standardized_input_dir"]
+
+            labels_path = artifact_root / "labels" / "chapter1_proxy_horizon_labels.csv"
+            stay_splits_path = artifact_root / "splits" / "chapter1_stay_split_assignments.csv"
+            blocked_path = standardized_input_dir / "blocked" / "asic_8h_blocked_dynamic_features.csv"
+            mech_vent_episode_level_path = (
+                standardized_input_dir / "qc" / "mech_vent_ge_24h_episode_level.csv"
+            )
+
+            labels = pd.read_csv(labels_path)
+            labels = pd.concat(
+                [
+                    labels,
+                    pd.DataFrame(
+                        [
+                            {
+                                "instance_id": "stay_local__b0__h24",
+                                "stay_id_global": "stay_local",
+                                "hospital_id": "H2",
+                                "block_index": 0,
+                                "block_start_h": 0,
+                                "block_end_h": 8,
+                                "prediction_time_h": 8,
+                                "horizon_h": 24,
+                                "label_value": pd.NA,
+                                "proxy_horizon_labelable": False,
+                                "unlabeled_reason": "non_survivor_proxy_end_not_within_horizon",
+                            }
+                        ]
+                    ),
+                ],
+                ignore_index=True,
+            )
+            labels.to_csv(labels_path, index=False)
+
+            stay_splits = pd.read_csv(stay_splits_path)
+            stay_splits = pd.concat(
+                [
+                    stay_splits,
+                    pd.DataFrame(
+                        [
+                            {
+                                "stay_id_global": "stay_local",
+                                "hospital_id": "H2",
+                                "split": "validation",
+                            }
+                        ]
+                    ),
+                ],
+                ignore_index=True,
+            )
+            stay_splits.to_csv(stay_splits_path, index=False)
+
+            blocked_dynamic_features = pd.read_csv(blocked_path)
+            stay_local_block = blocked_dynamic_features.iloc[[0]].copy()
+            stay_local_block["stay_id_global"] = "stay_local"
+            stay_local_block["hospital_id"] = "H2"
+            preprocessing_blocked_dir = artifact_root / "blocked"
+            preprocessing_blocked_dir.mkdir(parents=True, exist_ok=True)
+            pd.concat(
+                [blocked_dynamic_features, stay_local_block],
+                ignore_index=True,
+            ).to_csv(
+                preprocessing_blocked_dir / "asic_24h_blocked_dynamic_features.csv",
+                index=False,
+            )
+
+            preprocessing_qc_dir = artifact_root / "qc"
+            preprocessing_qc_dir.mkdir(parents=True, exist_ok=True)
+            pd.read_csv(mech_vent_episode_level_path).to_csv(
+                preprocessing_qc_dir / "mech_vent_ge_24h_episode_level.csv",
+                index=False,
+            )
+
+            run_asic_primary_logistic_regression(
+                input_dataset_path=input_path,
+                feature_set_definition_path=feature_path,
+                output_dir=output_dir,
+                horizons=[24],
+                preprocessing_root=artifact_root,
+                standardized_input_dir=standardized_input_dir,
+            )
+
+            all_valid_predictions = pd.read_csv(
+                output_dir / "horizon_24h" / "all_valid_predictions.csv"
+            )
+            self.assertIn("stay_local__b0__h24", set(all_valid_predictions["instance_id"].astype(str)))

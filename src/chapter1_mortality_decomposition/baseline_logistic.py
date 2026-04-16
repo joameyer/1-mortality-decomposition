@@ -184,16 +184,54 @@ def _resolve_standardized_input_settings(
     return run_config.input_dir, str(standardized_input_format or run_config.input_format)
 
 
+def _resolve_preprocessing_all_valid_input_paths(
+    *,
+    preprocessing_root: Path | None,
+    artifact_format: str,
+) -> tuple[Path, Path] | None:
+    if preprocessing_root is None:
+        return None
+
+    extension = "parquet" if str(artifact_format).strip().lower() == "parquet" else "csv"
+    blocked_dir = Path(preprocessing_root) / "blocked"
+    blocked_candidates = sorted(blocked_dir.glob(f"*_blocked_dynamic_features.{extension}"))
+    if len(blocked_candidates) > 1:
+        raise ValueError(
+            "Expected at most one blocked dynamic-feature artifact under "
+            f"{blocked_dir}, found {len(blocked_candidates)}: "
+            f"{[str(path) for path in blocked_candidates]}"
+        )
+    if not blocked_candidates:
+        return None
+
+    mech_vent_episode_level_path = (
+        Path(preprocessing_root) / "qc" / f"mech_vent_ge_24h_episode_level.{extension}"
+    )
+    if not mech_vent_episode_level_path.exists():
+        return None
+    return blocked_candidates[0], mech_vent_episode_level_path
+
+
 def _load_all_valid_scoring_inputs(
     *,
+    preprocessing_root: Path | None,
     input_dir: Path,
     input_format: str,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     extension = "parquet" if str(input_format).strip().lower() == "parquet" else "csv"
-    blocked_dynamic_features_path = input_dir / "blocked" / f"asic_8h_blocked_dynamic_features.{extension}"
-    mech_vent_episode_level_path = (
-        input_dir / "qc" / f"mech_vent_ge_24h_episode_level.{extension}"
+    preprocessing_override_paths = _resolve_preprocessing_all_valid_input_paths(
+        preprocessing_root=preprocessing_root,
+        artifact_format=extension,
     )
+    if preprocessing_override_paths is not None:
+        blocked_dynamic_features_path, mech_vent_episode_level_path = preprocessing_override_paths
+    else:
+        blocked_dynamic_features_path = (
+            input_dir / "blocked" / f"asic_8h_blocked_dynamic_features.{extension}"
+        )
+        mech_vent_episode_level_path = (
+            input_dir / "qc" / f"mech_vent_ge_24h_episode_level.{extension}"
+        )
     missing_paths = [
         str(path)
         for path in (blocked_dynamic_features_path, mech_vent_episode_level_path)
@@ -243,6 +281,7 @@ def build_primary_all_valid_scoring_dataset(
         run_config_path=run_config_path,
     )
     blocked_dynamic_features, mech_vent_episode_level = _load_all_valid_scoring_inputs(
+        preprocessing_root=artifact_root,
         input_dir=standardized_dir,
         input_format=standardized_format,
     )

@@ -30,6 +30,7 @@ chapter1-asic-horizon-dependence-final = "chapter1_mortality_decomposition.asic_
 chapter1-ch1-asic-descriptive-viability = "chapter1_mortality_decomposition.ch1_asic_descriptive_viability:main"
 chapter1-xgboost-recalibration = "chapter1_mortality_decomposition.xgboost_recalibration:main"
 chapter1-temporal-preview = "chapter1_mortality_decomposition.temporal_preview:main"
+chapter1-temporal-sensitivity = "chapter1_mortality_decomposition.temporal_sensitivity:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
