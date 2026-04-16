@@ -1435,6 +1435,332 @@ def _build_interpretation_memo_template(
     )
 
 
+def _load_required_comparison_table(
+    comparison_root: Path,
+    filename: str,
+) -> pd.DataFrame:
+    path = Path(comparison_root) / filename
+    if not path.exists():
+        raise FileNotFoundError(f"Missing comparison artifact: {path}")
+    return read_dataframe(path)
+
+
+def _select_single_row(
+    frame: pd.DataFrame,
+    *,
+    source_name: str,
+    **filters: object,
+) -> pd.Series:
+    filtered = frame.copy()
+    for column, expected_value in filters.items():
+        if column not in filtered.columns:
+            raise KeyError(f"{source_name} is missing required column {column!r}.")
+        if pd.isna(expected_value):
+            filtered = filtered[filtered[column].isna()]
+        else:
+            filtered = filtered[filtered[column].astype("string").eq(str(expected_value))]
+    if filtered.shape[0] != 1:
+        raise ValueError(
+            f"Expected exactly one row in {source_name} for filters {filters}, "
+            f"found {filtered.shape[0]}."
+        )
+    return filtered.iloc[0]
+
+
+def _classify_temporal_sensitivity(
+    *,
+    logistic_24h_metrics: pd.DataFrame,
+    logistic_24h_risk: pd.DataFrame,
+    logistic_24h_hard_case: pd.DataFrame,
+    pairwise_overlap: pd.DataFrame,
+) -> tuple[str, list[str]]:
+    non_reference_metrics = logistic_24h_metrics[
+        ~logistic_24h_metrics["aggregation"].astype("string").eq("8h")
+    ].copy()
+    non_reference_hard_case = logistic_24h_hard_case[
+        ~logistic_24h_hard_case["aggregation"].astype("string").eq("8h")
+    ].copy()
+
+    max_abs_auroc_delta = float(
+        non_reference_metrics["auroc_delta_vs_8h"].abs().max()
+    ) if not non_reference_metrics.empty else 0.0
+    max_abs_auprc_delta = float(
+        non_reference_metrics["auprc_delta_vs_8h"].abs().max()
+    ) if not non_reference_metrics.empty else 0.0
+    max_abs_slope_delta = float(
+        non_reference_metrics["calibration_slope_delta_vs_8h"].abs().max()
+    ) if not non_reference_metrics.empty else 0.0
+    max_abs_hard_case_share_delta = float(
+        non_reference_hard_case["pct_fatal_hard_cases_delta_vs_8h"].abs().max()
+    ) if not non_reference_hard_case.empty else 0.0
+    all_structures_ordered = bool(
+        logistic_24h_risk["structure_ordered"].astype(bool).all()
+    ) if not logistic_24h_risk.empty else False
+    min_jaccard = float(pairwise_overlap["jaccard_index"].min()) if not pairwise_overlap.empty else 0.0
+
+    reasons = [
+        f"max |AUROC delta|={max_abs_auroc_delta:.3f}",
+        f"max |AUPRC delta|={max_abs_auprc_delta:.3f}",
+        f"max |slope delta|={max_abs_slope_delta:.3f}",
+        f"max |hard-case share delta|={max_abs_hard_case_share_delta:.3f}",
+        f"min pairwise Jaccard={min_jaccard:.3f}",
+        f"risk curves ordered across aggregations={all_structures_ordered}",
+    ]
+
+    if (
+        all_structures_ordered
+        and max_abs_auroc_delta <= 0.010
+        and max_abs_auprc_delta <= 0.040
+        and max_abs_slope_delta <= 0.050
+        and max_abs_hard_case_share_delta <= 0.040
+        and min_jaccard >= 0.60
+    ):
+        return "stable under coarsening", reasons
+
+    if (
+        all_structures_ordered
+        and max_abs_auroc_delta <= 0.030
+        and max_abs_auprc_delta <= 0.100
+        and max_abs_slope_delta <= 0.100
+        and max_abs_hard_case_share_delta <= 0.080
+        and min_jaccard >= 0.40
+    ):
+        return "partially weakened under coarsening", reasons
+
+    return "materially aggregation-sensitive", reasons
+
+
+def _build_interpretation_memo(
+    *,
+    comparison_root: Path,
+    reporting_metric_summary: pd.DataFrame,
+    calibration_summary: pd.DataFrame,
+    mortality_risk_structure_summary: pd.DataFrame,
+    hard_case_prevalence_summary: pd.DataFrame,
+    pairwise_overlap: pd.DataFrame,
+    directional_overlap: pd.DataFrame,
+    persistence_distribution: pd.DataFrame,
+) -> str:
+    aggregation_labels = sorted(
+        reporting_metric_summary["aggregation"].astype("string").unique().tolist(),
+        key=lambda value: int(str(value).removesuffix("h")),
+    )
+
+    logistic_24h_metrics = reporting_metric_summary[
+        reporting_metric_summary["model_name"].astype("string").eq(PRIMARY_MODEL_NAME)
+        & reporting_metric_summary["horizon_h"].astype(int).eq(PRIMARY_HORIZON_HOURS)
+    ].sort_values("aggregation", key=lambda series: series.map({label: i for i, label in enumerate(aggregation_labels)}))
+    xgboost_24h_metrics = reporting_metric_summary[
+        reporting_metric_summary["model_name"].astype("string").eq(SECONDARY_MODEL_NAME)
+        & reporting_metric_summary["horizon_h"].astype(int).eq(PRIMARY_HORIZON_HOURS)
+    ].sort_values("aggregation", key=lambda series: series.map({label: i for i, label in enumerate(aggregation_labels)}))
+    logistic_24h_calibration = calibration_summary[
+        calibration_summary["model_name"].astype("string").eq(PRIMARY_MODEL_NAME)
+        & calibration_summary["horizon_h"].astype(int).eq(PRIMARY_HORIZON_HOURS)
+    ].sort_values("aggregation", key=lambda series: series.map({label: i for i, label in enumerate(aggregation_labels)}))
+    logistic_24h_risk = mortality_risk_structure_summary[
+        mortality_risk_structure_summary["model_name"].astype("string").eq(PRIMARY_MODEL_NAME)
+        & mortality_risk_structure_summary["horizon_h"].astype(int).eq(PRIMARY_HORIZON_HOURS)
+    ].sort_values("aggregation", key=lambda series: series.map({label: i for i, label in enumerate(aggregation_labels)}))
+    xgboost_24h_risk = mortality_risk_structure_summary[
+        mortality_risk_structure_summary["model_name"].astype("string").eq(SECONDARY_MODEL_NAME)
+        & mortality_risk_structure_summary["horizon_h"].astype(int).eq(PRIMARY_HORIZON_HOURS)
+    ].sort_values("aggregation", key=lambda series: series.map({label: i for i, label in enumerate(aggregation_labels)}))
+    logistic_24h_hard_case = hard_case_prevalence_summary[
+        hard_case_prevalence_summary["model_name"].astype("string").eq(PRIMARY_MODEL_NAME)
+        & hard_case_prevalence_summary["horizon_h"].astype(int).eq(PRIMARY_HORIZON_HOURS)
+    ].sort_values("aggregation", key=lambda series: series.map({label: i for i, label in enumerate(aggregation_labels)}))
+
+    classification, classification_reasons = _classify_temporal_sensitivity(
+        logistic_24h_metrics=logistic_24h_metrics,
+        logistic_24h_risk=logistic_24h_risk,
+        logistic_24h_hard_case=logistic_24h_hard_case,
+        pairwise_overlap=pairwise_overlap,
+    )
+
+    logistic_24h_summary = " -> ".join(
+        f"{row.aggregation}: AUROC {_metric_text(row.auroc)}, AUPRC {_metric_text(row.auprc)}"
+        for row in logistic_24h_metrics.itertuples(index=False)
+    )
+    logistic_24h_calibration_summary = " -> ".join(
+        f"{row.aggregation}: intercept {_metric_text(row.calibration_intercept)}, slope {_metric_text(row.calibration_slope)}, Brier {_metric_text(row.brier_score)}"
+        for row in logistic_24h_calibration.itertuples(index=False)
+    )
+    logistic_24h_risk_summary = " -> ".join(
+        f"{row.aggregation}: upper-half event share {_metric_text(row.upper_half_event_share)}, top-bin mortality {_metric_text(row.top_bin_observed_mortality)}"
+        for row in logistic_24h_risk.itertuples(index=False)
+    )
+    logistic_24h_hard_case_summary = " -> ".join(
+        f"{row.aggregation}: {int(row.n_hard_cases)}/{int(row.n_fatal_last_points)} = {_metric_text(row.pct_fatal_hard_cases)}"
+        for row in logistic_24h_hard_case.itertuples(index=False)
+    )
+    xgboost_24h_summary = " -> ".join(
+        f"{row.aggregation}: AUROC {_metric_text(row.auroc)}, AUPRC {_metric_text(row.auprc)}"
+        for row in xgboost_24h_metrics.itertuples(index=False)
+    )
+    xgboost_24h_risk_summary = " -> ".join(
+        f"{row.aggregation}: upper-half event share {_metric_text(row.upper_half_event_share)}"
+        for row in xgboost_24h_risk.itertuples(index=False)
+    )
+
+    overlap_lines = [
+        f"- {row.aggregation_a} vs {row.aggregation_b}: Jaccard {_metric_text(row.jaccard_index)}, matched fatal denominator {int(row.matched_fatal_n)}, intersection {int(row.intersection_n)}."
+        for row in pairwise_overlap.itertuples(index=False)
+    ]
+    directional_lines = [
+        f"- {row.aggregation_from} -> {row.aggregation_to}: {_metric_text(row.overlap_from_A_to_B)}"
+        for row in directional_overlap.itertuples(index=False)
+    ]
+    persistence_lines = [
+        f"- hard in {int(row.hard_case_aggregation_n)} aggregations: {int(row.fatal_stay_count)} fatal stays ({_metric_text(row.fatal_stay_share)})"
+        for row in persistence_distribution.itertuples(index=False)
+    ]
+
+    all_test = bool(
+        logistic_24h_metrics["selected_split"].astype("string").eq("test").all()
+        and logistic_24h_metrics["selected_split_evaluable"].astype(bool).all()
+    )
+    all_structures_ordered = bool(logistic_24h_risk["structure_ordered"].astype(bool).all())
+
+    lines = [
+        "# ASIC Temporal Aggregation Sensitivity Interpretation",
+        "",
+        "This memo is generated deterministically from the saved temporal sensitivity comparison artifacts.",
+        "",
+        "## Decision Label",
+        "",
+        f"- Classification: `{classification}`",
+        "- Reference aggregation: `8h`.",
+        f"- Coarsened sensitivities reviewed: `{', '.join(label for label in aggregation_labels if label != '8h')}`.",
+        "",
+        "## Primary Anchor",
+        "",
+        "- Model: `logistic_regression`.",
+        "- Horizon: `24h`.",
+        (
+            "- Reporting used the binary-evaluable test split for all primary 24h comparisons."
+            if all_test
+            else "- At least one primary 24h comparison did not use the binary-evaluable test split."
+        ),
+        "",
+        "## Evidence Base",
+        "",
+        f"- Reporting metrics: `{(comparison_root / 'reporting_metric_summary.csv').name}`",
+        f"- Calibration summary: `{(comparison_root / 'calibration_summary.csv').name}`",
+        f"- Mortality-vs-risk summary: `{(comparison_root / 'mortality_risk_structure_summary.csv').name}`",
+        f"- Hard-case prevalence summary: `{(comparison_root / 'hard_case_prevalence_summary.csv').name}`",
+        f"- Logistic 24h hard-case overlap: `{(comparison_root / 'logistic_24h_hard_case_pairwise_overlap.csv').name}` and `{(comparison_root / 'logistic_24h_hard_case_directional_overlap.csv').name}`",
+        "",
+        "## Findings",
+        "",
+        f"- Logistic 24h discrimination: {logistic_24h_summary}.",
+        f"- Logistic 24h calibration: {logistic_24h_calibration_summary}.",
+        (
+            f"- Logistic 24h mortality-vs-risk structure remained qualitatively ordered across all aggregations: {logistic_24h_risk_summary}."
+            if all_structures_ordered
+            else f"- Logistic 24h mortality-vs-risk structure did not remain cleanly ordered across all aggregations: {logistic_24h_risk_summary}."
+        ),
+        f"- Logistic 24h low-predicted fatal-case prevalence: {logistic_24h_hard_case_summary}.",
+        f"- XGBoost 24h compact robustness check: {xgboost_24h_summary}.",
+        f"- XGBoost 24h risk concentration: {xgboost_24h_risk_summary}.",
+        "",
+        "## Hard-Case Stability",
+        "",
+        *overlap_lines,
+        "",
+        "Directional overlap:",
+        *directional_lines,
+        "",
+        "Persistence distribution across aggregations:",
+        *persistence_lines,
+        "",
+        "## Interpretation",
+        "",
+        (
+            "Calibration and 24h mortality-vs-risk structure remain broadly intact under coarsening, but the primary logistic 24h signal is not perfectly invariant. "
+            "Compared with 8h, AUPRC declines under both coarser aggregations and the logistic 24h hard-case share rises, while hard-case membership overlap remains substantial but incomplete."
+            if classification == "partially weakened under coarsening"
+            else "The primary logistic 24h pattern remains broadly stable under coarsening across the saved metrics, risk-structure summaries, and hard-case overlap outputs."
+            if classification == "stable under coarsening"
+            else "The primary logistic 24h pattern changes enough under coarsening that the Chapter 1 interpretation should be treated as materially aggregation-sensitive."
+        ),
+        "This should be interpreted as a bounded coarsening sensitivity only, not as evidence for an optimal aggregation choice.",
+        "",
+        "## Classification Rule Triggered",
+        "",
+        *[f"- {reason}" for reason in classification_reasons],
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def write_temporal_sensitivity_interpretation_memo(
+    *,
+    comparison_root: Path,
+    output_path: Path | None = None,
+) -> Path:
+    comparison_root = Path(comparison_root)
+    reporting_metric_summary = _load_required_comparison_table(
+        comparison_root,
+        "reporting_metric_summary.csv",
+    )
+    calibration_summary = _load_required_comparison_table(
+        comparison_root,
+        "calibration_summary.csv",
+    )
+    mortality_risk_structure_summary = _load_required_comparison_table(
+        comparison_root,
+        "mortality_risk_structure_summary.csv",
+    )
+    hard_case_prevalence_summary = _load_required_comparison_table(
+        comparison_root,
+        "hard_case_prevalence_summary.csv",
+    )
+    pairwise_overlap = _load_required_comparison_table(
+        comparison_root,
+        "logistic_24h_hard_case_pairwise_overlap.csv",
+    )
+    directional_overlap = _load_required_comparison_table(
+        comparison_root,
+        "logistic_24h_hard_case_directional_overlap.csv",
+    )
+    persistence_distribution = _load_required_comparison_table(
+        comparison_root,
+        "logistic_24h_hard_case_persistence_distribution.csv",
+    )
+
+    resolved_output_path = (
+        Path(output_path)
+        if output_path is not None
+        else comparison_root / "temporal_aggregation_sensitivity_interpretation.md"
+    )
+    written_path = write_text(
+        _build_interpretation_memo(
+            comparison_root=comparison_root,
+            reporting_metric_summary=reporting_metric_summary,
+            calibration_summary=calibration_summary,
+            mortality_risk_structure_summary=mortality_risk_structure_summary,
+            hard_case_prevalence_summary=hard_case_prevalence_summary,
+            pairwise_overlap=pairwise_overlap,
+            directional_overlap=directional_overlap,
+            persistence_distribution=persistence_distribution,
+        ),
+        resolved_output_path,
+    )
+    manifest_path = comparison_root / "run_manifest.json"
+    if manifest_path.exists():
+        manifest_payload = json.loads(manifest_path.read_text())
+        artifact_paths = manifest_payload.get("artifact_paths")
+        if not isinstance(artifact_paths, dict):
+            artifact_paths = {}
+            manifest_payload["artifact_paths"] = artifact_paths
+        artifact_paths["temporal_aggregation_sensitivity_interpretation"] = str(
+            written_path.resolve()
+        )
+        _write_json(manifest_payload, manifest_path)
+    return written_path
+
+
 def _run_single_coarsened_aggregation(
     *,
     aggregation_hours: int,
@@ -2070,6 +2396,9 @@ def _build_comparison_package(
         ),
         comparison_root / "interpretation_memo_template.md",
     )
+    interpretation_memo_path = write_temporal_sensitivity_interpretation_memo(
+        comparison_root=comparison_root,
+    )
 
     manifest_path = _write_json(
         {
@@ -2112,6 +2441,9 @@ def _build_comparison_package(
                 "provenance_and_limitations": str(provenance_note_path.resolve()),
                 "supersession_note": str(supersession_note_path.resolve()),
                 "interpretation_memo_template": str(memo_template_path.resolve()),
+                "temporal_aggregation_sensitivity_interpretation": str(
+                    interpretation_memo_path.resolve()
+                ),
                 **{key: str(path.resolve()) for key, path in figure_paths.items()},
             },
         },
@@ -2138,6 +2470,7 @@ def _build_comparison_package(
         "provenance_and_limitations": provenance_note_path,
         "supersession_note": supersession_note_path,
         "interpretation_memo_template": memo_template_path,
+        "temporal_aggregation_sensitivity_interpretation": interpretation_memo_path,
         "run_manifest": manifest_path,
         **figure_paths,
     }
@@ -2291,12 +2624,46 @@ def build_parser() -> argparse.ArgumentParser:
         choices=DEFAULT_MODELS,
         help="Baseline models to run for the coarsened aggregations. Defaults to logistic_regression xgboost.",
     )
+    parser.add_argument(
+        "--refresh-interpretation-memo-only",
+        action="store_true",
+        help=(
+            "Do not rerun the temporal sensitivity analysis. Regenerate only the written "
+            "interpretation memo from an existing comparison directory."
+        ),
+    )
+    parser.add_argument(
+        "--comparison-root",
+        type=Path,
+        help=(
+            "Existing temporal sensitivity comparison directory. Required with "
+            "--refresh-interpretation-memo-only."
+        ),
+    )
+    parser.add_argument(
+        "--memo-output-path",
+        type=Path,
+        help=(
+            "Optional output path for the generated interpretation memo when using "
+            "--refresh-interpretation-memo-only."
+        ),
+    )
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    if args.refresh_interpretation_memo_only:
+        if args.comparison_root is None:
+            parser.error("--comparison-root is required with --refresh-interpretation-memo-only.")
+        memo_path = write_temporal_sensitivity_interpretation_memo(
+            comparison_root=args.comparison_root,
+            output_path=args.memo_output_path,
+        )
+        print(f"Interpretation memo: {memo_path}")
+        return 0
 
     result = run_asic_temporal_aggregation_sensitivity(
         run_config_path=args.run_config,

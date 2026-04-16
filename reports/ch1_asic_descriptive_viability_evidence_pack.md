@@ -1,79 +1,69 @@
-# Sprint 3 ASIC Viability Evidence Pack
+# ASIC Interpretation Evidence Pack
 
 ## Purpose
-This document compresses the existing ASIC Sprint 3 hard-case and horizon-dependence artifacts into a short review pack for Issue 3.4. It is intentionally bounded to located artifacts and does not rerun the analyses. The discovered notes explicitly mark the local numbers as synthetic stand-in outputs, so this pack is for workflow and argument structure rather than scientific inference.
 
-## Review mode
-- Active result tier: `cluster export`.
-- Local hard-case-comparison review is aggregate-only: use `comparison_table.csv`, `effect_size_plot_data.csv`, `summary.md`, the effect-size figure, approved early-vs-late outputs, and the paired variable-audit exports.
-- Do not treat `stay_level_comparison_dataset.csv` or other restricted row-level reconstruction tables as normal local review inputs. Those remain cluster-side unless a separate export is explicitly approved.
+This pack indexes the authoritative artifacts that support the revised Chapter 1 ASIC interpretation. It is a companion inventory for documentation review, not a new analysis.
 
-## Evidence located
-- `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/run_manifest.json`
-- `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/horizon_hard_case_summary.csv`
-- `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/comparison_table.csv`
-- `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/summary.md`
-- `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison_variable_audit/asic_hard_case_comparison_variable_audit_memo.md`
-- `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/agreement/logistic_regression_vs_xgboost_platt/horizon_hard_case_agreement_summary.csv`
-- `cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/foundation/horizon_summary.csv`
-- `cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/overlap/pairwise_overlap.csv`
-- `cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/final/horizon_interpretation_memo.md`
-- `cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/final/mortality_risk_horizon_comparison.png`
+## Core empirical anchors
 
-## Hard-case definition summary
-- Frozen rule located: `asic_logistic_last_eligible_nonfatal_q75_v1`.
-- `24h` fatal comparison slice located: `346` low-predicted fatal vs `1336` other fatal stays (total `1682`).
-- Hard-case count / threshold source: `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/horizon_hard_case_summary.csv`.
-- Horizon-specific q75 thresholds and hard-case shares were extracted:
+- Baseline calibration and discrimination:
+  - `cluster-results/chapter1_true_results/evaluation/asic/baselines/primary_medians/combined_metrics.csv`
+  - `cluster-results/chapter1_true_results/evaluation/asic/baselines/primary_medians/reporting_split_summary.csv`
+  - Primary 24h logistic anchor: AUROC `0.819`, AUPRC `0.268`, calibration slope `0.974`, Brier `0.0186`.
+- Frozen hard-case definition and burden:
+  - `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/horizon_hard_case_summary.csv`
+  - 24h hard cases: `346/1682` fatal stays (`20.6%`).
+- Primary 24h hard-case comparison:
+  - `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/comparison_table.csv`
+  - `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/effect_size_figure.png`
+  - `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/summary.md`
+- Cross-model caution:
+  - `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/agreement/logistic_regression_vs_xgboost_platt/horizon_hard_case_agreement_summary.csv`
+  - 24h logistic-vs-XGBoost Jaccard: `0.488`.
+- Horizon dependence:
+  - `cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/foundation/horizon_summary.csv`
+  - `cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/overlap/pairwise_overlap.csv`
+  - `cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/overlap/persistence_distribution.csv`
+  - `cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/final/mortality_risk_horizon_binned_summary.csv`
+  - 24h vs 48h Jaccard: `0.885`; 24h vs 72h Jaccard: `0.824`.
+- Temporal aggregation sensitivity:
+  - `cluster-results/chapter1_true_results/temporal_sensitivity/asic/comparison/reporting_metric_summary.csv`
+  - `cluster-results/chapter1_true_results/temporal_sensitivity/asic/comparison/hard_case_prevalence_summary.csv`
+  - `cluster-results/chapter1_true_results/temporal_sensitivity/asic/comparison/logistic_24h_hard_case_pairwise_overlap.csv`
+  - Best summary label: partially weakened under coarsening, not aggregation-invariant.
 
-| horizon_label | nonfatal_last_n | fatal_last_n | nonfatal_q75_threshold | hard_case_n | hard_case_share_among_fatal |
-| --- | --- | --- | --- | --- | --- |
-| 8h | 4713 | 1639 | 0.004 | 351 | 0.214 |
-| 16h | 4713 | 1670 | 0.009 | 342 | 0.205 |
-| 24h | 4696 | 1682 | 0.015 | 346 | 0.206 |
-| 48h | 4542 | 1697 | 0.032 | 352 | 0.207 |
-| 72h | 4326 | 1704 | 0.053 | 364 | 0.214 |
+## Downstream sensitivity notes grounded in the saved bundle
 
-## ASIC hard-case comparison summary
-- Low-predicted fatal stays were modestly more common among `asic_UK04` fatal stays (37/346, 11%) than among other fatal stays (71/1336, 5%).
-- Low-predicted fatal stays were modestly enriched in `neurologic` disease-group assignments (7/346, 2% vs 0%).
-- Among the frozen timing and physiologic proxies, MAP was higher, PF ratio was modestly higher, and PEEP was modestly lower among low-predicted fatal stays.
-- Main comparison table: `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/comparison_table.csv`.
-- Main comparison figure: `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/effect_size_figure.png`.
+- Observation-process sensitivity:
+  - `artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_observation_process_sensitivity/memo.md`
+  - `artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_observation_process_sensitivity/comparison_table.csv`
+- Disease-stratified interpretation:
+  - `artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_disease_stratified_predictability_structure/asic_disease_stratified_interpretation_memo.md`
+  - `artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_disease_stratified_predictability_structure/asic_disease_stratified_hardcase_summary.csv`
+- Site sensitivity and UK04 follow-up:
+  - `artifacts/chapter1/site_sensitivity/asic/site_enrichment_decision.md`
+  - `artifacts/chapter1/site_sensitivity/asic/site_hard_case_summary.csv`
+  - `artifacts/chapter1/site_sensitivity/asic/uk04_observation_process_interpretation.md`
 
-## Horizon dependence summary
-- Hard-case share: `8h` to `24h` stays at `0.21` to `0.21`, then is higher at `48h` `0.21` and `72h` `0.21`. For the narrative anchor and main contrast, `24h` is `0.21` and `48h` is `0.21`.
-- Hard-case membership: overlap is substantial but incomplete. Mean pairwise Jaccard is `0.828`; `24h` vs `48h` has Jaccard `0.885`, with directional overlap `24h -> 48h` `0.934` and the reverse `0.944`.
-- Mortality-vs-risk shape: the five binned panels keep the same pooled risk axis and remain broadly similar in overall upward mortality-with-risk structure. The weighted 24h vs 48h shape distance is `0.089`, which is small enough for a descriptive similarity read.
-- Overall label: `persist`. On the local synthetic run, the low-risk fatal burden stays present across horizons, cross-horizon membership overlap is substantial, and the 24h vs 48h mortality-vs-risk panels remain broadly similar.
-- Main overlap table: `cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/overlap/pairwise_overlap.csv`.
-- Main interpretation memo: `cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/final/horizon_interpretation_memo.md`.
+These downstream notes are acceptable for interpretation because their saved run manifests point back to the authoritative `cluster-results/chapter1_true_results/` inputs.
 
-## Preliminary decision-relevant interpretation
-- What strengthens descriptive viability:
-- The hard-case rule is frozen and recoverable from a saved manifest rather than implied retrospectively.
-- A concrete low-predicted-versus-other-fatal comparison package exists with tables, a figure, and a short summary note.
-- Horizon dependence was materialized into summary tables, overlap tables, and a final interpretation memo rather than left implicit.
-- What weakens descriptive viability:
-- The located notes repeatedly say the local values are synthetic implementation-test outputs, so the current readout is not a scientific claim yet.
-- The local comparison slice is very small and explicitly flagged as a bounded descriptive comparison.
-- The final horizon package labels the pattern as changing form rather than a clean stable subtype.
-- What strengthens decomposition:
-- There is at least some recurring low-risk fatal structure across horizons, so a secondary summary device is not obviously pointless.
-- The artifact set is now organized enough to ask whether decomposition adds anything beyond the descriptive hard-case story.
-- What weakens decomposition:
-- The descriptive story already has its own rule, comparison table, and horizon memo, so decomposition is not needed to make Chapter 1 legible.
-- Cross-model hard-case agreement is limited in the saved agreement summary, which weakens confidence in a fragile summary-model layer.
-- Key sensitivity pieces remain incomplete or negative, including the variable-package readiness gap and the non-feasible SOFA route.
+## Feasibility and unresolved limits
 
-## Main remaining risks
-- All discovered hard-case and horizon notes explicitly describe the local values as synthetic implementation-test outputs, so the current readout is workflow-valid but not scientifically interpretable.
-- Frozen Issue 3.2 variable-package status: ISSUE 3.2 VARIABLE PACKAGE NOT YET READY. Blocking family: age.
-- SOFA feasibility audit result: NOT FEASIBLE.
-- Cross-model hard-case agreement is limited at 24h: logistic vs recalibrated XGBoost Jaccard 0.49 with logistic-hard confirmation by XGBoost 0.54.
-- The saved horizon package labels the pattern 'persist', which is weaker than a clean single-form persistence story.
+- Variable-package feasibility:
+  - `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison_variable_audit/asic_hard_case_comparison_variable_audit_memo.md`
+  - Main unresolved data issue: exact age absent; only `age_group` is available.
+- SOFA feasibility:
+  - `cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_sofa_feasibility_audit/sofa_feasibility_memo.md`
+  - Final classification: `NOT FEASIBLE`.
+- Treatment-limitation interpretation status:
+  - No dedicated structured ASIC treatment-limitation sensitivity artifact is present in the reviewed saved bundle.
+  - This remains a visible limitation rather than a closed sensitivity.
 
-## Missing evidence / unresolved items
-- No dedicated treatment-limitation or end-of-life proxy artifact was found in the searched ASIC Sprint 3 roots.
-- No pre-existing ASIC viability memo artifact was found before this workflow; the decision state still had to be reconstructed from comparison and horizon notes.
-- Only local synthetic stand-in outputs were located here. The same review must be rerun on full ASIC HPC artifacts before treating the memo as a scientific decision.
+## Do Not Use As Scientific Evidence For Issue 4.7
+
+- `cluster-results/chapter1_true_results/temporal_preview/asic/aggregation_16h/comparison/preview_note.md`
+- `cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/foundation/artifact_foundation_note.md`
+- `cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/foundation/horizon_summary.md`
+- Older notes that describe the baseline or horizon bundles as synthetic, sample-limited, smoke-test, or implementation-only.
+
+Those files remain useful for workflow history or precursor context, but they are not the scientific basis for the frozen Chapter 1 ASIC interpretation.

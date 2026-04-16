@@ -94,14 +94,14 @@ Fallback structure:
 
 ## Current Phase 1 / Chapter 1 State
 
-Phase 1 is in Sprint 4. The first real ASIC structural analysis is complete, and ASIC now provides a bounded but defensible descriptive core for Chapter 1.
+Phase 1 has completed Package 4 ASIC interpretation closure and is ready to begin Package 5 external validation on MIMIC.
 
 Current state:
 - The working Chapter 1 story is risk-structure-first, not subtype-first.
 - A low-predicted fatal subset appears to exist on ASIC, but interpretation must remain bounded.
 - Logistic regression is the primary Chapter 1 interpretive anchor because calibration and probability-based interpretation matter more than pure discrimination.
 - XGBoost remains a useful comparison / sensitivity model, not the main structural anchor.
-- Decomposition is currently allowed only as a secondary layer on top of the Chapter 1 descriptive result.
+- Decomposition has been downgraded to an optional secondary summary and should remain easy to drop pending the post-MIMIC keep-vs-drop gate.
 
 Key ASIC Chapter 1 decisions:
 - ICU time is anchored at administrative ICU admission.
@@ -115,22 +115,24 @@ Current limitations that must remain explicit:
 - No stable patient identifiers across stays.
 - No true administrative ICU discharge timestamp.
 - No true death timestamp for within-horizon labels.
-- Treatment-limitation / end-of-life confounding remains unresolved and may only be weakly testable in structured ASIC data.
-- Observation-process sensitivity, site sensitivity, and temporal-aggregation sensitivity are not yet fully closed.
+- Treatment-limitation / end-of-life confounding remains unresolved and is still the largest open interpretation limit in ASIC.
+- Observation-process, disease-stratified, site-sensitivity, and temporal-aggregation documentation are now closed descriptively, but none of them support causal interpretation.
 - Hard-case conclusions remain bounded by model family, calibration behavior, charting process, and time aggregation.
 
 Current active focus:
-- Observation-process sensitivity for low-predicted fatal vs other fatal cases.
-- Honest treatment-limitation sensitivity status: analyzed, weakly testable, or formally absent.
-- Formal temporal-aggregation sensitivity beyond the early preview.
-- Disease-stratified or admission-type-stratified predictability analyses where feasible.
-- Proceed / downgrade / drop decision for decomposition.
-- Freeze the final ASIC figure / table plan and bounded Chapter 1 wording.
+- Keep the revised bounded ASIC claim fixed and risk-structure-first.
+- Carry forward the horizon interpretation as persistence with changing form, not strict invariance.
+- Keep treatment-limitation absence explicit rather than implying it was solved empirically.
+- Use the frozen ASIC figure/table plan in `reports/ch1_methods_results_deck_overview.md`.
+- Keep decomposition secondary and easy to drop.
+- Move Chapter 1 effort toward write-up readiness and MIMIC replication rather than further ASIC scope expansion.
 
-Near-term follow-up after Sprint 4:
+Near-term follow-up for Package 5:
 - Rebuild and verify MIMIC Chapter 1 preprocessing and ASIC-MIMIC alignment.
 - Inventory MIMIC observation-process and treatment-limitation proxies.
-- Run external validation of Chapter 1 findings on MIMIC-IV.
+- Run MIMIC baseline risk models and core calibration / mortality-vs-risk evaluation.
+- Characterize MIMIC low-predicted fatal cases and compare ASIC vs MIMIC Chapter 1 results.
+- Reconfirm whether decomposition should remain as an optional summary or be dropped entirely after MIMIC external validation.
 
 ## Repositories and Authoritative Assets
 
@@ -140,8 +142,10 @@ Repository boundary:
 
 Authoritative current Chapter 1 references:
 - `docs/phase1_working_reference.md`
+- `docs/phase1_work_packages.md`
 - `cluster-results/chapter1_true_results`
-- `reports/ch1_presentation_deck_overview.md`
+- `reports/ch1_asic_descriptive_viability_memo_draft.md`
+- `reports/ch1_methods_results_deck_overview.md`
 - `../phd-general/reviews/asic_ch1_viability_review/codex_chapter1_asic_descriptive_core_memo.md`
 
 Working rule:

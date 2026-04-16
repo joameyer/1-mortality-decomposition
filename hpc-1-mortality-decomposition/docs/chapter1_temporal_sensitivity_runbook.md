@@ -32,6 +32,7 @@ Key comparison outputs:
 - `hard_case_prevalence_summary.csv`
 - `logistic_24h_hard_case_pairwise_overlap.csv`
 - `logistic_24h_hard_case_directional_overlap.csv`
+- `temporal_aggregation_sensitivity_interpretation.md`
 - `provenance_and_limitations.md`
 - `interpretation_memo_template.md`
 

@@ -337,6 +337,7 @@ APPROVED_TEMPORAL_SENSITIVITY_EXPORTS = (
     Path("comparison") / "logistic_24h_hard_case_persistence_barplot.png",
     Path("comparison") / "logistic_24h_hard_case_overlap_note.md",
     Path("comparison") / "split_alignment_overview.csv",
+    Path("comparison") / "temporal_aggregation_sensitivity_interpretation.md",
     Path("comparison") / "provenance_and_limitations.md",
     Path("comparison") / "supersession_note.md",
     Path("comparison") / "interpretation_memo_template.md",
