@@ -488,7 +488,7 @@ def load_data() -> dict:
         "evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/comparison_table.csv"
     )
     agreement = load_csv(
-        "evaluation/asic/hard_cases/primary_medians/agreement/logistic_regression_vs_xgboost_platt/horizon_hard_case_agreement_summary.csv"
+        "evaluation/asic/hard_cases/primary_medians/agreement/logistic_regression_vs_xgboost/horizon_hard_case_agreement_summary.csv"
     )
     pairwise_overlap = load_csv("evaluation/asic/horizon_dependence/overlap/pairwise_overlap.csv")
     obs_qc = load_csv("observation_process/chapter1_observation_process_qc_summary.csv")
@@ -632,12 +632,12 @@ def build_presentation(data: dict, assets: dict) -> None:
     full_metrics_xgb = full_metrics[full_metrics["Model"] == "XGBoost"].reset_index(drop=True)
 
     agreement_table = agreement[
-        ["horizon_h", "n_logistic_hard", "n_xgb_recal_hard", "n_both_hard", "jaccard_hard_case_overlap"]
+        ["horizon_h", "n_logistic_hard", "n_xgb_hard", "n_both_hard", "jaccard_hard_case_overlap"]
     ].copy()
-    agreement_table.columns = ["Horizon", "Logistic hard", "XGB-Platt hard", "Overlap", "Jaccard"]
+    agreement_table.columns = ["Horizon", "Logistic hard", "XGBoost hard", "Overlap", "Jaccard"]
     agreement_table["Horizon"] = agreement_table["Horizon"].astype(int).astype(str) + "h"
     agreement_table["Logistic hard"] = agreement_table["Logistic hard"].map(fmt_int)
-    agreement_table["XGB-Platt hard"] = agreement_table["XGB-Platt hard"].map(fmt_int)
+    agreement_table["XGBoost hard"] = agreement_table["XGBoost hard"].map(fmt_int)
     agreement_table["Overlap"] = agreement_table["Overlap"].map(fmt_int)
     agreement_table["Jaccard"] = agreement_table["Jaccard"].map(lambda x: f"{x:.3f}")
 

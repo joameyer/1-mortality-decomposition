@@ -106,8 +106,8 @@ KEY_ARTIFACT_SUFFIXES: dict[str, tuple[str, ...]] = {
         "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_sofa_feasibility_audit/sofa_feasibility_memo.md",
     ),
     "agreement_summary": (
-        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/agreement/logistic_regression_vs_xgboost_platt/horizon_hard_case_agreement_summary.csv",
-        "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/agreement/logistic_regression_vs_xgboost_platt/horizon_hard_case_agreement_summary.csv",
+        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/agreement/logistic_regression_vs_xgboost/horizon_hard_case_agreement_summary.csv",
+        "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/agreement/logistic_regression_vs_xgboost/horizon_hard_case_agreement_summary.csv",
     ),
     "horizon_foundation_summary": (
         "cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/foundation/horizon_summary.csv",
@@ -737,7 +737,7 @@ def _risk_highlights(
             row = anchor_row.iloc[0]
             risks.append(
                 "Cross-model hard-case agreement is limited at 24h: "
-                f"logistic vs recalibrated XGBoost Jaccard {float(row['jaccard_hard_case_overlap']):.2f} "
+                f"logistic vs baseline XGBoost Jaccard {float(row['jaccard_hard_case_overlap']):.2f} "
                 f"with logistic-hard confirmation by XGBoost {float(row['pct_logistic_hard_confirmed_by_xgb']):.2f}."
             )
 

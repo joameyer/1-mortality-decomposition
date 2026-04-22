@@ -10,6 +10,11 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
+from chapter1_mortality_decomposition.artifacts import (
+    RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+    resolve_chapter1_result_subdir,
+)
 from chapter1_mortality_decomposition.baseline_evaluation import (
     DEFAULT_BASELINE_ARTIFACT_ROOT,
     DEFAULT_HORIZONS,
@@ -34,18 +39,31 @@ from chapter1_mortality_decomposition.xgboost_recalibration import (
 DEFAULT_XGB_RECALIBRATION_METHOD = "platt"
 XGB_RECALIBRATION_METHODS = ("platt", "isotonic")
 SOURCE_XGBOOST_MODEL_NAME = "xgboost"
+XGB_SOURCE_BASELINE = "baseline"
+XGB_SOURCE_RECALIBRATED = "recalibrated"
+BASELINE_ARTIFACT_RELATIVE_ROOT = Path("baselines") / "asic" / "primary_medians"
+RECALIBRATION_ARTIFACT_RELATIVE_ROOT = (
+    Path("recalibration") / "asic" / "primary_medians" / "xgboost"
+)
 AGREEMENT_JOIN_KEYS = ["stay_id_global", "horizon_h"]
 AGREEMENT_RULE = "asic_hard_case_cross_model_agreement_v1"
+XGB_BASELINE_HARD_CASE_RULE = "asic_xgboost_last_eligible_nonfatal_q75_v1"
 XGB_RECAL_HARD_CASE_RULE_TEMPLATE = "asic_{model_name}_last_eligible_nonfatal_q75_v1"
 XGB_RECAL_VARIANT_MODEL_NAMES = {
     "platt": "xgboost_platt",
     "isotonic": "xgboost_isotonic",
 }
-DEFAULT_AGREEMENT_OUTPUT_DIR = (
+DEFAULT_BASELINE_AGREEMENT_OUTPUT_DIR = (
+    DEFAULT_HARD_CASE_OUTPUT_ROOT
+    / "agreement"
+    / f"{LOGISTIC_MODEL_NAME}_vs_{SOURCE_XGBOOST_MODEL_NAME}"
+)
+DEFAULT_RECALIBRATED_AGREEMENT_OUTPUT_DIR = (
     DEFAULT_HARD_CASE_OUTPUT_ROOT
     / "agreement"
     / f"{LOGISTIC_MODEL_NAME}_vs_{XGB_RECAL_VARIANT_MODEL_NAMES[DEFAULT_XGB_RECALIBRATION_METHOD]}"
 )
+DEFAULT_AGREEMENT_OUTPUT_DIR = DEFAULT_BASELINE_AGREEMENT_OUTPUT_DIR
 SMALL_AGREEMENT_COUNT_THRESHOLD = 20
 SMALL_AGREEMENT_PERCENT_THRESHOLD = 0.05
 
@@ -60,12 +78,16 @@ class HardCaseAgreementArtifacts:
 @dataclass(frozen=True)
 class HardCaseAgreementRunResult:
     logistic_input_root: Path
-    xgb_recalibration_root: Path
+    logistic_input_root_resolution: dict[str, object]
+    comparator_input_root: Path
+    comparator_input_root_resolution: dict[str, object]
     output_dir: Path
     horizons_processed: tuple[int, ...]
     logistic_model_name: str
-    xgb_recal_model_name: str
-    xgb_recalibration_method: str
+    comparator_model_name: str
+    comparator_prefix: str
+    comparator_source: str
+    comparator_recalibration_method: str | None
     artifacts: HardCaseAgreementArtifacts
     stay_level_agreement: pd.DataFrame
     horizon_summary: pd.DataFrame
@@ -114,19 +136,69 @@ def _normalize_xgb_recalibration_root(recalibration_root: Path) -> Path:
     )
 
 
-def _load_logistic_prediction_frames(
+def _resolve_default_logistic_input_root(
+    *,
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_fallback: bool = True,
+    repo_root: Path | None = None,
+) -> tuple[Path, dict[str, object]]:
+    resolved = resolve_chapter1_result_subdir(
+        BASELINE_ARTIFACT_RELATIVE_ROOT,
+        preferred_kind=preferred_result_kind,
+        repo_root=repo_root,
+        require_exists=True,
+        allow_fallback=allow_fallback,
+    )
+    return resolved.path, resolved.resolution
+
+
+def _resolve_default_xgb_recalibration_root(
+    *,
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_fallback: bool = True,
+    repo_root: Path | None = None,
+) -> tuple[Path, dict[str, object]]:
+    resolved = resolve_chapter1_result_subdir(
+        RECALIBRATION_ARTIFACT_RELATIVE_ROOT,
+        preferred_kind=preferred_result_kind,
+        repo_root=repo_root,
+        require_exists=True,
+        allow_fallback=allow_fallback,
+    )
+    return resolved.path, resolved.resolution
+
+
+def _resolve_default_xgb_input_root(
+    *,
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_fallback: bool = True,
+    repo_root: Path | None = None,
+) -> tuple[Path, dict[str, object]]:
+    resolved = resolve_chapter1_result_subdir(
+        BASELINE_ARTIFACT_RELATIVE_ROOT,
+        preferred_kind=preferred_result_kind,
+        repo_root=repo_root,
+        require_exists=True,
+        allow_fallback=allow_fallback,
+    )
+    return resolved.path, resolved.resolution
+
+
+def _load_model_prediction_frames(
     input_root: Path,
     horizons: Sequence[int] | None,
+    *,
+    model_name: str,
 ) -> tuple[dict[int, pd.DataFrame], dict[int, str], tuple[int, ...]]:
-    baseline_root = _normalize_hard_case_input_root(Path(input_root), model_name=LOGISTIC_MODEL_NAME)
+    baseline_root = _normalize_hard_case_input_root(Path(input_root), model_name=model_name)
     artifacts = _discover_prediction_artifacts(
         baseline_root,
-        models=[LOGISTIC_MODEL_NAME],
+        models=[model_name],
         horizons=horizons or DEFAULT_HORIZONS,
     )
     if not artifacts:
         raise ValueError(
-            f"No {LOGISTIC_MODEL_NAME!r} prediction artifacts were discovered under {baseline_root}."
+            f"No {model_name!r} prediction artifacts were discovered under {baseline_root}."
         )
 
     frames_by_horizon = {
@@ -139,6 +211,28 @@ def _load_logistic_prediction_frames(
     }
     selected_horizons = tuple(sorted(frames_by_horizon))
     return frames_by_horizon, source_paths_by_horizon, selected_horizons
+
+
+def _load_logistic_prediction_frames(
+    input_root: Path,
+    horizons: Sequence[int] | None,
+) -> tuple[dict[int, pd.DataFrame], dict[int, str], tuple[int, ...]]:
+    return _load_model_prediction_frames(
+        input_root,
+        horizons,
+        model_name=LOGISTIC_MODEL_NAME,
+    )
+
+
+def _load_xgboost_prediction_frames(
+    input_root: Path,
+    horizons: Sequence[int] | None,
+) -> tuple[dict[int, pd.DataFrame], dict[int, str], tuple[int, ...]]:
+    return _load_model_prediction_frames(
+        input_root,
+        horizons,
+        model_name=SOURCE_XGBOOST_MODEL_NAME,
+    )
 
 
 def _canonical_xgb_prediction_path(
@@ -387,24 +481,27 @@ def _prepare_fatal_subset(
 
 def build_hard_case_agreement_tables(
     logistic_stay_level: pd.DataFrame,
-    xgb_recal_stay_level: pd.DataFrame,
+    comparator_stay_level: pd.DataFrame,
     *,
     logistic_model_name: str,
-    xgb_recal_model_name: str,
+    comparator_model_name: str,
+    comparator_prefix: str,
+    comparator_display_name: str,
+    comparator_only_flag_name: str = "hard_case_xgb_only_flag",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     logistic_fatal = _prepare_fatal_subset(
         logistic_stay_level,
         model_prefix="logistic",
         source_name="logistic_stay_level",
     )
-    xgb_fatal = _prepare_fatal_subset(
-        xgb_recal_stay_level,
-        model_prefix="xgb_recal",
-        source_name="xgb_recal_stay_level",
+    comparator_fatal = _prepare_fatal_subset(
+        comparator_stay_level,
+        model_prefix=comparator_prefix,
+        source_name=f"{comparator_prefix}_stay_level",
     )
 
     merged = logistic_fatal.merge(
-        xgb_fatal,
+        comparator_fatal,
         on=AGREEMENT_JOIN_KEYS,
         how="outer",
         indicator=True,
@@ -412,11 +509,13 @@ def build_hard_case_agreement_tables(
 
     matched = merged[merged["_merge"].eq("both")].copy()
     if matched.empty:
-        raise ValueError("No fatal stay-level overlap exists between logistic and recalibrated XGBoost.")
+        raise ValueError(
+            f"No fatal stay-level overlap exists between logistic and {comparator_display_name}."
+        )
 
     hospital_mismatch = matched[
         matched["logistic_hospital_id"].astype("string").ne(
-            matched["xgb_recal_hospital_id"].astype("string")
+            matched[f"{comparator_prefix}_hospital_id"].astype("string")
         )
     ]
     if not hospital_mismatch.empty:
@@ -425,7 +524,7 @@ def build_hard_case_agreement_tables(
                 "stay_id_global",
                 "horizon_h",
                 "logistic_hospital_id",
-                "xgb_recal_hospital_id",
+                f"{comparator_prefix}_hospital_id",
             ]
         ].head(5)
         raise ValueError(
@@ -435,7 +534,7 @@ def build_hard_case_agreement_tables(
 
     label_mismatch = matched[
         matched["logistic_label_value"].astype(int).ne(
-            matched["xgb_recal_label_value"].astype(int)
+            matched[f"{comparator_prefix}_label_value"].astype(int)
         )
     ]
     if not label_mismatch.empty:
@@ -445,72 +544,75 @@ def build_hard_case_agreement_tables(
 
     matched["hospital_id"] = matched["logistic_hospital_id"].astype("string")
     matched["logistic_hard_case_flag"] = matched["logistic_hard_case_flag"].astype(bool)
-    matched["xgb_recal_hard_case_flag"] = matched["xgb_recal_hard_case_flag"].astype(bool)
+    matched[f"{comparator_prefix}_hard_case_flag"] = matched[
+        f"{comparator_prefix}_hard_case_flag"
+    ].astype(bool)
     matched["hard_case_agreement_flag"] = (
-        matched["logistic_hard_case_flag"] & matched["xgb_recal_hard_case_flag"]
+        matched["logistic_hard_case_flag"] & matched[f"{comparator_prefix}_hard_case_flag"]
     )
     matched["hard_case_logistic_only_flag"] = (
-        matched["logistic_hard_case_flag"] & ~matched["xgb_recal_hard_case_flag"]
+        matched["logistic_hard_case_flag"] & ~matched[f"{comparator_prefix}_hard_case_flag"]
     )
-    matched["hard_case_xgb_only_flag"] = (
-        ~matched["logistic_hard_case_flag"] & matched["xgb_recal_hard_case_flag"]
+    matched[comparator_only_flag_name] = (
+        ~matched["logistic_hard_case_flag"] & matched[f"{comparator_prefix}_hard_case_flag"]
     )
     matched["agreement_rule"] = AGREEMENT_RULE
 
-    stay_level_agreement = matched[
-        [
-            "stay_id_global",
-            "hospital_id",
-            "horizon_h",
-            "logistic_predicted_probability",
-            "logistic_nonfatal_q75_threshold",
-            "logistic_hard_case_flag",
-            "logistic_instance_id",
-            "logistic_block_index",
-            "logistic_prediction_time_h",
-            "logistic_hard_case_rule",
-            "xgb_recal_predicted_probability",
-            "xgb_recal_nonfatal_q75_threshold",
-            "xgb_recal_hard_case_flag",
-            "xgb_recal_instance_id",
-            "xgb_recal_block_index",
-            "xgb_recal_prediction_time_h",
-            "xgb_recal_hard_case_rule",
-            "hard_case_agreement_flag",
-            "hard_case_logistic_only_flag",
-            "hard_case_xgb_only_flag",
-            "agreement_rule",
-        ]
-    ].copy()
+    stay_level_columns = [
+        "stay_id_global",
+        "hospital_id",
+        "horizon_h",
+        "logistic_predicted_probability",
+        "logistic_nonfatal_q75_threshold",
+        "logistic_hard_case_flag",
+        "logistic_instance_id",
+        "logistic_block_index",
+        "logistic_prediction_time_h",
+        "logistic_hard_case_rule",
+        f"{comparator_prefix}_predicted_probability",
+        f"{comparator_prefix}_nonfatal_q75_threshold",
+        f"{comparator_prefix}_hard_case_flag",
+        f"{comparator_prefix}_instance_id",
+        f"{comparator_prefix}_block_index",
+        f"{comparator_prefix}_prediction_time_h",
+        f"{comparator_prefix}_hard_case_rule",
+        "hard_case_agreement_flag",
+        "hard_case_logistic_only_flag",
+        comparator_only_flag_name,
+        "agreement_rule",
+    ]
+    stay_level_agreement = matched[stay_level_columns].copy()
     stay_level_agreement["logistic_model_name"] = logistic_model_name
-    stay_level_agreement["xgb_recal_model_name"] = xgb_recal_model_name
-    stay_level_agreement = stay_level_agreement[
-        [
-            "stay_id_global",
-            "hospital_id",
-            "horizon_h",
-            "logistic_model_name",
-            "logistic_predicted_probability",
-            "logistic_nonfatal_q75_threshold",
-            "logistic_hard_case_flag",
-            "logistic_instance_id",
-            "logistic_block_index",
-            "logistic_prediction_time_h",
-            "logistic_hard_case_rule",
-            "xgb_recal_model_name",
-            "xgb_recal_predicted_probability",
-            "xgb_recal_nonfatal_q75_threshold",
-            "xgb_recal_hard_case_flag",
-            "xgb_recal_instance_id",
-            "xgb_recal_block_index",
-            "xgb_recal_prediction_time_h",
-            "xgb_recal_hard_case_rule",
-            "hard_case_agreement_flag",
-            "hard_case_logistic_only_flag",
-            "hard_case_xgb_only_flag",
-            "agreement_rule",
-        ]
-    ].sort_values(["horizon_h", "hospital_id", "stay_id_global"], kind="stable").reset_index(drop=True)
+    stay_level_agreement[f"{comparator_prefix}_model_name"] = comparator_model_name
+    ordered_columns = [
+        "stay_id_global",
+        "hospital_id",
+        "horizon_h",
+        "logistic_model_name",
+        "logistic_predicted_probability",
+        "logistic_nonfatal_q75_threshold",
+        "logistic_hard_case_flag",
+        "logistic_instance_id",
+        "logistic_block_index",
+        "logistic_prediction_time_h",
+        "logistic_hard_case_rule",
+        f"{comparator_prefix}_model_name",
+        f"{comparator_prefix}_predicted_probability",
+        f"{comparator_prefix}_nonfatal_q75_threshold",
+        f"{comparator_prefix}_hard_case_flag",
+        f"{comparator_prefix}_instance_id",
+        f"{comparator_prefix}_block_index",
+        f"{comparator_prefix}_prediction_time_h",
+        f"{comparator_prefix}_hard_case_rule",
+        "hard_case_agreement_flag",
+        "hard_case_logistic_only_flag",
+        comparator_only_flag_name,
+        "agreement_rule",
+    ]
+    stay_level_agreement = stay_level_agreement[ordered_columns].sort_values(
+        ["horizon_h", "hospital_id", "stay_id_global"],
+        kind="stable",
+    ).reset_index(drop=True)
 
     summary_rows: list[dict[str, object]] = []
     unmatched_counts = (
@@ -521,13 +623,13 @@ def build_hard_case_agreement_tables(
         .groupby("horizon_h", dropna=False)
         .agg(
             n_fatal_logistic_only_available=("left_only", "sum"),
-            n_fatal_xgb_recal_only_available=("right_only", "sum"),
+            **{f"n_fatal_{comparator_prefix}_only_available": ("right_only", "sum")},
         )
         .reset_index()
     )
     unmatched_counts["n_fatal_dropped_unmatched"] = (
         unmatched_counts["n_fatal_logistic_only_available"]
-        + unmatched_counts["n_fatal_xgb_recal_only_available"]
+        + unmatched_counts[f"n_fatal_{comparator_prefix}_only_available"]
     )
     unmatched_counts = unmatched_counts.set_index("horizon_h")
 
@@ -538,22 +640,24 @@ def build_hard_case_agreement_tables(
             raise ValueError(f"Horizon {horizon_key} has an empty agreement population.")
 
         n_logistic_hard = int(horizon_df["logistic_hard_case_flag"].sum())
-        n_xgb_recal_hard = int(horizon_df["xgb_recal_hard_case_flag"].sum())
+        n_comparator_hard = int(horizon_df[f"{comparator_prefix}_hard_case_flag"].sum())
         n_both_hard = int(horizon_df["hard_case_agreement_flag"].sum())
         n_logistic_only = int(horizon_df["hard_case_logistic_only_flag"].sum())
-        n_xgb_only = int(horizon_df["hard_case_xgb_only_flag"].sum())
+        n_comparator_only = int(horizon_df[comparator_only_flag_name].sum())
         n_union_hard = int(
             (
                 horizon_df["logistic_hard_case_flag"]
-                | horizon_df["xgb_recal_hard_case_flag"]
+                | horizon_df[f"{comparator_prefix}_hard_case_flag"]
             ).sum()
         )
         pct_logistic_hard = float(n_logistic_hard / n_fatal_with_both)
-        pct_xgb_recal_hard = float(n_xgb_recal_hard / n_fatal_with_both)
+        pct_comparator_hard = float(n_comparator_hard / n_fatal_with_both)
         pct_both_hard_among_fatal = float(n_both_hard / n_fatal_with_both)
         jaccard = float(n_both_hard / n_union_hard) if n_union_hard else np.nan
         logistic_confirmed = float(n_both_hard / n_logistic_hard) if n_logistic_hard else np.nan
-        xgb_confirmed = float(n_both_hard / n_xgb_recal_hard) if n_xgb_recal_hard else np.nan
+        comparator_confirmed = (
+            float(n_both_hard / n_comparator_hard) if n_comparator_hard else np.nan
+        )
 
         warning_reasons: list[str] = []
         if n_both_hard < SMALL_AGREEMENT_COUNT_THRESHOLD:
@@ -568,27 +672,27 @@ def build_hard_case_agreement_tables(
             {
                 "horizon_h": horizon_key,
                 "logistic_model_name": logistic_model_name,
-                "xgb_recal_model_name": xgb_recal_model_name,
+                f"{comparator_prefix}_model_name": comparator_model_name,
                 "n_fatal_with_both_models_available": n_fatal_with_both,
                 "n_fatal_logistic_only_available": int(
                     unmatched_row["n_fatal_logistic_only_available"]
                 ),
-                "n_fatal_xgb_recal_only_available": int(
-                    unmatched_row["n_fatal_xgb_recal_only_available"]
+                f"n_fatal_{comparator_prefix}_only_available": int(
+                    unmatched_row[f"n_fatal_{comparator_prefix}_only_available"]
                 ),
                 "n_fatal_dropped_unmatched": int(unmatched_row["n_fatal_dropped_unmatched"]),
                 "n_logistic_hard": n_logistic_hard,
-                "n_xgb_recal_hard": n_xgb_recal_hard,
+                f"n_{comparator_prefix}_hard": n_comparator_hard,
                 "n_both_hard": n_both_hard,
                 "n_logistic_only": n_logistic_only,
-                "n_xgb_recal_only": n_xgb_only,
+                f"n_{comparator_prefix}_only": n_comparator_only,
                 "pct_logistic_hard": pct_logistic_hard,
-                "pct_xgb_recal_hard": pct_xgb_recal_hard,
+                f"pct_{comparator_prefix}_hard": pct_comparator_hard,
                 "pct_both_hard_among_fatal": pct_both_hard_among_fatal,
                 "hard_case_union_count": n_union_hard,
                 "jaccard_hard_case_overlap": jaccard,
                 "pct_logistic_hard_confirmed_by_xgb": logistic_confirmed,
-                "pct_xgb_recal_hard_confirmed_by_logistic": xgb_confirmed,
+                f"pct_{comparator_prefix}_hard_confirmed_by_logistic": comparator_confirmed,
                 "agreement_subgroup_warning": bool(warning_reasons),
                 "warning_reason": "; ".join(warning_reasons) if warning_reasons else pd.NA,
             }
@@ -600,18 +704,50 @@ def build_hard_case_agreement_tables(
 
 def run_asic_hard_case_agreement_sensitivity(
     *,
-    logistic_input_root: Path = DEFAULT_BASELINE_ARTIFACT_ROOT,
-    xgb_recalibration_root: Path = DEFAULT_RECALIBRATION_OUTPUT_DIR,
+    logistic_input_root: Path | None = None,
+    xgb_recalibration_root: Path | None = None,
     xgb_recalibration_method: str = DEFAULT_XGB_RECALIBRATION_METHOD,
     output_dir: Path | None = None,
     horizons: Sequence[int] | None = None,
     output_format: str = "csv",
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_input_root_fallback: bool = True,
 ) -> HardCaseAgreementRunResult:
     if xgb_recalibration_method not in XGB_RECALIBRATION_METHODS:
         raise ValueError(
             f"Unsupported XGBoost recalibration method: {xgb_recalibration_method}. "
             f"Expected one of {list(XGB_RECALIBRATION_METHODS)}."
         )
+
+    if logistic_input_root is None:
+        logistic_input_root, logistic_input_root_resolution = _resolve_default_logistic_input_root(
+            preferred_result_kind=preferred_result_kind,
+            allow_fallback=allow_input_root_fallback,
+        )
+    else:
+        logistic_input_root = Path(logistic_input_root)
+        logistic_input_root_resolution = {
+            "resolution_strategy": "explicit_input_root",
+            "preferred_result_kind": preferred_result_kind,
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [str(logistic_input_root)],
+        }
+
+    if xgb_recalibration_root is None:
+        xgb_recalibration_root, xgb_recalibration_root_resolution = _resolve_default_xgb_recalibration_root(
+            preferred_result_kind=preferred_result_kind,
+            allow_fallback=allow_input_root_fallback,
+        )
+    else:
+        xgb_recalibration_root = Path(xgb_recalibration_root)
+        xgb_recalibration_root_resolution = {
+            "resolution_strategy": "explicit_input_root",
+            "preferred_result_kind": preferred_result_kind,
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [str(xgb_recalibration_root)],
+        }
 
     logistic_frames, logistic_sources, logistic_horizons = _load_logistic_prediction_frames(
         logistic_input_root,
@@ -664,7 +800,9 @@ def run_asic_hard_case_agreement_sensitivity(
         logistic_stay_level,
         xgb_stay_level,
         logistic_model_name=LOGISTIC_MODEL_NAME,
-        xgb_recal_model_name=xgb_recal_model_name,
+        comparator_model_name=xgb_recal_model_name,
+        comparator_prefix="xgb_recal",
+        comparator_display_name="recalibrated XGBoost",
     )
 
     extension = _output_extension(output_format)
@@ -683,17 +821,20 @@ def run_asic_hard_case_agreement_sensitivity(
             "timestamp_utc": _utc_timestamp(),
             "agreement_rule": AGREEMENT_RULE,
             "join_keys": AGREEMENT_JOIN_KEYS,
+            "comparator_source": XGB_SOURCE_RECALIBRATED,
             "logistic_model_name": LOGISTIC_MODEL_NAME,
             "logistic_hard_case_rule": LOGISTIC_HARD_CASE_RULE,
             "xgb_recal_model_name": xgb_recal_model_name,
             "xgb_recalibration_method": xgb_recalibration_method,
             "xgb_recal_hard_case_rule": xgb_recal_hard_case_rule,
+            "logistic_input_root_resolution": logistic_input_root_resolution,
             "logistic_input_root": str(
                 _normalize_hard_case_input_root(
                     Path(logistic_input_root),
                     model_name=LOGISTIC_MODEL_NAME,
                 ).resolve()
             ),
+            "xgb_recalibration_root_resolution": xgb_recalibration_root_resolution,
             "xgb_recalibration_root": str(_normalize_xgb_recalibration_root(Path(xgb_recalibration_root)).resolve()),
             "output_dir": str(resolved_output_dir.resolve()),
             "horizons_processed": list(logistic_horizons),
@@ -716,12 +857,180 @@ def run_asic_hard_case_agreement_sensitivity(
             Path(logistic_input_root),
             model_name=LOGISTIC_MODEL_NAME,
         ),
-        xgb_recalibration_root=_normalize_xgb_recalibration_root(Path(xgb_recalibration_root)),
+        logistic_input_root_resolution=logistic_input_root_resolution,
+        comparator_input_root=_normalize_xgb_recalibration_root(Path(xgb_recalibration_root)),
+        comparator_input_root_resolution=xgb_recalibration_root_resolution,
         output_dir=resolved_output_dir,
         horizons_processed=logistic_horizons,
         logistic_model_name=LOGISTIC_MODEL_NAME,
-        xgb_recal_model_name=xgb_recal_model_name,
-        xgb_recalibration_method=xgb_recalibration_method,
+        comparator_model_name=xgb_recal_model_name,
+        comparator_prefix="xgb_recal",
+        comparator_source=XGB_SOURCE_RECALIBRATED,
+        comparator_recalibration_method=xgb_recalibration_method,
+        artifacts=HardCaseAgreementArtifacts(
+            stay_level_path=stay_level_path,
+            horizon_summary_path=horizon_summary_path,
+            manifest_path=manifest_path,
+        ),
+        stay_level_agreement=stay_level_agreement,
+        horizon_summary=horizon_summary,
+    )
+
+
+def run_asic_hard_case_agreement_baseline(
+    *,
+    logistic_input_root: Path | None = None,
+    xgb_input_root: Path | None = None,
+    output_dir: Path | None = None,
+    horizons: Sequence[int] | None = None,
+    output_format: str = "csv",
+    preferred_result_kind: str = RESULT_ROOT_KIND_CLUSTER_EXPORT,
+    allow_input_root_fallback: bool = True,
+) -> HardCaseAgreementRunResult:
+    if logistic_input_root is None:
+        logistic_input_root, logistic_input_root_resolution = _resolve_default_logistic_input_root(
+            preferred_result_kind=preferred_result_kind,
+            allow_fallback=allow_input_root_fallback,
+        )
+    else:
+        logistic_input_root = Path(logistic_input_root)
+        logistic_input_root_resolution = {
+            "resolution_strategy": "explicit_input_root",
+            "preferred_result_kind": preferred_result_kind,
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [str(logistic_input_root)],
+        }
+
+    if xgb_input_root is None:
+        xgb_input_root, xgb_input_root_resolution = _resolve_default_xgb_input_root(
+            preferred_result_kind=preferred_result_kind,
+            allow_fallback=allow_input_root_fallback,
+        )
+    else:
+        xgb_input_root = Path(xgb_input_root)
+        xgb_input_root_resolution = {
+            "resolution_strategy": "explicit_input_root",
+            "preferred_result_kind": preferred_result_kind,
+            "selected_result_kind": None,
+            "selected_result_root": None,
+            "checked_paths": [str(xgb_input_root)],
+        }
+
+    logistic_frames, logistic_sources, logistic_horizons = _load_logistic_prediction_frames(
+        logistic_input_root,
+        horizons,
+    )
+    xgb_frames, xgb_sources, xgb_horizons = _load_xgboost_prediction_frames(
+        xgb_input_root,
+        horizons,
+    )
+
+    if logistic_horizons != xgb_horizons:
+        raise ValueError(
+            f"Logistic horizons {list(logistic_horizons)} and baseline XGBoost horizons "
+            f"{list(xgb_horizons)} do not match."
+        )
+
+    resolved_output_dir = Path(
+        output_dir if output_dir is not None else DEFAULT_BASELINE_AGREEMENT_OUTPUT_DIR
+    )
+
+    logistic_stay_level, logistic_summary, _ = build_hard_case_tables_from_prediction_frames(
+        logistic_frames,
+        source_names_by_horizon=logistic_sources,
+        expected_source_model_name=LOGISTIC_MODEL_NAME,
+        probability_column="predicted_probability",
+        output_model_name=LOGISTIC_MODEL_NAME,
+        hard_case_rule=LOGISTIC_HARD_CASE_RULE,
+    )
+    xgb_stay_level, xgb_summary, _ = build_hard_case_tables_from_prediction_frames(
+        xgb_frames,
+        source_names_by_horizon=xgb_sources,
+        expected_source_model_name=SOURCE_XGBOOST_MODEL_NAME,
+        probability_column="predicted_probability",
+        output_model_name=SOURCE_XGBOOST_MODEL_NAME,
+        hard_case_rule=XGB_BASELINE_HARD_CASE_RULE,
+    )
+
+    stay_level_agreement, horizon_summary = build_hard_case_agreement_tables(
+        logistic_stay_level,
+        xgb_stay_level,
+        logistic_model_name=LOGISTIC_MODEL_NAME,
+        comparator_model_name=SOURCE_XGBOOST_MODEL_NAME,
+        comparator_prefix="xgb",
+        comparator_display_name="baseline XGBoost",
+    )
+
+    extension = _output_extension(output_format)
+    stay_level_path = write_dataframe(
+        stay_level_agreement,
+        resolved_output_dir / f"fatal_stay_level_hard_case_agreement.{extension}",
+        output_format=output_format,
+    )
+    horizon_summary_path = write_dataframe(
+        horizon_summary,
+        resolved_output_dir / f"horizon_hard_case_agreement_summary.{extension}",
+        output_format=output_format,
+    )
+    manifest_path = _write_json(
+        {
+            "timestamp_utc": _utc_timestamp(),
+            "agreement_rule": AGREEMENT_RULE,
+            "join_keys": AGREEMENT_JOIN_KEYS,
+            "comparator_source": XGB_SOURCE_BASELINE,
+            "logistic_model_name": LOGISTIC_MODEL_NAME,
+            "logistic_hard_case_rule": LOGISTIC_HARD_CASE_RULE,
+            "xgb_model_name": SOURCE_XGBOOST_MODEL_NAME,
+            "xgb_hard_case_rule": XGB_BASELINE_HARD_CASE_RULE,
+            "logistic_input_root_resolution": logistic_input_root_resolution,
+            "logistic_input_root": str(
+                _normalize_hard_case_input_root(
+                    Path(logistic_input_root),
+                    model_name=LOGISTIC_MODEL_NAME,
+                ).resolve()
+            ),
+            "xgb_input_root_resolution": xgb_input_root_resolution,
+            "xgb_input_root": str(
+                _normalize_hard_case_input_root(
+                    Path(xgb_input_root),
+                    model_name=SOURCE_XGBOOST_MODEL_NAME,
+                ).resolve()
+            ),
+            "output_dir": str(resolved_output_dir.resolve()),
+            "horizons_processed": list(logistic_horizons),
+            "small_hard_case_count_threshold": SMALL_HARD_CASE_COUNT_THRESHOLD,
+            "small_hard_case_percent_threshold": SMALL_HARD_CASE_PERCENT_THRESHOLD,
+            "small_agreement_count_threshold": SMALL_AGREEMENT_COUNT_THRESHOLD,
+            "small_agreement_percent_threshold": SMALL_AGREEMENT_PERCENT_THRESHOLD,
+            "logistic_prediction_sources_by_horizon": logistic_sources,
+            "xgb_prediction_sources_by_horizon": xgb_sources,
+            "logistic_horizon_summary_rows": logistic_summary.to_dict(orient="records"),
+            "xgb_horizon_summary_rows": xgb_summary.to_dict(orient="records"),
+            "stay_level_agreement_artifact": str(stay_level_path.resolve()),
+            "horizon_summary_artifact": str(horizon_summary_path.resolve()),
+        },
+        resolved_output_dir / "run_manifest.json",
+    )
+
+    return HardCaseAgreementRunResult(
+        logistic_input_root=_normalize_hard_case_input_root(
+            Path(logistic_input_root),
+            model_name=LOGISTIC_MODEL_NAME,
+        ),
+        logistic_input_root_resolution=logistic_input_root_resolution,
+        comparator_input_root=_normalize_hard_case_input_root(
+            Path(xgb_input_root),
+            model_name=SOURCE_XGBOOST_MODEL_NAME,
+        ),
+        comparator_input_root_resolution=xgb_input_root_resolution,
+        output_dir=resolved_output_dir,
+        horizons_processed=logistic_horizons,
+        logistic_model_name=LOGISTIC_MODEL_NAME,
+        comparator_model_name=SOURCE_XGBOOST_MODEL_NAME,
+        comparator_prefix="xgb",
+        comparator_source=XGB_SOURCE_BASELINE,
+        comparator_recalibration_method=None,
         artifacts=HardCaseAgreementArtifacts(
             stay_level_path=stay_level_path,
             horizon_summary_path=horizon_summary_path,
@@ -736,23 +1045,63 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Run Chapter 1 ASIC hard-case agreement sensitivity analysis between logistic "
-            "regression and recalibrated XGBoost."
+            "regression and XGBoost comparators."
         )
     )
     parser.add_argument(
         "--logistic-input-root",
         type=Path,
-        default=DEFAULT_BASELINE_ARTIFACT_ROOT,
         help=(
             "Root baseline artifact directory containing model subdirectories, or the "
-            "logistic_regression model directory itself."
+            "logistic_regression model directory itself. If omitted, the agreement package "
+            "searches the preferred Chapter 1 result root first."
+        ),
+    )
+    parser.add_argument(
+        "--xgb-source",
+        choices=[XGB_SOURCE_RECALIBRATED, XGB_SOURCE_BASELINE],
+        default=XGB_SOURCE_RECALIBRATED,
+        help=(
+            "Whether to compare logistic hard cases against recalibrated XGBoost or raw "
+            "baseline XGBoost. The default preserves the existing recalibration sensitivity path."
+        ),
+    )
+    parser.add_argument(
+        "--xgb-input-root",
+        type=Path,
+        help=(
+            "Root baseline artifact directory containing model subdirectories, or the "
+            "xgboost model directory itself. Used only when --xgb-source=baseline."
         ),
     )
     parser.add_argument(
         "--xgb-recalibration-root",
         type=Path,
-        default=DEFAULT_RECALIBRATION_OUTPUT_DIR,
-        help="Directory containing saved XGBoost recalibration artifacts.",
+        help=(
+            "Directory containing saved XGBoost recalibration artifacts. If omitted, the "
+            "agreement package searches the preferred Chapter 1 result root first. "
+            "Used only when --xgb-source=recalibrated."
+        ),
+    )
+    parser.add_argument(
+        "--preferred-result-kind",
+        choices=[
+            RESULT_ROOT_KIND_CLUSTER_EXPORT,
+            RESULT_ROOT_KIND_SYNTHETIC_LOCAL,
+        ],
+        default=RESULT_ROOT_KIND_CLUSTER_EXPORT,
+        help=(
+            "Preferred Chapter 1 result tier to search when input roots are omitted. "
+            "cluster_export looks under cluster-results first; synthetic_local prefers artifacts/chapter1."
+        ),
+    )
+    parser.add_argument(
+        "--no-input-root-fallback",
+        action="store_true",
+        help=(
+            "When resolving default input roots, do not fall back to the other result tier "
+            "if the preferred tier is missing required saved artifacts."
+        ),
     )
     parser.add_argument(
         "--xgb-recalibration-method",
@@ -784,25 +1133,69 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
-    result = run_asic_hard_case_agreement_sensitivity(
-        logistic_input_root=args.logistic_input_root,
-        xgb_recalibration_root=args.xgb_recalibration_root,
-        xgb_recalibration_method=args.xgb_recalibration_method,
-        output_dir=args.output_dir,
-        horizons=args.horizons,
-        output_format=args.output_format,
-    )
+    if args.xgb_source == XGB_SOURCE_BASELINE:
+        if args.xgb_recalibration_root is not None:
+            raise ValueError(
+                "--xgb-recalibration-root is only valid when --xgb-source=recalibrated."
+            )
+        result = run_asic_hard_case_agreement_baseline(
+            logistic_input_root=args.logistic_input_root,
+            xgb_input_root=args.xgb_input_root,
+            output_dir=args.output_dir,
+            horizons=args.horizons,
+            output_format=args.output_format,
+            preferred_result_kind=args.preferred_result_kind,
+            allow_input_root_fallback=not args.no_input_root_fallback,
+        )
+    else:
+        if args.xgb_input_root is not None:
+            raise ValueError("--xgb-input-root is only valid when --xgb-source=baseline.")
+        result = run_asic_hard_case_agreement_sensitivity(
+            logistic_input_root=args.logistic_input_root,
+            xgb_recalibration_root=args.xgb_recalibration_root,
+            xgb_recalibration_method=args.xgb_recalibration_method,
+            output_dir=args.output_dir,
+            horizons=args.horizons,
+            output_format=args.output_format,
+            preferred_result_kind=args.preferred_result_kind,
+            allow_input_root_fallback=not args.no_input_root_fallback,
+        )
 
+    print(f"Logistic input root: {result.logistic_input_root}")
+    print(
+        "Logistic input root resolution: "
+        f"{result.logistic_input_root_resolution['resolution_strategy']}"
+        + (
+            f" ({result.logistic_input_root_resolution['selected_result_kind']})"
+            if result.logistic_input_root_resolution["selected_result_kind"] is not None
+            else ""
+        )
+    )
+    print(f"Comparator source: {result.comparator_source}")
+    print(f"Comparator input root: {result.comparator_input_root}")
+    print(
+        "Comparator input root resolution: "
+        f"{result.comparator_input_root_resolution['resolution_strategy']}"
+        + (
+            f" ({result.comparator_input_root_resolution['selected_result_kind']})"
+            if result.comparator_input_root_resolution["selected_result_kind"] is not None
+            else ""
+        )
+    )
+    if result.comparator_recalibration_method is not None:
+        print(f"Comparator recalibration method: {result.comparator_recalibration_method}")
     print(f"Stay-level agreement artifact: {result.artifacts.stay_level_path}")
     print(f"Horizon summary artifact: {result.artifacts.horizon_summary_path}")
     print(f"Run manifest: {result.artifacts.manifest_path}")
     for row in result.horizon_summary.itertuples(index=False):
         warning_text = row.warning_reason if isinstance(row.warning_reason, str) and row.warning_reason else "none"
+        comparator_hard = getattr(row, f"n_{result.comparator_prefix}_hard")
+        comparator_only = getattr(row, f"n_{result.comparator_prefix}_only")
         print(
             f"horizon {int(row.horizon_h)}h -> matched_fatal={int(row.n_fatal_with_both_models_available)}, "
-            f"logistic_hard={int(row.n_logistic_hard)}, xgb_recal_hard={int(row.n_xgb_recal_hard)}, "
+            f"logistic_hard={int(row.n_logistic_hard)}, {result.comparator_prefix}_hard={int(comparator_hard)}, "
             f"both={int(row.n_both_hard)}, logistic_only={int(row.n_logistic_only)}, "
-            f"xgb_only={int(row.n_xgb_recal_only)}, jaccard="
+            f"{result.comparator_prefix}_only={int(comparator_only)}, jaccard="
             f"{float(row.jaccard_hard_case_overlap) if pd.notna(row.jaccard_hard_case_overlap) else float('nan'):.3f}, "
             f"warnings: {warning_text}"
         )

@@ -21,6 +21,8 @@ ORDERED_CATEGORIES = (
 )
 
 DISCOVERY_ROOTS = (
+    Path("cluster-results") / "chapter1_true_results" / "evaluation" / "asic",
+    Path("cluster-results") / "chapter1_true_results" / "temporal_preview" / "asic",
     Path("artifacts") / "chapter1" / "evaluation" / "asic",
     Path("artifacts") / "chapter1" / "temporal_preview" / "asic",
     Path("docs"),
@@ -60,72 +62,95 @@ SELF_OUTPUT_NAMES = {
 
 KEY_ARTIFACT_SUFFIXES: dict[str, tuple[str, ...]] = {
     "hard_case_manifest": (
+        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/run_manifest.json",
         "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/run_manifest.json",
     ),
     "hard_case_summary": (
+        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/horizon_hard_case_summary.csv",
         "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/horizon_hard_case_summary.csv",
     ),
     "stay_level_flags": (
+        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/stay_level_hard_case_flags.csv",
         "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/stay_level_hard_case_flags.csv",
     ),
     "comparison_manifest": (
+        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/run_manifest.json",
         "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/run_manifest.json",
     ),
     "comparison_table": (
+        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/comparison_table.csv",
         "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/comparison_table.csv",
     ),
     "comparison_summary": (
+        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/summary.md",
         "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/summary.md",
     ),
     "comparison_figure": (
+        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/effect_size_figure.png",
         "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/effect_size_figure.png",
     ),
     "comparison_details": (
+        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/standardized_difference_details.csv",
         "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison/standardized_difference_details.csv",
     ),
     "variable_audit_memo": (
+        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison_variable_audit/asic_hard_case_comparison_variable_audit_memo.md",
         "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison_variable_audit/asic_hard_case_comparison_variable_audit_memo.md",
     ),
     "variable_audit_table": (
+        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison_variable_audit/asic_hard_case_comparison_variable_audit_table.csv",
         "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_hard_case_comparison_variable_audit/asic_hard_case_comparison_variable_audit_table.csv",
     ),
     "sofa_feasibility_memo": (
+        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_sofa_feasibility_audit/sofa_feasibility_memo.md",
         "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/logistic_regression/asic_sofa_feasibility_audit/sofa_feasibility_memo.md",
     ),
     "agreement_summary": (
-        "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/agreement/logistic_regression_vs_xgboost_platt/horizon_hard_case_agreement_summary.csv",
+        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/primary_medians/agreement/logistic_regression_vs_xgboost/horizon_hard_case_agreement_summary.csv",
+        "artifacts/chapter1/evaluation/asic/hard_cases/primary_medians/agreement/logistic_regression_vs_xgboost/horizon_hard_case_agreement_summary.csv",
     ),
     "horizon_foundation_summary": (
+        "cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/foundation/horizon_summary.csv",
         "artifacts/chapter1/evaluation/asic/horizon_dependence/foundation/horizon_summary.csv",
     ),
     "horizon_foundation_note": (
+        "cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/foundation/artifact_foundation_note.md",
         "artifacts/chapter1/evaluation/asic/horizon_dependence/foundation/artifact_foundation_note.md",
     ),
     "overlap_note": (
+        "cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/overlap/overlap_note.md",
         "artifacts/chapter1/evaluation/asic/horizon_dependence/overlap/overlap_note.md",
     ),
     "pairwise_overlap": (
+        "cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/overlap/pairwise_overlap.csv",
         "artifacts/chapter1/evaluation/asic/horizon_dependence/overlap/pairwise_overlap.csv",
     ),
     "pairwise_denominators": (
+        "cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/overlap/pairwise_denominators.csv",
         "artifacts/chapter1/evaluation/asic/horizon_dependence/overlap/pairwise_denominators.csv",
     ),
     "hard_case_persistence": (
+        "cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/overlap/hard_case_persistence.csv",
         "artifacts/chapter1/evaluation/asic/horizon_dependence/overlap/hard_case_persistence.csv",
     ),
     "horizon_final_manifest": (
+        "cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/final/run_manifest.json",
         "artifacts/chapter1/evaluation/asic/horizon_dependence/final/run_manifest.json",
     ),
     "horizon_final_summary": (
+        "cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/final/final_horizon_summary.md",
         "artifacts/chapter1/evaluation/asic/horizon_dependence/final/final_horizon_summary.md",
     ),
     "horizon_memo": (
+        "cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/final/horizon_interpretation_memo.md",
         "artifacts/chapter1/evaluation/asic/horizon_dependence/final/horizon_interpretation_memo.md",
     ),
     "horizon_figure": (
+        "cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/final/mortality_risk_horizon_comparison.png",
         "artifacts/chapter1/evaluation/asic/horizon_dependence/final/mortality_risk_horizon_comparison.png",
     ),
     "horizon_binned_summary": (
+        "cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/final/mortality_risk_horizon_binned_summary.csv",
         "artifacts/chapter1/evaluation/asic/horizon_dependence/final/mortality_risk_horizon_binned_summary.csv",
     ),
 }
@@ -163,6 +188,7 @@ class ReviewContext:
     inventory: pd.DataFrame
     key_artifacts: dict[str, Path | None]
     search_roots: tuple[str, ...]
+    preferred_result_kind: str
     hard_case_rule: str | None
     target_horizon_label: str | None
     comparison_group_counts: dict[str, int]
@@ -175,6 +201,18 @@ class ReviewContext:
     synthetic_local_outputs: bool
     descriptive_core_assessment: str
     decomposition_decision: str
+
+
+def _infer_preferred_result_kind(key_artifacts: dict[str, Path | None], repo_root: Path) -> str:
+    for path in key_artifacts.values():
+        if path is None:
+            continue
+        rendered = _display_path(path, repo_root)
+        if rendered.startswith("cluster-results/"):
+            return "cluster_export"
+        if rendered.startswith("artifacts/"):
+            return "synthetic_local"
+    return "not_found"
 
 
 def _display_path(path: Path | None, repo_root: Path) -> str:
@@ -195,7 +233,10 @@ def _is_relevant_path(relative_path: str) -> bool:
     if any(path_lower.endswith(name) for name in SELF_OUTPUT_NAMES):
         return False
 
-    if path_lower.startswith("artifacts/chapter1/evaluation/asic/hard_cases/"):
+    if path_lower.startswith((
+        "artifacts/chapter1/evaluation/asic/hard_cases/",
+        "cluster-results/chapter1_true_results/evaluation/asic/hard_cases/",
+    )):
         return any(
             token in path_lower
             for token in (
@@ -213,7 +254,10 @@ def _is_relevant_path(relative_path: str) -> bool:
             )
         )
 
-    if path_lower.startswith("artifacts/chapter1/evaluation/asic/horizon_dependence/"):
+    if path_lower.startswith((
+        "artifacts/chapter1/evaluation/asic/horizon_dependence/",
+        "cluster-results/chapter1_true_results/evaluation/asic/horizon_dependence/",
+    )):
         return any(
             token in path_lower
             for token in (
@@ -227,7 +271,10 @@ def _is_relevant_path(relative_path: str) -> bool:
             )
         )
 
-    if path_lower.startswith("artifacts/chapter1/evaluation/asic/baselines/"):
+    if path_lower.startswith((
+        "artifacts/chapter1/evaluation/asic/baselines/",
+        "cluster-results/chapter1_true_results/evaluation/asic/baselines/",
+    )):
         name_lower = Path(relative_path).name.lower()
         return name_lower in {
             "interpretation_note.md",
@@ -235,7 +282,10 @@ def _is_relevant_path(relative_path: str) -> bool:
             "horizon_comparison_plot.png",
         }
 
-    if path_lower.startswith("artifacts/chapter1/temporal_preview/asic/"):
+    if path_lower.startswith((
+        "artifacts/chapter1/temporal_preview/asic/",
+        "cluster-results/chapter1_true_results/temporal_preview/asic/",
+    )):
         return "/comparison/" in path_lower and any(
             token in path_lower for token in ("comparison", "preview_note", "8h_vs_16h")
         )
@@ -687,7 +737,7 @@ def _risk_highlights(
             row = anchor_row.iloc[0]
             risks.append(
                 "Cross-model hard-case agreement is limited at 24h: "
-                f"logistic vs recalibrated XGBoost Jaccard {float(row['jaccard_hard_case_overlap']):.2f} "
+                f"logistic vs baseline XGBoost Jaccard {float(row['jaccard_hard_case_overlap']):.2f} "
                 f"with logistic-hard confirmation by XGBoost {float(row['pct_logistic_hard_confirmed_by_xgb']):.2f}."
             )
 
@@ -738,9 +788,12 @@ def _decision_findings(
 
     comparison_paths = [
         _display_path(key_artifacts.get(name), repo_root)
-        for name in ("comparison_table", "comparison_details", "variable_audit_table")
+        for name in ("comparison_table", "variable_audit_table")
         if key_artifacts.get(name) is not None
     ]
+    optional_detail_path = key_artifacts.get("comparison_details")
+    if optional_detail_path is not None:
+        comparison_paths.append(_display_path(optional_detail_path, repo_root))
     if comparison_paths:
         findings.append(
             "Main comparison table paths: " + ", ".join(f"`{path}`" for path in comparison_paths) + "."
@@ -790,6 +843,7 @@ def build_review_context(repo_root: Path) -> ReviewContext:
     repo_root = repo_root.resolve()
     inventory = discover_viability_artifacts(repo_root)
     key_artifacts = _locate_key_artifacts(repo_root, inventory)
+    preferred_result_kind = _infer_preferred_result_kind(key_artifacts, repo_root)
 
     hard_case_manifest = _read_json(key_artifacts.get("hard_case_manifest"))
     comparison_manifest = _read_json(key_artifacts.get("comparison_manifest"))
@@ -826,10 +880,19 @@ def build_review_context(repo_root: Path) -> ReviewContext:
     hard_case_rule = (
         hard_case_manifest.get("hard_case_rule")
         or comparison_manifest.get("hard_case_rule")
+        or _extract_backticked_value(comparison_summary_text, "Hard-case anchor")
         or None
     )
 
     target_horizon_h = comparison_manifest.get("target_horizon_h")
+    if target_horizon_h is None:
+        summary_horizon_match = re.search(
+            r"Fatal\s+(\d+)h stay-level comparison dataset",
+            comparison_summary_text,
+            flags=re.IGNORECASE,
+        )
+        if summary_horizon_match:
+            target_horizon_h = int(summary_horizon_match.group(1))
     target_horizon_label = f"{int(target_horizon_h)}h" if target_horizon_h is not None else "24h"
 
     comparison_group_counts = _comparison_group_counts(comparison_manifest, comparison_summary_text)
@@ -879,6 +942,7 @@ def build_review_context(repo_root: Path) -> ReviewContext:
         inventory=inventory,
         key_artifacts=key_artifacts,
         search_roots=existing_search_roots,
+        preferred_result_kind=preferred_result_kind,
         hard_case_rule=hard_case_rule,
         target_horizon_label=target_horizon_label,
         comparison_group_counts=comparison_group_counts,
@@ -1114,17 +1178,37 @@ def render_evidence_pack(context: ReviewContext) -> str:
         "- No expected-item gaps were detected in the searched roots."
     ]
 
-    purpose_paragraph = (
-        "This document compresses the existing ASIC Sprint 3 hard-case and horizon-dependence artifacts into a short review pack for Issue 3.4. "
-        "It is intentionally bounded to located artifacts and does not rerun the analyses. "
-        "The discovered notes explicitly mark the local numbers as synthetic stand-in outputs, so this pack is for workflow and argument structure rather than scientific inference."
-    )
+    if context.synthetic_local_outputs:
+        purpose_paragraph = (
+            "This document compresses the existing ASIC Sprint 3 hard-case and horizon-dependence artifacts into a short review pack for Issue 3.4. "
+            "It is intentionally bounded to located artifacts and does not rerun the analyses. "
+            "The discovered notes explicitly mark the local numbers as synthetic stand-in outputs, so this pack is for workflow and argument structure rather than scientific inference."
+        )
+    else:
+        purpose_paragraph = (
+            "This document compresses the existing ASIC Sprint 3 hard-case and horizon-dependence artifacts into a short review pack for Issue 3.4. "
+            "It is intentionally bounded to located artifacts and does not rerun the analyses. "
+            "When the active result tier is a mirrored cluster export, this pack is intended for local scientific review of the approved aggregate outputs."
+        )
+    source_mode_lookup = {
+        "cluster_export": "cluster export",
+        "synthetic_local": "synthetic local fallback",
+        "not_found": "no resolved result tier",
+    }
+    review_mode_lines = [
+        f"- Active result tier: `{source_mode_lookup.get(context.preferred_result_kind, context.preferred_result_kind)}`.",
+        "- Local hard-case-comparison review is aggregate-only: use `comparison_table.csv`, `effect_size_plot_data.csv`, `summary.md`, the effect-size figure, approved early-vs-late outputs, and the paired variable-audit exports.",
+        "- Do not treat `stay_level_comparison_dataset.csv` or other restricted row-level reconstruction tables as normal local review inputs. Those remain cluster-side unless a separate export is explicitly approved.",
+    ]
 
     sections = [
         "# Sprint 3 ASIC Viability Evidence Pack",
         "",
         "## Purpose",
         purpose_paragraph,
+        "",
+        "## Review mode",
+        *review_mode_lines,
         "",
         "## Evidence located",
         *evidence_lines,
@@ -1199,11 +1283,23 @@ def render_memo_draft(context: ReviewContext) -> str:
         "Does the current ASIC hard-case and horizon artifact set already support Chapter 1 as a descriptive hard-case chapter, "
         "and should decomposition remain in scope?"
     )
+    source_mode_lookup = {
+        "cluster_export": "cluster export",
+        "synthetic_local": "synthetic local fallback",
+        "not_found": "no resolved result tier",
+    }
+    synthetic_clause = (
+        " The same hard-case, foundation, overlap, and final-horizon notes explicitly state that the local values come from synthetic stand-in data."
+        if context.synthetic_local_outputs
+        else " The reviewed artifacts are treated as the approved local aggregate bundle rather than as a row-level reconstruction."
+    )
     evidence_summary = (
         f"The located artifact set documents a frozen hard-case rule (`{context.hard_case_rule or 'not found'}`), {counts_text} "
         f"{horizon_text} The saved horizon interpretation memo and figure are `{_display_path(context.key_artifacts.get('horizon_memo'), repo_root)}` "
         f"and `{_display_path(context.key_artifacts.get('horizon_figure'), repo_root)}`.{agreement_sentence} "
-        "The same hard-case, foundation, overlap, and final-horizon notes explicitly state that the local values come from synthetic stand-in data."
+        f"The active local review tier is `{source_mode_lookup.get(context.preferred_result_kind, context.preferred_result_kind)}`. "
+        "For the hard-case comparison slice, the intended local review contract is aggregate-only rather than row-level: the stay-level comparison dataset remains cluster-side unless separately approved."
+        f"{synthetic_clause}"
     )
     descriptive_core = (
         "Provisionally yes, as a bounded descriptive core. "
@@ -1310,10 +1406,17 @@ from chapter1_mortality_decomposition.ch1_asic_descriptive_viability import (
 
 context = build_review_context(REPO_ROOT)
 inventory = context.inventory.copy()
+source_mode_lookup = {
+    "cluster_export": "cluster export",
+    "synthetic_local": "synthetic local fallback",
+    "not_found": "no resolved result tier",
+}
 
 display(Markdown(f"**Repo root:** `{REPO_ROOT}`"))
 display(Markdown("**Search roots:** " + ", ".join(f"`{root}`" for root in context.search_roots)))
 display(Markdown(f"**Discovered candidate artifacts:** `{len(inventory)}`"))
+display(Markdown(f"**Active result tier:** `{source_mode_lookup.get(context.preferred_result_kind, context.preferred_result_kind)}`"))
+display(Markdown("**Hard-case comparison local review mode:** aggregate-only approved exports; row-level comparison datasets remain cluster-side unless explicitly approved."))
 """
 
     grouped_listing_code = """for category in ORDERED_CATEGORIES:
