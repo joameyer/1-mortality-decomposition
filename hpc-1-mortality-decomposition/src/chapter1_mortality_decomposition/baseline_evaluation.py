@@ -138,6 +138,7 @@ def _display_model_name(model_name: str) -> str:
     return {
         "logistic_regression": "Logistic Regression",
         "xgboost": "XGBoost",
+        "feedforward_nn": "Feedforward NN",
     }.get(model_name, model_name.replace("_", " ").title())
 
 
