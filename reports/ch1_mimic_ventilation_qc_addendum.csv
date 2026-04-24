@@ -1,0 +1,19 @@
+summary_family,metric,value,denominator,note
+edge_case_count,retained_icu_los_hours_lt_24_count,1.0,10648,Retained stays with ICU LOS under 24h despite invasive ventilation >=24h.
+edge_case_count,retained_total_invasive_hours_gt_icu_los_count,164.0,10648,Retained stays where summed invasive procedure duration exceeds ICU LOS by any amount.
+edge_case_count,retained_total_invasive_hours_gt_icu_los_plus_2_count,6.0,10648,Retained stays where summed invasive procedure duration exceeds ICU LOS by more than 2 hours.
+edge_case_count,retained_total_invasive_hours_gt_icu_los_plus_4_count,0.0,10648,Retained stays exceeding the current +4h QC guard; should be zero in the retained cohort.
+edge_case_count,retained_invasive_and_noninvasive_episode_count,632.0,10648,Retained stays with both invasive and non-invasive procedure episodes present; non-invasive time is context only.
+invasive_minus_los_hours_distribution,invasive_minus_los_hours_count,10648.0,10648,Distribution of total_invasive_hours - icu_los_hours in retained stays.
+invasive_minus_los_hours_distribution,invasive_minus_los_hours_min,-3743.003333330155,10648,Distribution of total_invasive_hours - icu_los_hours in retained stays.
+invasive_minus_los_hours_distribution,invasive_minus_los_hours_p25,-83.9489583335817,10648,Distribution of total_invasive_hours - icu_los_hours in retained stays.
+invasive_minus_los_hours_distribution,invasive_minus_los_hours_median,-39.64875000156462,10648,Distribution of total_invasive_hours - icu_los_hours in retained stays.
+invasive_minus_los_hours_distribution,invasive_minus_los_hours_p75,-13.8079861085862,10648,Distribution of total_invasive_hours - icu_los_hours in retained stays.
+invasive_minus_los_hours_distribution,invasive_minus_los_hours_max,3.5966666601598263,10648,Distribution of total_invasive_hours - icu_los_hours in retained stays.
+invasive_episode_count_distribution,invasive_episode_count_1,8979.0,10648,Distribution of invasive ventilation procedure episode counts per retained stay.
+invasive_episode_count_distribution,invasive_episode_count_2,1340.0,10648,Distribution of invasive ventilation procedure episode counts per retained stay.
+invasive_episode_count_distribution,invasive_episode_count_3,250.0,10648,Distribution of invasive ventilation procedure episode counts per retained stay.
+invasive_episode_count_distribution,invasive_episode_count_4,60.0,10648,Distribution of invasive ventilation procedure episode counts per retained stay.
+invasive_episode_count_distribution,invasive_episode_count_5,13.0,10648,Distribution of invasive ventilation procedure episode counts per retained stay.
+invasive_episode_count_distribution,invasive_episode_count_6,3.0,10648,Distribution of invasive ventilation procedure episode counts per retained stay.
+invasive_episode_count_distribution,invasive_episode_count_7,3.0,10648,Distribution of invasive ventilation procedure episode counts per retained stay.

@@ -1,0 +1,14 @@
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+allow_login_shell = false
+
+default_permissions = "workspace"
+
+[permissions.workspace.filesystem]
+":project_roots" = { "." = "write", "**/*.env" = "none", "**/.env*" = "none", "**/*secret*" = "none" }
+glob_scan_max_depth = 4
+
+"/Users/joanameyer/data/mimic-iv/**" = "none"
+"/Users/joanameyer/repository/icu-mortality-last72h/**" = "none"
+"/Users/joanameyer/.ssh/**" = "none"
+"/Users/joanameyer/.config/**" = "none"

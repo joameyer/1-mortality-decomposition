@@ -1,0 +1,7 @@
+step_order,flow_step,retained_count,excluded_from_previous,step_note
+1,total_icu_stays_considered,94458,,All ICU stays in icu.icustays joined to patients and admissions.
+2,age_ge_18_retained,94458,0,Retain age_at_icu_intime >= 18.
+3,first_icu_stay_retained,65366,29092,Retain stay_rank = 1 per subject.
+4,invasive_vent_ge_24h_retained,10760,54606,Retain total invasive ventilation hours >= 24 using itemid 225792 only.
+5,ventilation_qc_guard_retained,10648,112,Retain total_invasive_hours <= icu_los_hours + 4.
+6,final_retained_stay_level_cohort_count,10648,0,Final 5.1.b1 stay-level cohort; valid prediction-instance eligibility deferred.

@@ -1,0 +1,32 @@
+asic_base_variable,final_role,freeze_decision,freeze_note
+heart_rate,shared_primary,direct_or_near_direct,Retained as shared-primary direct heart-rate mapping.
+sbp,shared_primary,direct_or_near_direct,Retained as shared-primary direct blood-pressure mapping with invasive/non-invasive source handling deferred to preprocessing.
+map,shared_primary,direct_or_near_direct,Retained as shared-primary direct MAP mapping with invasive/non-invasive source handling deferred to preprocessing.
+dbp,shared_primary,direct_or_near_direct,Retained as shared-primary direct blood-pressure mapping with invasive/non-invasive source handling deferred to preprocessing.
+resp_rate,shared_primary,direct_or_near_direct,Retained as shared-primary direct respiratory-rate mapping; avoid ventilator set-rate substitution.
+core_temp,shared_primary,proxy_retained,"Retained as shared-primary proxy: MIMIC generic temperature exists, but core-temperature equivalence is not proven without site/provenance restriction."
+spo2,shared_primary,direct_or_near_direct,Retained as shared-primary direct pulse-oximetry mapping.
+sao2,shared_primary,accepted_asymmetry_retained,"Retained as shared-primary accepted asymmetry: arterial-labeled chart candidate exists, but broader blood-gas saturation use remains context-dependent."
+fio2,shared_primary,direct_or_near_direct,Retained as shared-primary direct/near-direct FiO2 mapping with percent/fraction normalization caution.
+peep,shared_primary,direct_or_near_direct,Retained as shared-primary direct ventilator setting mapping with source-variant caution.
+vt,shared_primary,accepted_asymmetry_retained,"Retained as shared-primary accepted asymmetry: 224684 Tidal Volume (set) is preferred, with observed/spontaneous variants only as explicit fallback/sensitivity sources."
+vt_per_kg_ibw,shared_primary,derived_only,Retained as shared-primary derived-only: compute from accepted VT source plus explicit IBW derivation from height and sex/gender support.
+etco2,shared_primary,direct_or_near_direct,Retained as shared-primary direct/near-direct EtCO2 mapping; risk remains coverage/unit-metadata rather than concept mismatch.
+pf_ratio,shared_primary,derived_only,Retained as shared-primary derived-only: compute from accepted PaO2 and FiO2 inputs; do not treat optional direct PF item as primary.
+pao2,shared_primary,direct_or_near_direct,Retained as shared-primary direct/near-direct arterial O2 pressure mapping with provenance-aware secondary lab use.
+paco2,shared_primary,direct_or_near_direct,Retained as shared-primary direct/near-direct arterial CO2 pressure mapping with provenance-aware secondary lab use.
+ph_art,shared_primary,direct_or_near_direct,Retained as shared-primary direct semantic mapping when anchored to 223830 PH (Arterial); remaining caution is coverage/provenance only.
+bicarbonate_art,mimic_secondary,demoted_from_shared_primary,"Demoted to MIMIC-secondary: the clean blood-gas candidate is sparse/context-limited and high-coverage serum, APACHE, input, medication, and ingredient alternatives are wrong-context substitutes."
+base_excess_art,shared_primary,direct_or_near_direct,Retained as shared-primary direct/near-direct using 224828 Arterial Base Excess as preferred source; broader lab use remains provenance-aware.
+lactate_art,shared_primary,accepted_asymmetry_retained,Retained as shared-primary accepted asymmetry: blood-gas lactate is usable but arteriality/provenance remains imperfect.
+hemoglobin,shared_primary,direct_or_near_direct,Retained as shared-primary direct/near-direct lab mapping with explicit g/dL-to-mmol/L unit normalization.
+hematocrit,shared_primary,direct_or_near_direct,Retained as shared-primary direct/near-direct lab mapping with mirror-source deduplication handled later.
+wbc,shared_primary,direct_or_near_direct,Retained as shared-primary direct WBC mapping with mirror-source deduplication handled later.
+platelets,shared_primary,direct_or_near_direct,Retained as shared-primary direct platelet-count mapping with unit-label equivalence.
+inr,shared_primary,direct_or_near_direct,Retained as shared-primary direct coagulation mapping.
+ptt,shared_primary,direct_or_near_direct,Retained as shared-primary direct coagulation mapping.
+albumin,shared_primary,direct_or_near_direct,Retained as shared-primary near-direct chemistry mapping after unit alignment; source/coverage handling remains ordinary preprocessing work.
+crp,shared_primary,direct_or_near_direct,Retained as shared-primary near-direct despite sparse/variant-source caution; standard versus high-sensitivity handling remains explicit.
+bilirubin_total,shared_primary,direct_or_near_direct,Retained as shared-primary near-direct chemistry mapping with explicit mg/dL-to-umol/L unit normalization.
+urea,shared_primary,proxy_retained,Retained as shared-primary proxy: MIMIC sources are Urea Nitrogen/BUN and require analyte/unit conversion rather than native Harnstoff equivalence.
+creatinine,shared_primary,direct_or_near_direct,Retained as shared-primary near-direct chemistry mapping with explicit mg/dL-to-umol/L unit normalization.

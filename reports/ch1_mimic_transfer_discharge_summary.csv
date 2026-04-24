@@ -1,0 +1,48 @@
+summary_family,summary_value,count,note
+discharge_location_distribution,(missing),16,Distribution in retained 5.1.b1 stay-level cohort.
+discharge_location_distribution,ACUTE HOSPITAL,160,Distribution in retained 5.1.b1 stay-level cohort.
+discharge_location_distribution,AGAINST ADVICE,49,Distribution in retained 5.1.b1 stay-level cohort.
+discharge_location_distribution,ASSISTED LIVING,3,Distribution in retained 5.1.b1 stay-level cohort.
+discharge_location_distribution,CHRONIC/LONG TERM ACUTE CARE,1500,Distribution in retained 5.1.b1 stay-level cohort.
+discharge_location_distribution,DIED,2850,Distribution in retained 5.1.b1 stay-level cohort.
+discharge_location_distribution,HEALTHCARE FACILITY,3,Distribution in retained 5.1.b1 stay-level cohort.
+discharge_location_distribution,HOME,1025,Distribution in retained 5.1.b1 stay-level cohort.
+discharge_location_distribution,HOME HEALTH CARE,1452,Distribution in retained 5.1.b1 stay-level cohort.
+discharge_location_distribution,HOSPICE,231,Distribution in retained 5.1.b1 stay-level cohort.
+discharge_location_distribution,OTHER FACILITY,38,Distribution in retained 5.1.b1 stay-level cohort.
+discharge_location_distribution,PSYCH FACILITY,119,Distribution in retained 5.1.b1 stay-level cohort.
+discharge_location_distribution,REHAB,1509,Distribution in retained 5.1.b1 stay-level cohort.
+discharge_location_distribution,SKILLED NURSING FACILITY,1693,Distribution in retained 5.1.b1 stay-level cohort.
+same_hadm_later_icu_stay_count,retained_first_stays_with_later_icu_stay_same_hadm,1127,Verifies stays are not merged; later ICU stays in the same hospitalization are not part of the retained first-stay cohort.
+first_careunit_distribution,Cardiac Vascular Intensive Care Unit (CVICU),1283,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,Coronary Care Unit (CCU),875,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,Intensive Care Unit (ICU),12,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,Medical Intensive Care Unit (MICU),2782,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,Medical/Surgical Intensive Care Unit (MICU/SICU),1363,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,Medicine,12,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,Medicine/Cardiology Intermediate,1,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,Neuro Intermediate,217,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,Neuro Stepdown,83,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,Neuro Surgical Intensive Care Unit (Neuro SICU),342,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,Neurology,1,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,PACU,10,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,Surgery/Trauma,3,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,Surgery/Vascular/Intermediate,75,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,Surgical Intensive Care Unit (SICU),1779,Careunit context only; not used to redefine or merge ICU stays.
+first_careunit_distribution,Trauma SICU (TSICU),1810,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Cardiac Vascular Intensive Care Unit (CVICU),1283,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Coronary Care Unit (CCU),875,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Intensive Care Unit (ICU),12,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Medical Intensive Care Unit (MICU),2782,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Medical/Surgical Intensive Care Unit (MICU/SICU),1363,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Medicine,12,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Medicine/Cardiology Intermediate,1,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Neuro Intermediate,217,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Neuro Stepdown,83,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Neuro Surgical Intensive Care Unit (Neuro SICU),342,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Neurology,1,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,PACU,10,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Surgery/Trauma,3,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Surgery/Vascular/Intermediate,75,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Surgical Intensive Care Unit (SICU),1779,Careunit context only; not used to redefine or merge ICU stays.
+last_careunit_distribution,Trauma SICU (TSICU),1810,Careunit context only; not used to redefine or merge ICU stays.

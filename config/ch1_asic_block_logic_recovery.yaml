@@ -1,0 +1,85 @@
+version: ch1_asic_block_logic_recovery_v1
+purpose: >
+  Recovered authoritative ASIC Chapter 1 8h block-construction logic for later
+  MIMIC 5.1.b2 mirroring.
+source_of_truth:
+  block_construction:
+    file: src/chapter1_mortality_decomposition/temporal_blocks.py
+    functions:
+      - build_asic_temporal_block_artifacts
+      - _build_stay_block_counts
+      - _build_block_index
+      - _build_blocked_dynamic_features
+  frozen_8h_artifact_loading:
+    file: src/chapter1_mortality_decomposition/artifacts.py
+    function: load_chapter1_inputs
+  valid_instances:
+    file: src/chapter1_mortality_decomposition/instances.py
+    function: build_chapter1_valid_instances
+  labels:
+    file: src/chapter1_mortality_decomposition/labels.py
+    function: build_chapter1_proxy_horizon_labels
+  config:
+    file: config/ch1_run_config.json
+block_logic:
+  anchor: elapsed_hours_since_icu_admission_from_dynamic_harmonized_time
+  upstream_boundary: >
+    dynamic_harmonized.time and icu_end_time_proxy_hours are produced upstream
+    and are treated as authoritative inputs by this repo.
+  frozen_block_width_hours: 8
+  interval_convention: half_open_start_inclusive_end_exclusive
+  row_assignment: block_index = floor(time_h / block_hours), for time_h >= 0
+  exact_boundary_assignment: exact block-end times assign to the next block
+  completed_block_count: floor(icu_end_time_proxy_hours / block_hours)
+  block_indices: 0 through completed_block_count - 1
+  prediction_time: prediction_time_h = block_end_h
+  exact_icu_end_boundary: preceding block is included and boundary flag is set
+valid_instance_logic:
+  still_in_icu_check: block_end_h <= icu_end_time_proxy_hours
+  check_is_strict: false
+  current_block_sufficiency_stage: valid_instance_filtering
+  min_required_core_groups: 3
+  core_groups:
+    cardiac_rate:
+      - heart_rate
+    blood_pressure:
+      - map
+      - sbp
+      - dbp
+    respiratory:
+      - resp_rate
+    oxygenation:
+      - spo2
+      - sao2
+label_logic_boundary:
+  strict_prediction_before_proxy_end: event_time_proxy_h > prediction_time_h
+  positive_window: "(prediction_time_h, prediction_time_h + horizon_h]"
+aggregation:
+  block_count_columns:
+    - dynamic_row_count
+    - non_missing_measurements_in_block
+    - observed_variables_in_block
+  per_variable_statistics:
+    - obs_count
+    - mean
+    - median
+    - min
+    - max
+    - last
+  last_sort_order:
+    - hospital_id
+    - stay_id_global
+    - block_index
+    - time_h
+    - source_row_order
+deferred_beyond_block_construction:
+  - retained_cohort_rules
+  - valid_prediction_instance_filtering
+  - current_block_core_vital_group_sufficiency
+  - horizon_labelability
+  - bounded_carry_forward_locf
+  - observation_process_features
+  - feature_set_selection
+  - model_ready_table_construction
+  - train_validation_test_splits
+  - model_fitting

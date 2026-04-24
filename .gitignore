@@ -22,6 +22,9 @@ outputs/
 *.parquet
 *.feather
 *.csv
+!config/ch1_asic_feature_contract.csv
+!config/ch1_asic_to_mimic_variable_map.csv
+!config/ch1_unit_alignment_reference.csv
 *.xlsx
 *.pkl
 
@@ -29,3 +32,23 @@ outputs/
 .mypy_cache/
 .coverage
 htmlcov/
+
+!config/ch1_itemid_crosscheck_reference.csv
+!config/ch1_mimic_feature_freeze.csv
+!config/ch1_asic_block_logic_recovery.yaml
+
+!reports/ch1_mimic_cohort_flow.csv
+!reports/ch1_mimic_cohort_qc_summary.csv
+!reports/ch1_mimic_transfer_discharge_summary.csv
+!reports/ch1_mimic_ventilation_qc_addendum.csv
+!reports/ch1_mimic_variable_audit_overview.csv
+!reports/ch1_mimic_temperature_audit.csv
+!reports/ch1_mimic_blood_gas_audit.csv
+!reports/ch1_mimic_vt_audit.csv
+!reports/ch1_mimic_bicarbonate_audit.csv
+!reports/ch1_mimic_urea_audit.csv
+!reports/ch1_mimic_derived_readiness_audit.csv
+!reports/ch1_mimic_block_qc_summary.csv
+!reports/ch1_mimic_block_source_counts.csv
+!reports/ch1_mimic_block_edge_cases.csv
+!reports/ch1_mimic_block_source_resolution_summary.csv

@@ -1,0 +1,13 @@
+mimic_root: data/mimic-iv-demo # Run on full --mimic-root /Users/joanameyer/data/mimic-iv/mimic-iv-3.1
+reports_dir: reports
+cohort_path: data/processed/ch1_mimic_stay_level_cohort.csv
+mapping_path: config/ch1_asic_to_mimic_variable_map.csv
+# Demo-derived block artifacts may be written in-repo. For full MIMIC, pass
+# --processed-output-root outside this repo, e.g.
+# /Users/joanameyer/data/mimic-iv/mimic-iv-3.1/1-mortality-decomposition/ch1/processed
+processed_output_root: data/processed
+block_index_csv: ch1_mimic_block_index.csv
+blocked_dynamic_features_csv: ch1_mimic_blocked_dynamic_features.csv
+stay_block_counts_csv: ch1_mimic_stay_block_counts.csv
+block_hours: 8
+chunksize: 200000

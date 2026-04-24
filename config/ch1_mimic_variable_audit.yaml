@@ -1,0 +1,8 @@
+mimic_root: data/mimic-iv-demo # Run on full --mimic-root /Users/joanameyer/data/mimic-iv/mimic-iv-3.1
+mapping_csv: config/ch1_asic_to_mimic_variable_map.csv
+crosscheck_csv: config/ch1_itemid_crosscheck_reference.csv
+unit_reference_csv: config/ch1_unit_alignment_reference.csv
+reports_dir: reports
+include_etco2: true
+include_ph_art: true
+chunksize: 200000

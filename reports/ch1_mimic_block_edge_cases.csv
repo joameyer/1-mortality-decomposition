@@ -1,0 +1,55 @@
+edge_case_type,subject_id,hadm_id,stay_id,block_index,value,note
+stay_with_many_empty_completed_blocks,12619068,23109817,39463279,,81,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,13556244,20235620,30229303,,46,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,16093826,27876759,34868320,,19,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,11898417,22671014,36881577,,18,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,16816440,25634666,30641268,,17,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,17635990,22566026,32855999,,17,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,18393728,20538644,30730965,,17,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,12087912,25970490,36310978,,17,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,10665500,27403642,32888627,,14,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,10125865,23139194,39266377,,13,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,10657559,22824315,36730517,,12,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,15797399,28936151,34233731,,10,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,18560897,20044382,39233351,,10,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,19739493,23894396,35788723,,10,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,13723356,20520840,39818322,,9,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,19099515,27434217,33485623,,8,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,18607876,22346737,31242415,,8,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,13798641,25108706,32615287,,7,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,19571265,21122172,32096836,,7,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,12344335,24636092,34912488,,7,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,10545216,21848741,36101867,,7,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,13256226,21659935,37319976,,6,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,11129835,25447858,36471889,,6,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,13697731,28113079,37151963,,5,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,11340773,26496522,38661600,,5,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,16615140,21970111,30104376,,4,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,13977070,26350024,39438562,,4,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,10344732,21118986,33040100,,4,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,18484451,27711099,30637008,,4,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,11321257,21322793,35860455,,4,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,12588901,29256390,30552161,,3,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,18694640,29330360,35737692,,3,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,17028661,23660095,33279548,,3,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,17536748,23517531,38763288,,3,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,15158294,21354706,36927864,,3,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,10173670,21801929,32131292,,3,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,18221252,21596833,39227723,,3,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,17707835,22634512,36551592,,3,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,11922232,29695008,37017015,,2,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,17229926,26829136,39487475,,2,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,17332817,28374187,30455571,,2,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,10326273,23812024,30743673,,2,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,19682968,22000460,30069861,,2,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,14284006,27939593,30356306,,2,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,14566049,24721181,38479636,,2,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,13696954,29740811,36039291,,2,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,12811067,29092434,37058401,,2,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,10909092,23545748,31388244,,2,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,19571102,23689901,32813806,,1,Structurally completed blocks retained despite zero assigned dynamic rows.
+stay_with_many_empty_completed_blocks,17381425,28252841,38736162,,1,Structurally completed blocks retained despite zero assigned dynamic rows.
+raw_rows_exactly_on_8h_boundary,,,,,25209,Rows exactly on an 8h boundary are assigned to the following block.
+raw_rows_skipped_unaligned_timestamp,,,,,0,Rows skipped because charttime could not be aligned.
+raw_rows_dropped_negative_time_h,,,,,197482,Rows before ICU admission were not assigned to blocks.
+raw_rows_landing_beyond_completed_grid,,,,,803526,Rows at or beyond the completed grid were not assigned.

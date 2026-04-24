@@ -1,0 +1,5 @@
+mimic_root: data/mimic-iv-demo # Run on full --mimic-root /Users/joanameyer/data/mimic-iv/mimic-iv-3.1
+reports_dir: reports
+processed_dir: data/processed
+cohort_output_csv: ch1_mimic_stay_level_cohort.csv
+chunksize: 200000

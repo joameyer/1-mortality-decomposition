@@ -1,0 +1,14 @@
+metric,value
+retained_stay_count_entering_block_construction,10648.0
+total_completed_blocks_emitted,285406.0
+stays_with_zero_completed_blocks,0.0
+stays_with_at_least_one_completed_block,10648.0
+completed_blocks_with_zero_dynamic_rows,497.0
+completed_blocks_with_zero_observed_variables,497.0
+raw_rows_dropped_negative_time_h,197482.0
+raw_rows_landing_beyond_completed_grid,803526.0
+raw_rows_exactly_on_8h_boundary,25209.0
+raw_rows_skipped_unaligned_timestamp,0.0
+completed_blocks_per_stay_p25,10.0
+completed_blocks_per_stay_median,18.0
+completed_blocks_per_stay_p75,34.0

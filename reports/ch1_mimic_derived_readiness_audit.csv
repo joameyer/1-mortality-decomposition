@@ -1,0 +1,9 @@
+derived_variable,support_family,candidate_itemids,total_rows,distinct_icu_stays,distinct_hadms,readiness_note
+vt_per_kg_ibw,vt_candidates,224684|224685|224686,1673614,39190,37159,VT candidates exist; final derivation still depends on choosing set vs fallback/sensitivity source.
+vt_per_kg_ibw,height_candidates,226730|226707,87232,43615,42934,Height availability supports later IBW derivation; no patient-level VT/IBW values are exported here.
+vt_per_kg_ibw,weight_context_not_ibw,226512|226531|224639,542695,87392,85166,Weight exists for context/QC but should not replace IBW.
+vt_per_kg_ibw,sex_gender,patients.gender,364627,94458,85242,Aggregated sex/gender availability only; no patient-level records exported.
+pf_ratio,pao2_chart_candidates,220224,420333,42089,39494,Chart PaO2 support; exact PF ratio derivation and timing alignment are intentionally not performed.
+pf_ratio,pao2_lab_candidates,50821,698483,0,82922,Lab pO2 support has admission-level IDs only in labevents; arteriality/provenance remains visible.
+pf_ratio,fio2_candidates,223835,1144289,47142,43735,FiO2 support exists; percent/fraction handling must remain explicit.
+pf_ratio,coarse_chart_stay_overlap_upper_bound,220224|223835,,42089,,Coarse aggregate upper bound from separate stay counts only; no patient-level or timestamp-level PF trajectory computed.
