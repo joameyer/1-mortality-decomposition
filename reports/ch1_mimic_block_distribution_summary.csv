@@ -1,0 +1,10 @@
+metric,value,verification_status,source,note
+completed_blocks_per_stay_min,2.0,verified_directly,read: /Users/joanameyer/data/mimic-iv/mimic-iv-3.1/1-mortality-decomposition/processed/ch1_mimic_stay_block_counts.csv,Computed as an aggregate from stay block counts.
+completed_blocks_per_stay_p25,10.0,verified_directly,read: /Users/joanameyer/data/mimic-iv/mimic-iv-3.1/1-mortality-decomposition/processed/ch1_mimic_stay_block_counts.csv,Computed as an aggregate from stay block counts.
+completed_blocks_per_stay_median,18.0,verified_directly,read: /Users/joanameyer/data/mimic-iv/mimic-iv-3.1/1-mortality-decomposition/processed/ch1_mimic_stay_block_counts.csv,Computed as an aggregate from stay block counts.
+completed_blocks_per_stay_p75,34.0,verified_directly,read: /Users/joanameyer/data/mimic-iv/mimic-iv-3.1/1-mortality-decomposition/processed/ch1_mimic_stay_block_counts.csv,Computed as an aggregate from stay block counts.
+completed_blocks_per_stay_max,479.0,verified_directly,read: /Users/joanameyer/data/mimic-iv/mimic-iv-3.1/1-mortality-decomposition/processed/ch1_mimic_stay_block_counts.csv,Computed as an aggregate from stay block counts.
+total_completed_blocks_emitted,285406.0,verified_directly,read: /Users/joanameyer/repository/1-mortality-decomposition/reports/ch1_mimic_block_qc_summary.csv,Copied from b2 block QC summary.
+completed_blocks_with_zero_dynamic_rows,497.0,verified_directly,read: /Users/joanameyer/repository/1-mortality-decomposition/reports/ch1_mimic_block_qc_summary.csv,Copied from b2 block QC summary.
+completed_blocks_with_zero_observed_variables,497.0,verified_directly,read: /Users/joanameyer/repository/1-mortality-decomposition/reports/ch1_mimic_block_qc_summary.csv,Copied from b2 block QC summary.
+stays_with_at_least_one_completed_block,10648.0,verified_directly,read: /Users/joanameyer/repository/1-mortality-decomposition/reports/ch1_mimic_block_qc_summary.csv,Copied from b2 block QC summary.

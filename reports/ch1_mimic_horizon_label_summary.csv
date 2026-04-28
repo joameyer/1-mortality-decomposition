@@ -1,0 +1,5 @@
+horizon_h,candidate_rows,labeled_rows,positive_rows,negative_rows,unlabeled_rows,positive_rate_among_labeled,status,positive_semantic_violations,negative_semantic_violations,unlabeled_semantic_violations,eventual_non_survivor_outside_horizon_labeled_negative,early_discharged_survivor_labeled_negative
+8,284007,226114,2134,223980,57893,0.009437717257666487,pass,0,0,0,0,0
+16,284007,219913,4313,215600,64094,0.019612301228212975,pass,0,0,0,0,0
+24,284007,213701,6501,207200,70306,0.030421008792658903,pass,0,0,0,0,0
+48,284007,195297,12536,182761,88710,0.06418941407190075,pass,0,0,0,0,0

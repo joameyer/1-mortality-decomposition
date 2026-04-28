@@ -7,9 +7,11 @@ This report documents the 5.1.b1 stay-level MIMIC operationalization of the froz
 ## Data Source
 
 - MIMIC root: `/Users/joanameyer/data/mimic-iv/mimic-iv-3.1`
+- Retained cohort output: `/Users/joanameyer/data/mimic-iv/mimic-iv-3.1/1-mortality-decomposition/processed/ch1_mimic_stay_level_cohort.csv`
 - ICU stays considered: 94458
 - Retained stay-level cohort rows: 10648
 - Retained in-ICU mortality count: 2210
+- Full-MIMIC row-level cohort output must be outside the project repo; aggregated reports may remain under `reports/`.
 
 ## Implemented Gates
 
@@ -43,4 +45,4 @@ Valid prediction-instance eligibility is required later for final Chapter 1 prep
 - `reports/ch1_mimic_cohort_qc_summary.csv`
 - `reports/ch1_mimic_transfer_discharge_summary.csv`
 - `reports/ch1_mimic_ventilation_qc_addendum.csv`
-- `/Users/joanameyer/repository/1-mortality-decomposition/data/processed/ch1_mimic_stay_level_cohort.csv`
+- `/Users/joanameyer/data/mimic-iv/mimic-iv-3.1/1-mortality-decomposition/processed/ch1_mimic_stay_level_cohort.csv`

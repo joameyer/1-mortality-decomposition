@@ -1,0 +1,9 @@
+mimic_processed_root: mimic-iv-demo/data/processed
+preprocessing_output_root: mimic-iv-demo/data/preprocessing_outputs
+horizon_target_root: mimic-iv-demo/data/horizon_targets
+upstream_reports_dir: mimic-iv-demo/reports
+output_reports_dir: reports
+feature_freeze_csv: config/ch1_mimic_feature_freeze.csv
+mapping_csv: config/ch1_asic_to_mimic_variable_map.csv
+horizons_hours: 8,16,24,48
+model_ready_feature_set: primary

@@ -94,7 +94,7 @@ Fallback structure:
 
 ## Current Phase 1 / Chapter 1 State
 
-Phase 1 has completed Package 4 ASIC interpretation closure and is ready to begin Package 5 external validation on MIMIC.
+Phase 1 has completed Package 4 ASIC interpretation closure. Package 5 is now in MIMIC external-validation execution: the main Issue 5.1 MIMIC setup pipeline is largely implemented, and the remaining work is downstream MIMIC evaluation and ASIC-MIMIC synthesis rather than basic preprocessing feasibility.
 
 Current state:
 - The working Chapter 1 story is risk-structure-first, not subtype-first.
@@ -102,6 +102,8 @@ Current state:
 - Logistic regression is the primary Chapter 1 interpretive anchor because calibration and probability-based interpretation matter more than pure discrimination.
 - XGBoost remains a useful comparison / sensitivity model, not the main structural anchor.
 - Decomposition has been downgraded to an optional secondary summary and should remain easy to drop pending the post-MIMIC keep-vs-drop gate.
+- MIMIC 5.1 setup now includes frozen ASIC-to-MIMIC feature alignment, MIMIC feature freeze, stay-level cohort operationalization, completed 8h block construction, preferred-source block aggregation, a thin MIMIC-to-ASIC adapter reusing the ASIC preprocessing core, conservative proxy-horizon targets for 8h/16h/24h/48h, and preprocessing/QC verification.
+- `pf_ratio` and `vt_per_kg_ibw` are materialized as frozen derived-only shared-primary MIMIC variables; refreshed full-run QC/backfill may still be needed, but this is a verification/refresh task rather than an unresolved feature-design question.
 
 Key ASIC Chapter 1 decisions:
 - ICU time is anchored at administrative ICU admission.
@@ -125,11 +127,12 @@ Current active focus:
 - Keep treatment-limitation absence explicit rather than implying it was solved empirically.
 - Use the frozen ASIC figure/table plan in `reports/ch1_methods_results_deck_overview.md`.
 - Keep decomposition secondary and easy to drop.
-- Move Chapter 1 effort toward write-up readiness and MIMIC replication rather than further ASIC scope expansion.
+- Move Chapter 1 effort into downstream MIMIC baseline evaluation, ASIC-vs-MIMIC result comparison, and external-validation synthesis.
+- Treat any remaining full-MIMIC preprocessing refresh after derived-variable materialization as an operational QC task, not a reason to reopen the MIMIC setup design.
 
 Near-term follow-up for Package 5:
-- Rebuild and verify MIMIC Chapter 1 preprocessing and ASIC-MIMIC alignment.
-- Inventory MIMIC observation-process and treatment-limitation proxies.
+- Refresh/verify full-MIMIC artifacts after `pf_ratio` and `vt_per_kg_ibw` materialization if not already done.
+- Inventory MIMIC observation-process and treatment-limitation proxies using the now-established preprocessing outputs.
 - Run MIMIC baseline risk models and core calibration / mortality-vs-risk evaluation.
 - Characterize MIMIC low-predicted fatal cases and compare ASIC vs MIMIC Chapter 1 results.
 - Reconfirm whether decomposition should remain as an optional summary or be dropped entirely after MIMIC external validation.
@@ -147,10 +150,14 @@ Authoritative current Chapter 1 references:
 - `reports/ch1_asic_descriptive_viability_memo_draft.md`
 - `reports/ch1_methods_results_deck_overview.md`
 - `../phd-general/reviews/asic_ch1_viability_review/codex_chapter1_asic_descriptive_core_memo.md`
+- `docs/ch1_mimic_feature_set_freeze.md`
+- `docs/ch1_mimic_preprocessing_pipeline_manual.md`
+- `docs/ch1_mimic_preprocessing_qc.md`
 
 Working rule:
 - Use the true ASIC cluster-result bundle as the authoritative empirical source for Chapter 1 interpretation.
 - Do not rely on small local synthetic artifacts for substantive Chapter 1 claims.
+- Use MIMIC Package 5 preprocessing/QC notes as operational alignment references; do not treat demo-schema success as full-MIMIC scientific validation.
 
 ## Cluster-Local Workflow Rule
 

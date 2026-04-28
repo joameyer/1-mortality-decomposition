@@ -1,0 +1,6 @@
+mimic_root: mimic-iv-demo/data # Full: --mimic-root /Users/joanameyer/data/mimic-iv/mimic-iv-3.1
+preprocessing_output_root: mimic-iv-demo/data/preprocessing_outputs
+target_output_root: mimic-iv-demo/data/horizon_targets
+reports_dir: mimic-iv-demo/reports
+horizons_hours: 8,16,24,48
+output_format: csv

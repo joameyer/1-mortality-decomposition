@@ -1,5 +1,5 @@
-mimic_root: data/mimic-iv-demo # Run on full --mimic-root /Users/joanameyer/data/mimic-iv/mimic-iv-3.1
-reports_dir: reports
-processed_dir: data/processed
+mimic_root: mimic-iv-demo/data # Run on full --mimic-root /Users/joanameyer/data/mimic-iv/mimic-iv-3.1
+reports_dir: mimic-iv-demo/reports
+processed_dir: mimic-iv-demo/data/processed # Demo only. Full MIMIC must pass --processed-dir outside this repo.
 cohort_output_csv: ch1_mimic_stay_level_cohort.csv
 chunksize: 200000

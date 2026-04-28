@@ -37,6 +37,37 @@ def _resolve_path(value: str | Path) -> Path:
     return path if path.is_absolute() else REPO_ROOT / path
 
 
+def _resolved_no_strict(path: Path) -> Path:
+    return Path(path).expanduser().resolve(strict=False)
+
+
+def _is_relative_to(child: Path, parent: Path) -> bool:
+    try:
+        _resolved_no_strict(child).relative_to(_resolved_no_strict(parent))
+    except ValueError:
+        return False
+    return True
+
+
+def _is_demo_mimic_root(mimic_root: Path) -> bool:
+    resolved = _resolved_no_strict(mimic_root)
+    return "mimic-iv-demo" in resolved.parts
+
+
+def enforce_processed_output_storage_policy(config: MimicCohortConfig) -> None:
+    if _is_demo_mimic_root(config.mimic_root):
+        return
+
+    if _is_relative_to(config.processed_dir, REPO_ROOT):
+        raise ValueError(
+            "Unsafe full-MIMIC cohort processed output directory inside the project repo: "
+            f"{_resolved_no_strict(config.processed_dir)}. Full-MIMIC row-level cohort "
+            "artifacts must be written outside the repo. Pass --processed-dir "
+            "/path/outside/repo, for example under the private MIMIC root. Aggregated "
+            "reports may remain under reports/."
+        )
+
+
 def load_config(path: Path) -> MimicCohortConfig:
     raw: dict[str, str] = {}
     for line in path.read_text().splitlines():
@@ -46,7 +77,7 @@ def load_config(path: Path) -> MimicCohortConfig:
         if ":" not in stripped:
             raise ValueError(f"Unsupported config line in {path}: {line!r}")
         key, value = stripped.split(":", 1)
-        raw[key.strip()] = value.strip().strip("'\"")
+        raw[key.strip()] = value.split("#", 1)[0].strip().strip("'\"")
 
     required = ["mimic_root", "reports_dir", "processed_dir", "cohort_output_csv"]
     missing = [key for key in required if key not in raw]
@@ -82,6 +113,7 @@ def require_columns(path: Path, required_columns: Iterable[str], *, table_name: 
 
 
 def validate_inputs(config: MimicCohortConfig) -> None:
+    enforce_processed_output_storage_policy(config)
     require_columns(
         table_path(config.mimic_root, "icustays"),
         {
@@ -633,9 +665,11 @@ def write_note(config: MimicCohortConfig, cohort: pd.DataFrame) -> None:
         "## Data Source",
         "",
         f"- MIMIC root: `{config.mimic_root}`",
+        f"- Retained cohort output: `{config.cohort_output_path}`",
         f"- ICU stays considered: {total_count}",
         f"- Retained stay-level cohort rows: {retained_count}",
         f"- Retained in-ICU mortality count: {mortality_count}",
+        "- Full-MIMIC row-level cohort output must be outside the project repo; aggregated reports may remain under `reports/`.",
         "",
         "## Implemented Gates",
         "",

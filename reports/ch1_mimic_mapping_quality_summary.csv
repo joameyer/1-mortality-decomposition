@@ -1,0 +1,8 @@
+summary_type,category,count,proportion,source
+freeze_decision,accepted_asymmetry_retained,3,0.0967741935483871,read: /Users/joanameyer/repository/1-mortality-decomposition/config/ch1_mimic_feature_freeze.csv
+freeze_decision,demoted_from_shared_primary,1,0.03225806451612903,read: /Users/joanameyer/repository/1-mortality-decomposition/config/ch1_mimic_feature_freeze.csv
+freeze_decision,derived_only,2,0.06451612903225806,read: /Users/joanameyer/repository/1-mortality-decomposition/config/ch1_mimic_feature_freeze.csv
+freeze_decision,direct_or_near_direct,23,0.7419354838709677,read: /Users/joanameyer/repository/1-mortality-decomposition/config/ch1_mimic_feature_freeze.csv
+freeze_decision,proxy_retained,2,0.06451612903225806,read: /Users/joanameyer/repository/1-mortality-decomposition/config/ch1_mimic_feature_freeze.csv
+final_role,mimic_secondary,1,0.03225806451612903,read: /Users/joanameyer/repository/1-mortality-decomposition/config/ch1_mimic_feature_freeze.csv
+final_role,shared_primary,30,0.967741935483871,read: /Users/joanameyer/repository/1-mortality-decomposition/config/ch1_mimic_feature_freeze.csv

@@ -1,0 +1,9 @@
+horizon_h,unlabeled_reason,count
+8,non_survivor_proxy_end_not_within_horizon,49523
+8,survivor_without_full_horizon_observation,8370
+16,non_survivor_proxy_end_not_within_horizon,47344
+16,survivor_without_full_horizon_observation,16750
+24,non_survivor_proxy_end_not_within_horizon,45156
+24,survivor_without_full_horizon_observation,25150
+48,non_survivor_proxy_end_not_within_horizon,39121
+48,survivor_without_full_horizon_observation,49589

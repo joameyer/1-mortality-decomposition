@@ -1,0 +1,14 @@
+mimic_root: mimic-iv-demo/data # Full: --mimic-root /Users/joanameyer/data/mimic-iv/mimic-iv-3.1
+reports_dir: mimic-iv-demo/reports
+cohort_path: mimic-iv-demo/data/processed/ch1_mimic_stay_level_cohort.csv
+mimic_block_root: mimic-iv-demo/data/processed
+adapter_output_root: mimic-iv-demo/data/asic_contract_inputs
+preprocessing_output_root: mimic-iv-demo/data/preprocessing_outputs
+mapping_path: config/ch1_asic_to_mimic_variable_map.csv
+feature_set_config_path: config/ch1_feature_sets.json
+block_index_csv: ch1_mimic_block_index.csv
+blocked_dynamic_features_csv: ch1_mimic_blocked_dynamic_features.csv
+stay_block_counts_csv: ch1_mimic_stay_block_counts.csv
+run_preprocessing_core: true
+output_format: csv
+chunksize: 200000

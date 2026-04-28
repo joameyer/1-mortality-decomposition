@@ -7,7 +7,7 @@ This report documents subtask 5.1.b2: structural completed-block construction fo
 ## Data Source
 
 - MIMIC root: `/Users/joanameyer/data/mimic-iv/mimic-iv-3.1`
-- Processed output root: `/Users/joanameyer/data/mimic-iv/mimic-iv-3.1/1-mortality-decomposition/ch1/processed`
+- Processed output root: `/Users/joanameyer/data/mimic-iv/mimic-iv-3.1/1-mortality-decomposition/processed`
 - Retained stays entering block construction: 10648
 - Total completed 8h blocks emitted: 285406
 - Stays with at least one completed block: 10648

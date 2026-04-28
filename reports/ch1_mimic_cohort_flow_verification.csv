@@ -1,0 +1,7 @@
+flow_step,retained_count,excluded_from_previous,verification_status,source,note
+total_icu_stays_considered,94458,,verified_directly,read: /Users/joanameyer/repository/1-mortality-decomposition/reports/ch1_mimic_cohort_flow.csv,All ICU stays in icu.icustays joined to patients and admissions.
+age_ge_18_retained,94458,0.0,verified_directly,read: /Users/joanameyer/repository/1-mortality-decomposition/reports/ch1_mimic_cohort_flow.csv,Retain age_at_icu_intime >= 18.
+first_icu_stay_retained,65366,29092.0,verified_directly,read: /Users/joanameyer/repository/1-mortality-decomposition/reports/ch1_mimic_cohort_flow.csv,Retain stay_rank = 1 per subject.
+invasive_vent_ge_24h_retained,10760,54606.0,verified_directly,read: /Users/joanameyer/repository/1-mortality-decomposition/reports/ch1_mimic_cohort_flow.csv,Retain total invasive ventilation hours >= 24 using itemid 225792 only.
+ventilation_qc_guard_retained,10648,112.0,verified_directly,read: /Users/joanameyer/repository/1-mortality-decomposition/reports/ch1_mimic_cohort_flow.csv,Retain total_invasive_hours <= icu_los_hours + 4.
+final_retained_stay_level_cohort_count,10648,0.0,verified_directly,read: /Users/joanameyer/repository/1-mortality-decomposition/reports/ch1_mimic_cohort_flow.csv,Final 5.1.b1 stay-level cohort; valid prediction-instance eligibility deferred.

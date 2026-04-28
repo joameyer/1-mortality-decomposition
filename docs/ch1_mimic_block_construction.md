@@ -93,9 +93,15 @@ The b2 implementation currently assigns accepted frozen shared-primary raw candi
 
 The retained cohort table provides the stay grid and ICU entry/exit times:
 
-- `data/processed/ch1_mimic_stay_level_cohort.csv`
+- demo mode: `mimic-iv-demo/data/processed/ch1_mimic_stay_level_cohort.csv`
+- full MIMIC: `.../mimic-iv-3.1/1-mortality-decomposition/processed/ch1_mimic_stay_level_cohort.csv`
 
-Demoted `bicarbonate_art` is not part of the shared-primary blocked feature output. Derived-only frozen variables, `pf_ratio` and `vt_per_kg_ibw`, are represented with empty output columns and are explicitly deferred because materializing them requires a later timestamp-alignment/derivation rule rather than simple raw event assignment.
+Demoted `bicarbonate_art` is not part of the shared-primary blocked feature output. Frozen derived-only shared-primary variables are materialized after preferred-source block aggregation:
+
+- `pf_ratio = pao2 / (fio2 / 100)`, using block-level PaO2 and FiO2 summaries from the frozen preferred sources.
+- `vt_per_kg_ibw = vt_mL / IBW_kg`, using block-level preferred VT summaries and stay-level IBW derived from height and sex/gender support.
+
+The derivations are block-level translations, not timestamp-paired raw-event derivations. The derived `obs_count` is set to 1 when the derived block `last` value is available and 0 otherwise.
 
 ## Source Preference
 
@@ -110,7 +116,7 @@ This keeps mirror-source duplication out of `{variable}_obs_count`, `{variable}_
 
 ## Storage Safety Policy
 
-Demo-derived processed block artifacts may be written under the repo-local `data/processed/` path.
+Demo-derived processed block artifacts may be written under the repo-local `mimic-iv-demo/data/processed/` path.
 
 Full-MIMIC-derived row-level or block-level processed artifacts must be written outside the project repo. The block runner enforces this: if `mimic_root` is not the local demo root and the processed output root resolves inside this repo, the run fails before scanning MIMIC event tables. Use `--processed-output-root` to point full-MIMIC block outputs to a private external location, for example under the local MIMIC root.
 
@@ -141,13 +147,28 @@ subject_id, hadm_id, stay_id, block_index, time_h, source_row_order
 
 where `source_row_order` is assigned during chunked source loading. The ordering is applied after preferred source/item filtering.
 
+## Derived-Only Materialization
+
+`pf_ratio` and `vt_per_kg_ibw` are frozen as shared-primary `derived_only` variables and are now materialized in b2 so the existing b3 ASIC preprocessing core can consume them without a MIMIC-specific preprocessing fork.
+
+For `pf_ratio`, FiO2 values are stored in percent in the blocked FiO2 summaries. The derivation converts FiO2 to a fraction by dividing by 100 before the ratio. Each statistic is derived from the same statistic of the support inputs, for example `pf_ratio_last = pao2_last / (fio2_last / 100)`.
+
+For `vt_per_kg_ibw`, height support is loaded from `226730 Height (cm)` and `226707 Height` in inches, converted to cm, restricted to 100-250 cm, and collapsed to a stay-level median height. IBW uses the Devine adult formula:
+
+```text
+male:   IBW_kg = 50.0 + 2.3 * (height_in - 60)
+female: IBW_kg = 45.5 + 2.3 * (height_in - 60)
+```
+
+If height, sex/gender, or VT is unavailable, `vt_per_kg_ibw` remains missing. Actual body weight is not substituted.
+
 ## Outputs
 
 Processed block artifacts:
 
-- demo mode: `data/processed/ch1_mimic_stay_block_counts.csv`
-- demo mode: `data/processed/ch1_mimic_block_index.csv`
-- demo mode: `data/processed/ch1_mimic_blocked_dynamic_features.csv`
+- demo mode: `mimic-iv-demo/data/processed/ch1_mimic_stay_block_counts.csv`
+- demo mode: `mimic-iv-demo/data/processed/ch1_mimic_block_index.csv`
+- demo mode: `mimic-iv-demo/data/processed/ch1_mimic_blocked_dynamic_features.csv`
 - full MIMIC: the same filenames under an external `--processed-output-root` outside this repo
 
 QC/report artifacts:
@@ -155,6 +176,7 @@ QC/report artifacts:
 - `reports/ch1_mimic_block_qc_summary.csv`
 - `reports/ch1_mimic_block_source_counts.csv`
 - `reports/ch1_mimic_block_source_resolution_summary.csv`
+- `reports/ch1_mimic_derived_variable_qc_summary.csv`
 - `reports/ch1_mimic_block_edge_cases.csv`
 - `reports/ch1_mimic_block_note.md`
 
@@ -170,6 +192,5 @@ The following remain intentionally deferred:
 - model-ready construction
 - model fitting
 - secondary-source sensitivity choices after preferred-source main aggregation
-- materialization of derived-only `pf_ratio` and `vt_per_kg_ibw`
 
 These are not block-construction rules and should not be folded into b2.

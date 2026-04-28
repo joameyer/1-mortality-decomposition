@@ -1,0 +1,17 @@
+metric,horizon_h,value,status,note
+retained_stay_count,,10648.0,verified_directly,Final retained b1 stay-level cohort count.
+completed_block_count,,285406.0,verified_directly,Total completed blocks emitted by b2.
+valid_instance_count,,1136028.0,verified_directly,Total valid prediction instances over configured QC horizons.
+horizon_labeled_rows,8,226114.0,verified_directly,B4 conservative proxy-label labeled row count.
+horizon_positive_rows,8,2134.0,verified_directly,B4 conservative proxy-label positive row count.
+horizon_labeled_rows,16,219913.0,verified_directly,B4 conservative proxy-label labeled row count.
+horizon_positive_rows,16,4313.0,verified_directly,B4 conservative proxy-label positive row count.
+horizon_labeled_rows,24,213701.0,verified_directly,B4 conservative proxy-label labeled row count.
+horizon_positive_rows,24,6501.0,verified_directly,B4 conservative proxy-label positive row count.
+horizon_labeled_rows,48,195297.0,verified_directly,B4 conservative proxy-label labeled row count.
+horizon_positive_rows,48,12536.0,verified_directly,B4 conservative proxy-label positive row count.
+shared_primary_variables,,30.0,verified_directly,Feature freeze final_role count.
+freeze_decision_proxy_retained_variables,,2.0,verified_directly,Feature freeze decision count.
+freeze_decision_accepted_asymmetry_retained_variables,,3.0,verified_directly,Feature freeze decision count.
+freeze_decision_derived_only_variables,,2.0,verified_directly,Feature freeze decision count.
+freeze_decision_demoted_from_shared_primary_variables,,1.0,verified_directly,Feature freeze decision count.

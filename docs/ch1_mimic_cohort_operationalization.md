@@ -149,6 +149,9 @@ Aggregated verification reports:
 
 The retained stay-level cohort is written under the configured processed directory:
 
-- `data/processed/ch1_mimic_stay_level_cohort.csv`
+- demo mode: `mimic-iv-demo/data/processed/ch1_mimic_stay_level_cohort.csv`
+- full MIMIC: `.../mimic-iv-3.1/1-mortality-decomposition/processed/ch1_mimic_stay_level_cohort.csv`
 
-This retained table is an interim local extraction artifact for later preprocessing, not a block, label, or model-ready dataset.
+This repo-local path is allowed only for MIMIC demo-derived outputs. Full-MIMIC retained stay-level cohort output is row-level private data and must be written to an external/private processed directory outside the project repo, for example under the private MIMIC root. The b1 runner fails before writing if a full-MIMIC run points `processed_dir` inside the repo. Safe aggregated reports may remain under `reports/`.
+
+This retained table is an interim extraction artifact for later preprocessing, not a block, label, or model-ready dataset.

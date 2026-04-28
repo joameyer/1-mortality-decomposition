@@ -119,6 +119,12 @@ LABEVENT_CANDIDATES: tuple[Candidate, ...] = (
 )
 
 DERIVED_ONLY_VARIABLES = ("pf_ratio", "vt_per_kg_ibw")
+HEIGHT_CM_ITEMID = 226730
+HEIGHT_INCH_ITEMID = 226707
+HEIGHT_SUPPORT_ITEMIDS = (HEIGHT_CM_ITEMID, HEIGHT_INCH_ITEMID)
+ADULT_HEIGHT_CM_MIN = 100.0
+ADULT_HEIGHT_CM_MAX = 250.0
+DERIVED_VALUE_STATISTICS = ("mean", "median", "min", "max", "last")
 SHARED_PRIMARY_VARIABLES = tuple(
     dict.fromkeys(
         [
@@ -198,7 +204,7 @@ def load_config(path: Path) -> MimicBlockConfig:
         else _resolve_path(raw["processed_dir"]) / raw["cohort_csv"]
     )
     processed_output_root = _resolve_path(
-        raw.get("processed_output_root", raw.get("processed_dir", "data/processed"))
+        raw.get("processed_output_root", raw.get("processed_dir", "mimic-iv-demo/data/processed"))
     )
 
     return MimicBlockConfig(
@@ -359,9 +365,16 @@ def load_retained_cohort(path: Path) -> pd.DataFrame:
 
 
 def build_stay_block_counts(cohort: pd.DataFrame, *, block_hours: int) -> pd.DataFrame:
-    stays = cohort[
-        ["subject_id", "hadm_id", "stay_id", "intime", "outtime", "icu_los_hours"]
-    ].copy()
+    keep_columns = [
+        "subject_id",
+        "hadm_id",
+        "stay_id",
+        "intime",
+        "outtime",
+        "icu_los_hours",
+        *(["gender"] if "gender" in cohort.columns else []),
+    ]
+    stays = cohort[keep_columns].copy()
     stays["completed_block_count"] = np.floor(stays["icu_los_hours"] / block_hours).astype("int64")
     stays.loc[stays["completed_block_count"].lt(0), "completed_block_count"] = 0
     stays["has_completed_block"] = stays["completed_block_count"].ge(1)
@@ -371,6 +384,66 @@ def build_stay_block_counts(cohort: pd.DataFrame, *, block_hours: int) -> pd.Dat
     )
     stays["terminal_block_end_h"] = stays["completed_block_count"] * block_hours
     return stays
+
+
+def _normalize_gender_for_ibw(values: pd.Series) -> pd.Series:
+    first_letter = values.astype("string").str.strip().str.upper().str[0]
+    return first_letter.where(first_letter.isin(["M", "F"]))
+
+
+def load_ibw_support(config: MimicBlockConfig, cohort: pd.DataFrame) -> pd.DataFrame:
+    base_columns = ["subject_id", "hadm_id", "stay_id"]
+    support = cohort[
+        [*base_columns, *(["gender"] if "gender" in cohort.columns else [])]
+    ].drop_duplicates().copy()
+    if "gender" not in support.columns:
+        support["gender"] = pd.NA
+
+    stay_ids = set(pd.to_numeric(support["stay_id"], errors="coerce").dropna().astype("int64"))
+    height_frames: list[pd.DataFrame] = []
+    for chunk in pd.read_csv(
+        table_path(config.mimic_root, "chartevents"),
+        usecols=["subject_id", "hadm_id", "stay_id", "itemid", "valuenum"],
+        chunksize=config.chunksize,
+    ):
+        chunk = chunk[
+            chunk["itemid"].isin(HEIGHT_SUPPORT_ITEMIDS) & chunk["stay_id"].isin(stay_ids)
+        ].copy()
+        if chunk.empty:
+            continue
+        values = pd.to_numeric(chunk["valuenum"], errors="coerce")
+        itemids = pd.to_numeric(chunk["itemid"], errors="coerce")
+        chunk["height_cm"] = values
+        chunk.loc[itemids.eq(HEIGHT_INCH_ITEMID), "height_cm"] = (
+            values.loc[itemids.eq(HEIGHT_INCH_ITEMID)] * 2.54
+        )
+        chunk = chunk[
+            chunk["height_cm"].between(ADULT_HEIGHT_CM_MIN, ADULT_HEIGHT_CM_MAX)
+        ].copy()
+        if not chunk.empty:
+            height_frames.append(chunk[[*base_columns, "height_cm"]])
+
+    if height_frames:
+        heights = pd.concat(height_frames, ignore_index=True)
+        height_by_stay = (
+            heights.groupby(base_columns, dropna=False)["height_cm"]
+            .median()
+            .reset_index()
+        )
+        support = support.merge(height_by_stay, on=base_columns, how="left")
+    else:
+        support["height_cm"] = pd.NA
+
+    support["sex_for_ibw"] = _normalize_gender_for_ibw(support["gender"])
+    support["height_in"] = pd.to_numeric(support["height_cm"], errors="coerce") / 2.54
+    support["ibw_kg"] = pd.NA
+    male = support["sex_for_ibw"].eq("M") & support["height_in"].notna()
+    female = support["sex_for_ibw"].eq("F") & support["height_in"].notna()
+    support.loc[male, "ibw_kg"] = 50.0 + 2.3 * (support.loc[male, "height_in"] - 60.0)
+    support.loc[female, "ibw_kg"] = 45.5 + 2.3 * (support.loc[female, "height_in"] - 60.0)
+    support["ibw_kg"] = pd.to_numeric(support["ibw_kg"], errors="coerce")
+    support.loc[~support["ibw_kg"].gt(0), "ibw_kg"] = pd.NA
+    return support[[*base_columns, "gender", "height_cm", "sex_for_ibw", "ibw_kg"]]
 
 
 def build_block_index(stay_block_counts: pd.DataFrame, *, block_hours: int) -> pd.DataFrame:
@@ -859,6 +932,161 @@ def aggregate_blocks(block_index: pd.DataFrame, assigned_events: pd.DataFrame) -
     return output[ordered_columns]
 
 
+def _safe_divide(numerator: pd.Series, denominator: pd.Series) -> pd.Series:
+    numerator_numeric = pd.to_numeric(numerator, errors="coerce")
+    denominator_numeric = pd.to_numeric(denominator, errors="coerce")
+    result = numerator_numeric / denominator_numeric
+    result = result.where(denominator_numeric.gt(0) & numerator_numeric.notna())
+    return result.astype("Float64")
+
+
+def materialize_derived_variables(
+    blocked_dynamic_features: pd.DataFrame,
+    ibw_support: pd.DataFrame,
+) -> pd.DataFrame:
+    derived = blocked_dynamic_features.copy()
+
+    for statistic in DERIVED_VALUE_STATISTICS:
+        pao2 = derived[f"pao2_{statistic}"]
+        fio2_fraction = pd.to_numeric(derived[f"fio2_{statistic}"], errors="coerce") / 100.0
+        derived[f"pf_ratio_{statistic}"] = _safe_divide(pao2, fio2_fraction)
+    derived["pf_ratio_obs_count"] = (
+        pd.to_numeric(derived["pf_ratio_last"], errors="coerce").notna().astype("Int64")
+    )
+
+    support_columns = ["subject_id", "hadm_id", "stay_id", "ibw_kg"]
+    with_ibw = derived[["subject_id", "hadm_id", "stay_id"]].merge(
+        ibw_support[support_columns],
+        on=["subject_id", "hadm_id", "stay_id"],
+        how="left",
+    )
+    ibw_kg = pd.to_numeric(with_ibw["ibw_kg"], errors="coerce")
+    for statistic in DERIVED_VALUE_STATISTICS:
+        derived[f"vt_per_kg_ibw_{statistic}"] = _safe_divide(
+            derived[f"vt_{statistic}"],
+            ibw_kg,
+        )
+    derived["vt_per_kg_ibw_obs_count"] = (
+        pd.to_numeric(derived["vt_per_kg_ibw_last"], errors="coerce")
+        .notna()
+        .astype("Int64")
+    )
+    return derived
+
+
+def update_source_counts_for_derived(
+    source_counts: pd.DataFrame,
+    blocked_dynamic_features: pd.DataFrame,
+) -> pd.DataFrame:
+    updated = source_counts.copy()
+    for variable in DERIVED_ONLY_VARIABLES:
+        count = int(pd.to_numeric(blocked_dynamic_features[f"{variable}_last"], errors="coerce").notna().sum())
+        mask = updated["source_table"].eq("derived") & updated["variable"].eq(variable)
+        if not mask.any():
+            updated = pd.concat(
+                [
+                    updated,
+                    pd.DataFrame(
+                        [
+                            {
+                                "source_table": "derived",
+                                "variable": variable,
+                                "raw_candidate_row_count_loaded": 0,
+                                "raw_row_count_retained_after_stay_time_filtering": 0,
+                                "assigned_block_row_count": 0,
+                                "raw_rows_dropped_negative_time_h": 0,
+                                "raw_rows_landing_beyond_completed_grid": 0,
+                                "raw_rows_exactly_on_8h_boundary": 0,
+                                "total_assigned_observations": count,
+                                "status": "materialized_block_level_derivation",
+                            }
+                        ]
+                    ),
+                ],
+                ignore_index=True,
+            )
+            continue
+        for column in (
+            "total_assigned_observations",
+            "rows_retained_for_aggregation",
+        ):
+            if column in updated.columns:
+                updated.loc[mask, column] = count
+        if "rows_excluded_by_source_preference" in updated.columns:
+            updated.loc[mask, "rows_excluded_by_source_preference"] = 0
+        updated.loc[mask, "status"] = "materialized_block_level_derivation"
+    return updated
+
+
+def build_derived_variable_qc_summary(
+    blocked_dynamic_features: pd.DataFrame,
+    ibw_support: pd.DataFrame,
+) -> pd.DataFrame:
+    total_blocks = int(len(blocked_dynamic_features))
+    block_support = blocked_dynamic_features[["subject_id", "hadm_id", "stay_id"]].merge(
+        ibw_support,
+        on=["subject_id", "hadm_id", "stay_id"],
+        how="left",
+    )
+
+    rows = []
+    for variable, support_1, support_2, support_3, note in (
+        (
+            "pf_ratio",
+            "pao2_last",
+            "fio2_last",
+            pd.NA,
+            "Block-level PF ratio = pao2_last / (fio2_last / 100). Other PF summary statistics use the same-statistic PaO2 and FiO2 block summaries.",
+        ),
+        (
+            "vt_per_kg_ibw",
+            "vt_last",
+            "ibw_kg",
+            "sex_for_ibw",
+            "Block-level VT/IBW = vt_last / Devine IBW kg. Other VT/IBW summary statistics use the same-statistic VT block summary divided by stay-level IBW.",
+        ),
+    ):
+        if variable == "pf_ratio":
+            support_1_count = int(
+                pd.to_numeric(blocked_dynamic_features[support_1], errors="coerce").notna().sum()
+            )
+            support_2_count = int(
+                pd.to_numeric(blocked_dynamic_features[support_2], errors="coerce").notna().sum()
+            )
+            support_3_count = pd.NA
+        else:
+            support_1_count = int(
+                pd.to_numeric(blocked_dynamic_features[support_1], errors="coerce").notna().sum()
+            )
+            support_2_count = int(pd.to_numeric(block_support[support_2], errors="coerce").notna().sum())
+            support_3_count = int(block_support[support_3].notna().sum())
+        derived_non_missing = int(
+            pd.to_numeric(blocked_dynamic_features[f"{variable}_last"], errors="coerce")
+            .notna()
+            .sum()
+        )
+        rows.append(
+            {
+                "variable": variable,
+                "support_input_1_name": support_1,
+                "support_input_1_non_missing_count": support_1_count,
+                "support_input_2_name": support_2,
+                "support_input_2_non_missing_count": support_2_count,
+                "support_input_3_name": support_3,
+                "support_input_3_non_missing_count": support_3_count,
+                "derived_non_missing_count": derived_non_missing,
+                "derived_missing_count": total_blocks - derived_non_missing,
+                "derived_non_missing_fraction": (
+                    float(derived_non_missing / total_blocks) if total_blocks else pd.NA
+                ),
+                "model_ready_non_missing_count": pd.NA,
+                "model_ready_non_missing_fraction": pd.NA,
+                "note": note,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def _summary_value_rows(name: str, values: pd.Series) -> list[dict[str, object]]:
     numeric = pd.to_numeric(values, errors="coerce").dropna()
     if numeric.empty:
@@ -1002,6 +1230,12 @@ B2 applies preferred source/item filtering before aggregation using `config/ch1_
 
 The stable ordering used for `last` is `subject_id`, `hadm_id`, `stay_id`, `block_index`, `time_h`, then source row order from chunked loading after source preference filtering.
 
+## Derived-Only Shared-Primary Variables
+
+- `pf_ratio` is materialized as `pao2 / (fio2 / 100)` from block-level preferred PaO2 and FiO2 summaries.
+- `vt_per_kg_ibw` is materialized as preferred block-level VT divided by Devine IBW from retained-stay gender and height itemids `226730`/`226707`.
+- Missing support inputs leave the derived value missing; actual body weight is not substituted.
+
 ## Deferred Beyond b2
 
 - current-block core-vital sufficiency filtering
@@ -1012,7 +1246,6 @@ The stable ordering used for `last` is `subject_id`, `hadm_id`, `stay_id`, `bloc
 - model-ready construction
 - model fitting
 - secondary-source sensitivity choices
-- derived-only feature materialization for `pf_ratio` and `vt_per_kg_ibw`
 
 ## QC Highlights
 
@@ -1043,12 +1276,19 @@ def run_mimic_blocks(config: MimicBlockConfig) -> dict[str, Path]:
     block_index = build_block_index(stay_block_counts, block_hours=config.block_hours)
     source_preferences = build_source_preferences(config.mapping_path)
     assigned_events, source_counts, dropped_counts = load_assigned_events(config, stay_block_counts)
+    ibw_support = load_ibw_support(config, cohort)
     aggregation_events, source_counts, source_resolution = apply_source_preferences(
         assigned_events,
         source_counts,
         source_preferences,
     )
     blocked_dynamic_features = aggregate_blocks(block_index, aggregation_events)
+    blocked_dynamic_features = materialize_derived_variables(
+        blocked_dynamic_features,
+        ibw_support,
+    )
+    source_counts = update_source_counts_for_derived(source_counts, blocked_dynamic_features)
+    derived_qc_summary = build_derived_variable_qc_summary(blocked_dynamic_features, ibw_support)
     qc_summary = build_qc_summary(
         stay_block_counts,
         block_index,
@@ -1057,7 +1297,7 @@ def run_mimic_blocks(config: MimicBlockConfig) -> dict[str, Path]:
     )
     edge_cases = build_edge_cases(stay_block_counts, blocked_dynamic_features, dropped_counts)
     unresolved_notes = [
-        "`pf_ratio` and `vt_per_kg_ibw` are frozen derived-only variables; b2 preserves their output columns as empty and defers timestamp-aligned derivation to the later derivation/valid-instance stage rather than inventing a new alignment rule here.",
+        "`pf_ratio` and `vt_per_kg_ibw` are materialized as block-level derived variables from frozen preferred source summaries; timestamp-level paired derivation and sensitivity variants remain out of scope.",
         "Preferred source/item filtering is applied for main b2 aggregation; secondary sources remain documented in source-resolution QC for later sensitivity or provenance review.",
     ]
 
@@ -1070,6 +1310,10 @@ def run_mimic_blocks(config: MimicBlockConfig) -> dict[str, Path]:
         config.reports_dir / "ch1_mimic_block_source_resolution_summary.csv",
         index=False,
     )
+    derived_qc_summary.to_csv(
+        config.reports_dir / "ch1_mimic_derived_variable_qc_summary.csv",
+        index=False,
+    )
     edge_cases.to_csv(config.reports_dir / "ch1_mimic_block_edge_cases.csv", index=False)
     write_note(config, qc_summary, unresolved_notes=unresolved_notes)
 
@@ -1080,6 +1324,7 @@ def run_mimic_blocks(config: MimicBlockConfig) -> dict[str, Path]:
         "qc_summary": config.reports_dir / "ch1_mimic_block_qc_summary.csv",
         "source_counts": config.reports_dir / "ch1_mimic_block_source_counts.csv",
         "source_resolution": config.reports_dir / "ch1_mimic_block_source_resolution_summary.csv",
+        "derived_variable_qc": config.reports_dir / "ch1_mimic_derived_variable_qc_summary.csv",
         "edge_cases": config.reports_dir / "ch1_mimic_block_edge_cases.csv",
         "note": config.reports_dir / "ch1_mimic_block_note.md",
     }

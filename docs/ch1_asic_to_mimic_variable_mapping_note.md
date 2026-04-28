@@ -261,15 +261,15 @@ ASIC contract and Chapter 1 repo:
 
 Local MIMIC demo resources:
 
-- `data/mimic-iv-demo/icu/d_items.csv.gz`
-- `data/mimic-iv-demo/hosp/d_labitems.csv.gz`
-- `data/mimic-iv-demo/icu/chartevents.csv.gz`
-- `data/mimic-iv-demo/hosp/labevents.csv.gz`
-- `data/mimic-iv-demo/icu/icustays.csv.gz`
-- `data/mimic-iv-demo/icu/procedureevents.csv.gz`
-- `data/mimic-iv-demo/hosp/admissions.csv.gz`
-- `data/mimic-iv-demo/hosp/patients.csv.gz`
-- `data/mimic-iv-demo/hosp/services.csv.gz`
+- `mimic-iv-demo/data/icu/d_items.csv.gz`
+- `mimic-iv-demo/data/hosp/d_labitems.csv.gz`
+- `mimic-iv-demo/data/icu/chartevents.csv.gz`
+- `mimic-iv-demo/data/hosp/labevents.csv.gz`
+- `mimic-iv-demo/data/icu/icustays.csv.gz`
+- `mimic-iv-demo/data/icu/procedureevents.csv.gz`
+- `mimic-iv-demo/data/hosp/admissions.csv.gz`
+- `mimic-iv-demo/data/hosp/patients.csv.gz`
+- `mimic-iv-demo/data/hosp/services.csv.gz`
 
 External unit/configuration reference used in the revision pass:
 

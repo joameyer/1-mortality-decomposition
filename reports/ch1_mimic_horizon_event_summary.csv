@@ -1,0 +1,5 @@
+horizon_h,candidate_rows,labeled_rows,positive_rows,negative_rows,unlabeled_rows,positive_rate_among_labeled,verification_status,source,note
+8,284007,226114,2134,223980,57893,0.0094377172576664,verified_directly,read: /Users/joanameyer/repository/1-mortality-decomposition/reports/ch1_mimic_horizon_label_summary.csv,Conservative proxy-label counts from b4 summary.
+16,284007,219913,4313,215600,64094,0.0196123012282129,verified_directly,read: /Users/joanameyer/repository/1-mortality-decomposition/reports/ch1_mimic_horizon_label_summary.csv,Conservative proxy-label counts from b4 summary.
+24,284007,213701,6501,207200,70306,0.0304210087926589,verified_directly,read: /Users/joanameyer/repository/1-mortality-decomposition/reports/ch1_mimic_horizon_label_summary.csv,Conservative proxy-label counts from b4 summary.
+48,284007,195297,12536,182761,88710,0.0641894140719007,verified_directly,read: /Users/joanameyer/repository/1-mortality-decomposition/reports/ch1_mimic_horizon_label_summary.csv,Conservative proxy-label counts from b4 summary.

@@ -19,6 +19,8 @@ artifacts/
 cluster-results/
 export-staging/
 outputs/
+mimic-iv-demo/reports/
+mimic-iv-demo/processed/
 *.parquet
 *.feather
 *.csv
@@ -52,3 +54,12 @@ htmlcov/
 !reports/ch1_mimic_block_source_counts.csv
 !reports/ch1_mimic_block_edge_cases.csv
 !reports/ch1_mimic_block_source_resolution_summary.csv
+!reports/ch1_mimic_horizon_label_summary.csv
+!reports/ch1_mimic_horizon_unlabeled_reasons.csv
+!reports/ch1_mimic_preprocessing_qc_summary.csv
+!reports/ch1_mimic_cohort_flow_verification.csv
+!reports/ch1_mimic_valid_instance_summary.csv
+!reports/ch1_mimic_horizon_event_summary.csv
+!reports/ch1_mimic_block_distribution_summary.csv
+!reports/ch1_mimic_feature_missingness_summary.csv
+!reports/ch1_mimic_mapping_quality_summary.csv
