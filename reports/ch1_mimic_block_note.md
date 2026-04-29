@@ -31,6 +31,12 @@ B2 applies preferred source/item filtering before aggregation using `config/ch1_
 
 The stable ordering used for `last` is `subject_id`, `hadm_id`, `stay_id`, `block_index`, `time_h`, then source row order from chunked loading after source preference filtering.
 
+## Derived-Only Shared-Primary Variables
+
+- `pf_ratio` is materialized as `pao2 / (fio2 / 100)` from block-level preferred PaO2 and FiO2 summaries.
+- `vt_per_kg_ibw` is materialized as preferred block-level VT divided by Devine IBW from retained-stay gender and height itemids `226730`/`226707`.
+- Missing support inputs leave the derived value missing; actual body weight is not substituted.
+
 ## Deferred Beyond b2
 
 - current-block core-vital sufficiency filtering
@@ -41,7 +47,6 @@ The stable ordering used for `last` is `subject_id`, `hadm_id`, `stay_id`, `bloc
 - model-ready construction
 - model fitting
 - secondary-source sensitivity choices
-- derived-only feature materialization for `pf_ratio` and `vt_per_kg_ibw`
 
 ## QC Highlights
 
@@ -53,5 +58,5 @@ The stable ordering used for `last` is `subject_id`, `hadm_id`, `stay_id`, `bloc
 
 ## Translation Limitations
 
-- `pf_ratio` and `vt_per_kg_ibw` are frozen derived-only variables; b2 preserves their output columns as empty and defers timestamp-aligned derivation to the later derivation/valid-instance stage rather than inventing a new alignment rule here.
+- `pf_ratio` and `vt_per_kg_ibw` are materialized as block-level derived variables from frozen preferred source summaries; timestamp-level paired derivation and sensitivity variants remain out of scope.
 - Preferred source/item filtering is applied for main b2 aggregation; secondary sources remain documented in source-resolution QC for later sensitivity or provenance review.

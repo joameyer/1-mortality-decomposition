@@ -1,0 +1,35 @@
+{
+  "run_timestamp": "2026-04-29T07:14:40Z",
+  "git_commit": "e8b2a337e8d686ab059b02a8f2bd53bae82207e5",
+  "input_files": [
+    "analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/mimic_treatment_limitation_proxy_inventory_schema_scan.csv",
+    "analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/mimic_treatment_limitation_schema_scan_note.md",
+    "analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/mimic_treatment_limitation_proxy_full_data_counts.csv",
+    "analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/mimic_treatment_limitation_proxy_timing_summary.csv",
+    "analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/mimic_treatment_limitation_proxy_domain_summary.csv",
+    "analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/mimic_treatment_limitation_full_data_counts_note.md",
+    "analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/manifest_full_data_counts.json",
+    "docs/context.md",
+    "docs/phase1_working_reference.md",
+    "docs/phase1_work_packages.md",
+    "docs/ch1_mimic_preprocessing_pipeline_manual.md",
+    "docs/ch1_mimic_preprocessing_qc.md"
+  ],
+  "output_files": [
+    "analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/mimic_treatment_limitation_feasibility_note.md",
+    "analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/asic_vs_mimic_treatment_limitation_contrast.md",
+    "analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/mimic_treatment_limitation_issue_5_2_closure_summary.md",
+    "analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/manifest.json"
+  ],
+  "final_verdict": "weakly_testable",
+  "allowed_verdicts": [
+    "testable",
+    "weakly_testable",
+    "untestable"
+  ],
+  "full_data_counts_available": true,
+  "patient_level_data_accessed_in_this_prompt": false,
+  "final_outputs_are_local_safe": true,
+  "specific_asic_treatment_limitation_absence_note_found": false,
+  "statement": "Issue 5.2c used existing aggregate artifacts and project documentation only. It did not access row-level MIMIC data, run low-predicted fatal-case analysis, alter cohorts, alter risk models, or recommend excluding proxy-positive stays."
+}

@@ -1,0 +1,298 @@
+{
+  "run_timestamp": "2026-04-28T11:32:16.762667+00:00",
+  "git_commit": "e8b2a337e8d686ab059b02a8f2bd53bae82207e5",
+  "script_paths": [
+    "scripts/chapter1_mimic/inventory_mimic_treatment_limitation_schema_scan.py"
+  ],
+  "mimic_root": "/Users/joanameyer/repository/1-mortality-decomposition/mimic-iv-demo/data",
+  "tables_schemas_searched": [
+    {
+      "schema": "icu",
+      "table": "chartevents",
+      "available": true,
+      "rows_scanned": false,
+      "columns": [
+        "subject_id",
+        "hadm_id",
+        "stay_id",
+        "caregiver_id",
+        "charttime",
+        "storetime",
+        "itemid",
+        "value",
+        "valuenum",
+        "valueuom",
+        "warning"
+      ],
+      "note": "header inspected for d_items linkage/timing fields"
+    },
+    {
+      "schema": "icu",
+      "table": "datetimeevents",
+      "available": true,
+      "rows_scanned": false,
+      "columns": [
+        "subject_id",
+        "hadm_id",
+        "stay_id",
+        "caregiver_id",
+        "charttime",
+        "storetime",
+        "itemid",
+        "value",
+        "valueuom",
+        "warning"
+      ],
+      "note": "header inspected for d_items linkage/timing fields"
+    },
+    {
+      "schema": "icu",
+      "table": "procedureevents",
+      "available": true,
+      "rows_scanned": false,
+      "columns": [
+        "subject_id",
+        "hadm_id",
+        "stay_id",
+        "caregiver_id",
+        "starttime",
+        "endtime",
+        "storetime",
+        "itemid",
+        "value",
+        "valueuom",
+        "location",
+        "locationcategory",
+        "orderid",
+        "linkorderid",
+        "ordercategoryname",
+        "ordercategorydescription",
+        "patientweight",
+        "isopenbag",
+        "continueinnextdept",
+        "statusdescription",
+        "ORIGINALAMOUNT",
+        "ORIGINALRATE"
+      ],
+      "note": "header inspected for d_items linkage/timing fields"
+    },
+    {
+      "schema": "icu",
+      "table": "inputevents",
+      "available": true,
+      "rows_scanned": false,
+      "columns": [
+        "subject_id",
+        "hadm_id",
+        "stay_id",
+        "caregiver_id",
+        "starttime",
+        "endtime",
+        "storetime",
+        "itemid",
+        "amount",
+        "amountuom",
+        "rate",
+        "rateuom",
+        "orderid",
+        "linkorderid",
+        "ordercategoryname",
+        "secondaryordercategoryname",
+        "ordercomponenttypedescription",
+        "ordercategorydescription",
+        "patientweight",
+        "totalamount",
+        "totalamountuom",
+        "isopenbag",
+        "continueinnextdept",
+        "statusdescription",
+        "originalamount",
+        "originalrate"
+      ],
+      "note": "header inspected for d_items linkage/timing fields"
+    },
+    {
+      "schema": "icu",
+      "table": "outputevents",
+      "available": true,
+      "rows_scanned": false,
+      "columns": [
+        "subject_id",
+        "hadm_id",
+        "stay_id",
+        "caregiver_id",
+        "charttime",
+        "storetime",
+        "itemid",
+        "value",
+        "valueuom"
+      ],
+      "note": "header inspected for d_items linkage/timing fields"
+    },
+    {
+      "schema": "hosp",
+      "table": "poe",
+      "available": true,
+      "rows_scanned": true,
+      "columns": [
+        "poe_id",
+        "poe_seq",
+        "subject_id",
+        "hadm_id",
+        "ordertime",
+        "order_type",
+        "order_subtype",
+        "transaction_type",
+        "discontinue_of_poe_id",
+        "discontinued_by_poe_id",
+        "order_provider_id",
+        "order_status"
+      ],
+      "note": "rows scanned"
+    },
+    {
+      "schema": "hosp",
+      "table": "poe_detail",
+      "available": true,
+      "rows_scanned": true,
+      "columns": [
+        "poe_id",
+        "poe_seq",
+        "subject_id",
+        "field_name",
+        "field_value"
+      ],
+      "note": "rows scanned"
+    },
+    {
+      "schema": "icu",
+      "table": "d_items",
+      "available": true,
+      "rows_scanned": true,
+      "columns": [
+        "itemid",
+        "label",
+        "abbreviation",
+        "linksto",
+        "category",
+        "unitname",
+        "param_type",
+        "lownormalvalue",
+        "highnormalvalue"
+      ],
+      "note": "rows scanned"
+    },
+    {
+      "schema": "hosp",
+      "table": "admissions",
+      "available": true,
+      "rows_scanned": true,
+      "columns": [
+        "subject_id",
+        "hadm_id",
+        "admittime",
+        "dischtime",
+        "deathtime",
+        "admission_type",
+        "admit_provider_id",
+        "admission_location",
+        "discharge_location",
+        "insurance",
+        "language",
+        "marital_status",
+        "race",
+        "edregtime",
+        "edouttime",
+        "hospital_expire_flag"
+      ],
+      "note": "rows scanned"
+    },
+    {
+      "schema": "hosp",
+      "table": "diagnoses_icd",
+      "available": true,
+      "rows_scanned": false,
+      "columns": [
+        "subject_id",
+        "hadm_id",
+        "seq_num",
+        "icd_code",
+        "icd_version"
+      ],
+      "note": "header inspected only; no patient-level ICD rows scanned"
+    },
+    {
+      "schema": "hosp",
+      "table": "procedures_icd",
+      "available": true,
+      "rows_scanned": false,
+      "columns": [
+        "subject_id",
+        "hadm_id",
+        "seq_num",
+        "chartdate",
+        "icd_code",
+        "icd_version"
+      ],
+      "note": "header inspected only; no patient-level ICD rows scanned"
+    },
+    {
+      "schema": "hosp",
+      "table": "d_icd_diagnoses",
+      "available": true,
+      "rows_scanned": true,
+      "columns": [
+        "icd_code",
+        "icd_version",
+        "long_title"
+      ],
+      "note": "rows scanned"
+    },
+    {
+      "schema": "hosp",
+      "table": "d_icd_procedures",
+      "available": true,
+      "rows_scanned": true,
+      "columns": [
+        "icd_code",
+        "icd_version",
+        "long_title"
+      ],
+      "note": "rows scanned"
+    },
+    {
+      "schema": "hosp",
+      "table": "services",
+      "available": true,
+      "rows_scanned": true,
+      "columns": [
+        "subject_id",
+        "hadm_id",
+        "transfertime",
+        "prev_service",
+        "curr_service"
+      ],
+      "note": "rows scanned"
+    }
+  ],
+  "outputs_created": [
+    "/Users/joanameyer/repository/1-mortality-decomposition/analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/mimic_treatment_limitation_proxy_inventory_schema_scan.csv",
+    "/Users/joanameyer/repository/1-mortality-decomposition/analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/mimic_treatment_limitation_schema_scan_note.md",
+    "/Users/joanameyer/repository/1-mortality-decomposition/analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/manifest_schema_scan.json"
+  ],
+  "metadata_mode": "demo_schema_and_structured_demo_values",
+  "demo_schema_only_or_full_dictionary_metadata_used": "demo/schema structured metadata used",
+  "patient_level_data_accessed": true,
+  "patient_level_data_access_note": "Only structured MIMIC-IV demo rows were scanned for unique candidate values; no protected full-data patient rows were accessed.",
+  "patient_level_tables_row_scanned": [
+    "hosp.admissions",
+    "hosp.poe",
+    "hosp.poe_detail",
+    "hosp.services"
+  ],
+  "prevalence_claims_made": false,
+  "statement_no_prevalence_claims": "No prevalence claims are made by this schema/demo/dictionary discovery scan.",
+  "notes_nlp_used": false,
+  "low_predicted_fatal_case_analysis_attempted": false,
+  "cohort_or_risk_model_features_changed": false
+}

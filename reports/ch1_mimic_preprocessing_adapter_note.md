@@ -22,7 +22,7 @@ This report documents subtask 5.1.b3: a thin MIMIC-to-ASIC input-contract adapte
 
 ## Reuse Result
 
-The existing ASIC preprocessing core was successfully run on the adapted full-MIMIC inputs. This note was restored from the known full-run storage locations after a later demo run overwrote the repo-local markdown report; the expensive b3 preprocessing step was not rerun for this restoration.
+The existing ASIC preprocessing core was successfully run on the adapted MIMIC inputs.
 
 ## Deferred Beyond b3
 

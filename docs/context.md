@@ -129,6 +129,14 @@ Current active focus:
 - Keep decomposition secondary and easy to drop.
 - Move Chapter 1 effort into downstream MIMIC baseline evaluation, ASIC-vs-MIMIC result comparison, and external-validation synthesis.
 - Treat any remaining full-MIMIC preprocessing refresh after derived-variable materialization as an operational QC task, not a reason to reopen the MIMIC setup design.
+- Issue 5.2 MIMIC treatment-limitation / end-of-life proxy inventory is complete.
+- Final verdict: MIMIC treatment-limitation sensitivity is `weakly_testable`.
+- MIMIC has substantial structured code-status/DNR/DNI proxy support, including timestamped ICU code-status sources and untimed ICD DNR stay-level markers.
+- Later Chapter 1 MIMIC hard-case sensitivity may use `code_status_dnr_dni` as the primary documented treatment-limitation proxy, with timestamped ICU sources kept separate from untimed ICD sources.
+- `palliative_care` is descriptive/supporting context only; `brain_death_or_organ_donation` is a separate context domain; `hospice` and `ama_or_nonstandard_discharge` are discharge/process context only.
+- No approved structured comfort-care or withdrawal/withholding candidates were counted in MIMIC.
+- ASIC-vs-MIMIC treatment-limitation sensitivity is asymmetric: MIMIC can partially test documented code-status limitation, while ASIC remains more limited in the current project record.
+- Durable artifacts live under `analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/`.
 
 Near-term follow-up for Package 5:
 - Refresh/verify full-MIMIC artifacts after `pf_ratio` and `vt_per_kg_ibw` materialization if not already done.

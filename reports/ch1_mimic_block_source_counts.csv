@@ -1,8 +1,8 @@
 source_table,variable,raw_candidate_row_count_loaded,raw_row_count_retained_after_stay_time_filtering,assigned_block_row_count,raw_rows_dropped_negative_time_h,raw_rows_landing_beyond_completed_grid,raw_rows_exactly_on_8h_boundary,total_assigned_observations,status,rows_retained_for_aggregation,rows_excluded_by_source_preference
 chartevents,,63768088,19493431,19276085,38232,217346,23228,0,scanned,0,0
 labevents,,35709485,2834908,2248728,159250,586180,1981,0,scanned,0,0
-derived,pf_ratio,0,0,0,0,0,0,0,deferred_derived_only,0,0
-derived,vt_per_kg_ibw,0,0,0,0,0,0,0,deferred_derived_only,0,0
+derived,pf_ratio,0,0,0,0,0,0,102326,materialized_block_level_derivation,102326,0
+derived,vt_per_kg_ibw,0,0,0,0,0,0,96262,materialized_block_level_derivation,96262,0
 chartevents,albumin,0,0,24198,0,0,0,0,assigned,0,24198
 chartevents,base_excess_art,0,0,176760,0,0,0,176760,assigned,176760,0
 chartevents,bilirubin_total,0,0,49909,0,0,0,0,assigned,0,49909
