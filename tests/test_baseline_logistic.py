@@ -302,3 +302,52 @@ class LogisticBaselineTests(TestCase):
                 output_dir / "horizon_24h" / "all_valid_predictions.csv"
             )
             self.assertIn("stay_local__b0__h24", set(all_valid_predictions["instance_id"].astype(str)))
+
+    def test_run_asic_primary_logistic_regression_normalizes_all_valid_merge_keys(self) -> None:
+        with TemporaryDirectory() as tmp_dir:
+            tmp_path = Path(tmp_dir)
+            fixture = write_primary_baseline_fixture(tmp_path)
+            artifact_root = tmp_path / "chapter1"
+            input_path = fixture["input_dataset_path"]
+            feature_path = fixture["feature_set_definition_path"]
+            output_dir = fixture["output_dir"]
+            standardized_input_dir = fixture["standardized_input_dir"]
+
+            stay_id_map = {
+                "stay_a": 101,
+                "stay_b": 102,
+                "stay_c": 103,
+                "stay_d": 104,
+                "stay_e": 105,
+            }
+            for path in (
+                artifact_root / "labels" / "chapter1_proxy_horizon_labels.csv",
+                artifact_root / "splits" / "chapter1_stay_split_assignments.csv",
+            ):
+                frame = pd.read_csv(path)
+                frame["stay_id_global"] = frame["stay_id_global"].map(stay_id_map)
+                frame.to_csv(path, index=False)
+
+            for path in (
+                input_path,
+                standardized_input_dir / "blocked" / "asic_8h_blocked_dynamic_features.csv",
+            ):
+                frame = pd.read_csv(path)
+                frame["stay_id_global"] = frame["stay_id_global"].map(stay_id_map).astype("string")
+                frame.to_csv(path, index=False)
+
+            run_asic_primary_logistic_regression(
+                input_dataset_path=input_path,
+                feature_set_definition_path=feature_path,
+                output_dir=output_dir,
+                horizons=[24],
+                standardized_input_dir=standardized_input_dir,
+            )
+
+            all_valid_predictions = pd.read_csv(
+                output_dir / "horizon_24h" / "all_valid_predictions.csv"
+            )
+            self.assertEqual(
+                set(all_valid_predictions["stay_id_global"].astype(str)),
+                {"101", "102", "103", "104", "105"},
+            )

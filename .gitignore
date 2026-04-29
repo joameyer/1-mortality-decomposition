@@ -17,6 +17,7 @@ data/interim/
 data/processed/
 artifacts/
 cluster-results/
+mimic-results/
 export-staging/
 outputs/
 mimic-iv-demo/reports/
