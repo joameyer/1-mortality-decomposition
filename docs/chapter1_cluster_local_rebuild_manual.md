@@ -62,7 +62,7 @@ Optional: also remove regenerated local review outputs if you want them rebuilt 
 cd "$LOCAL_REPO"
 rm -f notebooks/ch1_asic_descriptive_viability_review.ipynb
 rm -f reports/ch1_asic_descriptive_viability_evidence_pack.md
-rm -f reports/ch1_asic_descriptive_viability_memo_draft.md
+rm -f reports/ch1_asic_descriptive_viability_memo.md
 ```
 
 ### 0.2 Clean Cluster Outputs
@@ -330,7 +330,7 @@ This regenerates:
 
 - `notebooks/ch1_asic_descriptive_viability_review.ipynb`
 - `reports/ch1_asic_descriptive_viability_evidence_pack.md`
-- `reports/ch1_asic_descriptive_viability_memo_draft.md`
+- `reports/ch1_asic_descriptive_viability_memo.md`
 
 ### 7.3 Open the Main Local Review Notebooks
 

@@ -94,16 +94,19 @@ Fallback structure:
 
 ## Current Phase 1 / Chapter 1 State
 
-Phase 1 has completed Package 4 ASIC interpretation closure. Package 5 is now in MIMIC external-validation execution: the main Issue 5.1 MIMIC setup pipeline is largely implemented, and the remaining work is downstream MIMIC evaluation and ASIC-MIMIC synthesis rather than basic preprocessing feasibility.
+Phase 1 has completed Package 5 MIMIC setup and first external-validation modeling. Package 6 final Chapter 1 synthesis is ready to start from a documented ASIC-MIMIC external-validation state.
 
 Current state:
 - The working Chapter 1 story is risk-structure-first, not subtype-first.
 - A low-predicted fatal subset appears to exist on ASIC, but interpretation must remain bounded.
-- Logistic regression is the primary Chapter 1 interpretive anchor because calibration and probability-based interpretation matter more than pure discrimination.
+- MIMIC external validation partially replicates the core ASIC risk-structure pattern.
+- Final ASIC-MIMIC external-validation classification: `partial replication`.
+- Logistic regression 24h remains the primary Chapter 1 probability-structure anchor because calibration and probability-based interpretation matter more than pure discrimination.
+- Logistic regression 48h is the main secondary comparison.
 - XGBoost remains a useful comparison / sensitivity model, not the main structural anchor.
-- Decomposition has been downgraded to an optional secondary summary and should remain easy to drop pending the post-MIMIC keep-vs-drop gate.
-- MIMIC 5.1 setup now includes frozen ASIC-to-MIMIC feature alignment, MIMIC feature freeze, stay-level cohort operationalization, completed 8h block construction, preferred-source block aggregation, a thin MIMIC-to-ASIC adapter reusing the ASIC preprocessing core, conservative proxy-horizon targets for 8h/16h/24h/48h, and preprocessing/QC verification.
-- `pf_ratio` and `vt_per_kg_ibw` are materialized as frozen derived-only shared-primary MIMIC variables; refreshed full-run QC/backfill may still be needed, but this is a verification/refresh task rather than an unresolved feature-design question.
+- Post-MIMIC decomposition decision: `drop from Chapter 1 synthesis`.
+- No new decomposition modeling was run for Package 5 close, and decomposition should not appear as a main Package 6 result.
+- MIMIC full-data external-validation setup is complete. Outputs are local under `mimic-results/external_validation/`, not `cluster-results/`.
 
 Key ASIC Chapter 1 decisions:
 - ICU time is anchored at administrative ICU admission.
@@ -122,38 +125,62 @@ Current limitations that must remain explicit:
 - Hard-case conclusions remain bounded by model family, calibration behavior, charting process, and time aggregation.
 
 Last completions:
-- Inventory of treatment limitation and end-of-life proxies
+- MIMIC preprocessing and model-ready setup
+  - Package 5 full-data external-validation setup is complete.
+  - Setup includes frozen ASIC-to-MIMIC feature alignment, MIMIC feature freeze, stay-level cohort operationalization, completed 8h block construction, preferred-source block aggregation, the MIMIC-to-ASIC adapter, conservative proxy-horizon targets for 8h/16h/24h/48h, and preprocessing/QC verification.
+  - `pf_ratio` and `vt_per_kg_ibw` are materialized as frozen derived-only shared-primary MIMIC variables.
+  - MIMIC external-validation outputs live under `mimic-results/external_validation/`.
+- MIMIC treatment-limitation and end-of-life proxies
   - Issue 5.2 MIMIC treatment-limitation / end-of-life proxy inventory is complete.
   - Final verdict: MIMIC treatment-limitation sensitivity is `weakly_testable`.
   - MIMIC has substantial structured code-status/DNR/DNI proxy support, including timestamped ICU code-status sources and untimed ICD DNR stay-level markers.
-  - Later Chapter 1 MIMIC hard-case sensitivity may use `code_status_dnr_dni` as the primary documented treatment-limitation proxy, with timestamped ICU sources kept separate from untimed ICD sources.
-  - `palliative_care` is descriptive/supporting context only; `brain_death_or_organ_donation` is a separate context domain; `hospice` and `ama_or_nonstandard_discharge` are discharge/process context only.
+  - The bounded 5.6 hard-case proxy sensitivity used untimed ICD DNR/DNI, palliative-care, and brain-death/organ-donation markers.
+  - Timestamped ICU code-status proxies were documented but not joined in 5.6.
+  - `palliative_care` remains descriptive/supporting context only; `brain_death_or_organ_donation` is a separate context domain; `hospice` and `ama_or_nonstandard_discharge` are discharge/process context only.
   - No approved structured comfort-care or withdrawal/withholding candidates were counted in MIMIC.
   - ASIC-vs-MIMIC treatment-limitation sensitivity is asymmetric: MIMIC can partially test documented code-status limitation, while ASIC remains more limited in the current project record.
   - Durable artifacts live under `analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/`.
-- Frozen MIMIC observation-process and missingness variable set
+- MIMIC observation-process and missingness variables
   - Issue 5.3 MIMIC observation-process variable freeze is complete.
   - MIMIC uses the same 9-variable observation-process concept set as ASIC: four current-block group observation indicators, one group-completeness summary, and four group recency variables.
   - Required MIMIC harmonized variables were verified: `heart_rate`, `sbp`, `dbp`, `map`, `resp_rate`, `spo2`, and `sao2`.
   - Transferability verdict: `direct_concept_transfer`.
-  - Variables are derived from raw harmonized timestamped observations before blocking/LOCF/imputation and are intended only for later observation-process sensitivity / hard-case characterization, not primary risk-model training.
+  - Frozen observation-process variables were derived and used for MIMIC hard-case sensitivity.
+  - MIMIC hard cases were not less observed on the frozen variables; measured observation process does not obviously explain the MIMIC hard-case pattern.
+  - Numerical ASIC-MIMIC observation-process comparability remains limited because charting systems, event sources, and documentation semantics differ.
   - Durable artifacts live under `analysis_artifacts/chapter1_mimic_observation_process/`.
+- MIMIC baseline models
+  - `logistic_regression` and `xgboost` baselines were generated locally for 8h, 16h, 24h, 48h, and 72h.
+  - QC passed for all 10 model x horizon prediction outputs.
+  - Baseline model output root: `mimic-results/external_validation/baseline_models/`.
+- MIMIC baseline evaluation
+  - Evaluation outputs were generated under `mimic-results/external_validation/baseline_evaluation/`.
+  - First-pass verdict: `weak but usable`.
+  - Logistic regression 24h is the primary probability-structure anchor; 48h is the main secondary horizon.
+  - XGBoost is ranking/model-class sensitivity only because raw probabilities are poorly calibrated.
+- MIMIC hard-case structure
+  - Primary MIMIC rule: `mimic_logistic_regression_last_eligible_nonfatal_q75_v1`.
+  - Primary 24h logistic hard cases: `433/2196` fatal stays, `19.72%`.
+  - Secondary 48h logistic hard cases: `476/2204` fatal stays, `21.60%`.
+  - MIMIC hard cases appear less physiologically severe than other fatal cases on available model-ready variables.
+- ASIC-MIMIC external-validation synthesis
+  - Final classification: `partial replication`.
+  - Core support: close logistic 24h/48h hard-case burden, stable logistic horizon structure, preserved mortality-vs-risk gradient, and broadly similar physiologic hard-case characterization.
+  - Main limitations: model-class dependence, calibration/probability-scale differences, observation-process comparability limits, treatment-limitation asymmetry, MIMIC brain-death/organ-donation enrichment, and missing matched MIMIC age/sex/disease-group characterization.
+- Post-MIMIC decomposition gate
+  - Final decision: `drop from Chapter 1 synthesis`.
+  - Decomposition should not be used as a main Package 6 result or carried by decomposition-forward figures/tables.
 
 Current active focus:
-- Keep the revised bounded ASIC claim fixed and risk-structure-first.
-- Carry forward the horizon interpretation as persistence with changing form, not strict invariance.
-- Keep treatment-limitation absence explicit rather than implying it was solved empirically.
-- Use the frozen ASIC figure/table plan in `reports/ch1_methods_results_deck_overview.md`.
-- Keep decomposition secondary and easy to drop.
-- Move Chapter 1 effort into downstream MIMIC baseline evaluation, ASIC-vs-MIMIC result comparison, and external-validation synthesis.
-- Treat any remaining full-MIMIC preprocessing refresh after derived-variable materialization as an operational QC task, not a reason to reopen the MIMIC setup design.
-
-Near-term follow-up for Package 5:
-- Refresh/verify full-MIMIC artifacts after `pf_ratio` and `vt_per_kg_ibw` materialization if not already done.
-- Inventory MIMIC observation-process and treatment-limitation proxies using the now-established preprocessing outputs.
-- Run MIMIC baseline risk models and core calibration / mortality-vs-risk evaluation.
-- Characterize MIMIC low-predicted fatal cases and compare ASIC vs MIMIC Chapter 1 results.
-- Reconfirm whether decomposition should remain as an optional summary or be dropped entirely after MIMIC external validation.
+- Start Package 6 final Chapter 1 synthesis.
+- Draft results around the risk-structure framework.
+- Include baseline performance and calibration.
+- Include mortality-vs-risk structure.
+- Include the ASIC hard-case result and sensitivity limits.
+- Include MIMIC external validation and the ASIC-MIMIC `partial replication` classification.
+- Include observation-process and treatment-limitation limitations explicitly.
+- Omit decomposition-forward figures/tables and keep decomposition out of the Chapter 1 synthesis.
+- Avoid biological subtype, causal mechanism, and irreducible-stochasticity claims.
 
 ## Repositories and Authoritative Assets
 
@@ -165,17 +192,26 @@ Authoritative current Chapter 1 references:
 - `docs/phase1_working_reference.md`
 - `docs/phase1_work_packages.md`
 - `cluster-results/chapter1_true_results`
-- `reports/ch1_asic_descriptive_viability_memo_draft.md`
+- `mimic-results/external_validation/`
+- `reports/ch1_asic_descriptive_viability_memo.md`
 - `reports/ch1_methods_results_deck_overview.md`
 - `../phd-general/reviews/asic_ch1_viability_review/codex_chapter1_asic_descriptive_core_memo.md`
 - `docs/ch1_mimic_feature_set_freeze.md`
 - `docs/ch1_mimic_preprocessing_pipeline_manual.md`
 - `docs/ch1_mimic_preprocessing_qc.md`
+- `artifacts/mimic_baseline_models/mimic_baseline_completion_status.md`
+- `artifacts/mimic_baseline_models/mimic_baseline_prediction_qc_summary.csv`
+- `artifacts/mimic_baseline_evaluation/mimic_first_pass_evaluation_note.md`
+- `artifacts/mimic_baseline_evaluation/mimic_initial_transportability_note.md`
+- `artifacts/mimic_hard_cases/mimic_hard_case_external_validation_structure_note.md`
+- `artifacts/asic_mimic_comparison/asic_mimic_external_validation_summary.md`
+- `artifacts/asic_mimic_comparison/post_mimic_decomposition_gate_memo.md`
 
 Working rule:
 - Use the true ASIC cluster-result bundle as the authoritative empirical source for Chapter 1 interpretation.
 - Do not rely on small local synthetic artifacts for substantive Chapter 1 claims.
-- Use MIMIC Package 5 preprocessing/QC notes as operational alignment references; do not treat demo-schema success as full-MIMIC scientific validation.
+- Use `mimic-results/external_validation/` plus the Package 5 artifact notes as the authoritative MIMIC external-validation record.
+- Do not route MIMIC external-validation outputs through `cluster-results/`.
 
 ## Cluster-Local Workflow Rule
 
