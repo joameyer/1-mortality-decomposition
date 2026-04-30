@@ -139,7 +139,7 @@ Last completions:
   - `palliative_care` remains descriptive/supporting context only; `brain_death_or_organ_donation` is a separate context domain; `hospice` and `ama_or_nonstandard_discharge` are discharge/process context only.
   - No approved structured comfort-care or withdrawal/withholding candidates were counted in MIMIC.
   - ASIC-vs-MIMIC treatment-limitation sensitivity is asymmetric: MIMIC can partially test documented code-status limitation, while ASIC remains more limited in the current project record.
-  - Durable artifacts live under `analysis_artifacts/chapter1_mimic_treatment_limitation_proxies/`.
+  - Durable artifacts live under `artifacts/mimic_treatment_limitation_proxies/`.
 - MIMIC observation-process and missingness variables
   - Issue 5.3 MIMIC observation-process variable freeze is complete.
   - MIMIC uses the same 9-variable observation-process concept set as ASIC: four current-block group observation indicators, one group-completeness summary, and four group recency variables.
@@ -148,10 +148,10 @@ Last completions:
   - Frozen observation-process variables were derived and used for MIMIC hard-case sensitivity.
   - MIMIC hard cases were not less observed on the frozen variables; measured observation process does not obviously explain the MIMIC hard-case pattern.
   - Numerical ASIC-MIMIC observation-process comparability remains limited because charting systems, event sources, and documentation semantics differ.
-  - Durable artifacts live under `analysis_artifacts/chapter1_mimic_observation_process/`.
+  - Durable artifacts live under `artifacts/mimic_observation_process/`.
 - MIMIC baseline models
   - `logistic_regression` and `xgboost` baselines were generated locally for 8h, 16h, 24h, 48h, and 72h.
-  - QC passed for all 10 model x horizon prediction outputs.
+  - QC passed for all 10 `model x horizon` prediction outputs.
   - Baseline model output root: `mimic-results/external_validation/baseline_models/`.
 - MIMIC baseline evaluation
   - Evaluation outputs were generated under `mimic-results/external_validation/baseline_evaluation/`.
@@ -215,7 +215,7 @@ Working rule:
 
 ## Cluster-Local Workflow Rule
 
-- For Chapter 1, any computation that requires protected patient-level inputs must run on the cluster.
+- For ASIC, protected patient-level computation runs on the cluster and local review uses approved exports under `cluster-results/`. For MIMIC, protected full-data computation may run locally, but Codex must not inspect protected row-level inputs; review should use exported local artifacts under `mimic-results/external_validation/`.
 - Local scientific review should use approved exported artifacts under `cluster-results/chapter1_true_results/`.
 - New analysis code should be designed explicitly as one of:
   - cluster-only producer
