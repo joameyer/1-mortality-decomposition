@@ -180,9 +180,12 @@ def build_chapter1_model_ready_dataset(
         .astype("string")
         .tolist()
     )
+    labels = usable_labels.copy()
+    labels["stay_id_global"] = labels["stay_id_global"].astype("string")
+    labels["hospital_id"] = labels["hospital_id"].astype("string")
 
     carry_forward = build_chapter1_locf_feature_frame(
-        instance_index=usable_labels[INSTANCE_KEY_COLUMNS],
+        instance_index=labels[INSTANCE_KEY_COLUMNS],
         blocked_dynamic_features=blocked_dynamic_features,
         feature_set_definition=feature_set_definition,
         mech_vent_episode_level=mech_vent_episode_level,
@@ -198,7 +201,7 @@ def build_chapter1_model_ready_dataset(
         or column.endswith("_ventilation_window_active")
     ]
 
-    model_ready = usable_labels.merge(
+    model_ready = labels.merge(
         carry_forward.feature_frame,
         on=INSTANCE_KEY_COLUMNS,
         how="left",
